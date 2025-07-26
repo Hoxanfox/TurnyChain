@@ -1,0 +1,39 @@
+# Ubicación: /Backend/docker-compose.yml
+
+version: '3.8'
+
+services:
+  # Servicio para la base de datos PostgreSQL
+  postgres:
+    # Construye la imagen usando el Dockerfile que está en la carpeta ./baseDatos
+    build: ./baseDatos
+    container_name: restaurant_db_container
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 1234
+      POSTGRES_DB: restaurant_db
+    ports:
+      - "5432:5432"
+    volumes:
+      # Este volumen persiste los datos de la base de datos
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  # Servicio para la aplicación de Go (backend)
+  app:
+    # Construye la imagen usando el Dockerfile que está en la carpeta ./api
+    build: ./api
+    container_name: restaurant_app_container
+    ports:
+      - "8080:8080"
+    # Le dice a Docker que inicie la base de datos ANTES que la aplicación
+    depends_on:
+      - postgres
+    environment:
+      # Pasamos la cadena de conexión como una variable de entorno.
+      # Usamos 'postgres' como host porque es el nombre del servicio dentro de la red de Docker.
+      DATABASE_URL: "user=postgres password=1234 dbname=restaurant_db host=postgres sslmode=disable"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
