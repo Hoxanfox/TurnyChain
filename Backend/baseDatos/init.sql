@@ -11,6 +11,7 @@ CREATE TABLE "users" (
   "username" varchar(100) UNIQUE NOT NULL,
   "password_hash" text NOT NULL,
   "role" varchar(20) NOT NULL CHECK (role IN ('mesero', 'cajero', 'admin')),
+  "is_active" boolean NOT NULL DEFAULT true, -- <-- ¡NUEVA COLUMNA!
   "created_at" timestamptz NOT NULL DEFAULT (now())
 );
 
@@ -43,6 +44,7 @@ CREATE TABLE "order_items" (
   "menu_item_id" uuid NOT NULL,
   "quantity" integer NOT NULL CHECK (quantity > 0),
   "price_at_order" numeric(10, 2) NOT NULL,
+  "notes" text,
   CONSTRAINT fk_order FOREIGN KEY(order_id) REFERENCES orders(id) ON DELETE CASCADE,
   CONSTRAINT fk_menu_item FOREIGN KEY(menu_item_id) REFERENCES menu_items(id),
   PRIMARY KEY ("order_id", "menu_item_id")
@@ -77,17 +79,24 @@ CREATE INDEX ON "orders" ("status");
 CREATE INDEX ON "orders" ("waiter_id");
 
 -- Insertar usuarios de ejemplo
--- NOTA: La contraseña para ambos es '1234'. El hash fue generado con Bcrypt.
-INSERT INTO users (username, password_hash, role) VALUES 
-('admin', '$2a$12$weMjf207kO6kFCmqxMrOzujwsk781Qg00by1lWMc9jvLa9sfS.wGe', 'admin'),
-('mesero1', '$2a$12$weMjf207kO6kFCmqxMrOzujwsk781Qg00by1lWMc9jvLa9sfS.wGe', 'mesero');
+-- NOTA: La contraseña para todos es '1234'. El hash es el que proporcionaste.
+INSERT INTO users (id, username, password_hash, role) VALUES 
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'admin', '$2a$12$weMjf207kO6kFCmqxMrOzujwsk781Qg00by1lWMc9jvLa9sfS.wGe', 'admin'),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12', 'mesero1', '$2a$12$weMjf207kO6kFCmqxMrOzujwsk781Qg00by1lWMc9jvLa9sfS.wGe', 'mesero'),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a13', 'cajero1', '$2a$12$weMjf207kO6kFCmqxMrOzujwsk781Qg00by1lWMc9jvLa9sfS.wGe', 'cajero');
 
--- Insertar ítems de menú de ejemplo
-INSERT INTO menu_items (name, description, price, category) VALUES
-('Hamburguesa Clásica', 'Carne de res, queso, lechuga, tomate y salsa especial.', 15.50, 'Platos Fuertes'),
-('Papas a la Francesa', 'Porción generosa de papas fritas crujientes.', 5.00, 'Entradas'),
-('Ensalada César', 'Lechuga romana, crutones, queso parmesano y aderezo César.', 12.00, 'Entradas'),
-('Gaseosa', 'Botella de 350ml, varios sabores.', 3.00, 'Bebidas'),
-('Jugo Natural', 'Jugo de fruta fresca del día.', 4.50, 'Bebidas'),
-('Torta de Chocolate', 'Porción de torta de chocolate con fudge.', 6.00, 'Postres');
+-- Insertar ítems de menú de ejemplo con UUIDs fijos
+INSERT INTO menu_items (id, name, description, price, category) VALUES
+('f47ac10b-58cc-4372-a567-0e02b2c3d479', 'Hamburguesa Clásica', 'Carne de res, queso, lechuga, tomate y salsa especial.', 15.50, 'Platos Fuertes'),
+('f47ac10b-58cc-4372-a567-0e02b2c3d480', 'Papas a la Francesa', 'Porción generosa de papas fritas crujientes.', 5.00, 'Entradas'),
+('f47ac10b-58cc-4372-a567-0e02b2c3d481', 'Gaseosa', 'Botella de 350ml, varios sabores.', 3.00, 'Bebidas');
 
+-- Insertar una orden de ejemplo para el 'mesero1'
+INSERT INTO orders (id, waiter_id, table_number, status, total) VALUES
+('c4b5b7b0-1b1a-4b0e-8b0a-1b1a4b0e8b0a', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12', 5, 'pendiente_aprobacion', 23.50);
+
+-- Insertar los ítems de la orden de ejemplo
+INSERT INTO order_items (order_id, menu_item_id, quantity, price_at_order, notes) VALUES
+('c4b5b7b0-1b1a-4b0e-8b0a-1b1a4b0e8b0a', 'f47ac10b-58cc-4372-a567-0e02b2c3d479', 1, 15.50, 'Término medio, sin cebolla'), -- 1 Hamburguesa con nota
+('c4b5b7b0-1b1a-4b0e-8b0a-1b1a4b0e8b0a', 'f47ac10b-58cc-4372-a567-0e02b2c3d480', 1, 5.00, NULL),  -- 1 Papas Fritas
+('c4b5b7b0-1b1a-4b0e-8b0a-1b1a4b0e8b0a', 'f47ac10b-58cc-4372-a567-0e02b2c3d481', 1, 3.00, NULL);   -- 1 Gaseosa
