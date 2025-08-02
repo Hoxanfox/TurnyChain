@@ -1,5 +1,6 @@
 // =================================================================
-// ARCHIVO 3: /internal/handler/user_handler.go (ACTUALIZADO)
+// ARCHIVO 4: /internal/handler/user_handler.go (SIN CAMBIOS)
+// El handler tampoco necesita cambiar. Sigue llamando al mismo método del servicio.
 // =================================================================
 package handler
 

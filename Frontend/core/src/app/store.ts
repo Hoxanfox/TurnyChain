@@ -1,15 +1,19 @@
 // =================================================================
 // ARCHIVO 7: /src/app/store.ts (ACTUALIZADO)
-// Propósito: Añadir el nuevo 'usersReducer' a la tienda de Redux.
+// Propósito: Añadir los nuevos reducers a la tienda de Redux.
 // =================================================================
 import { configureStore } from '@reduxjs/toolkit';
 import authReducer from '../features/auth/authSlice';
-import usersReducer from '../features/users/usersSlice'; // <-- 1. IMPORTAR
+import usersReducer from '../features/users/usersSlice';
+import menuReducer from '../features/menu/menuSlice';     // <-- 1. IMPORTAR
+import ordersReducer from '../features/orders/ordersSlice'; // <-- 2. IMPORTAR
 
 export const store = configureStore({
   reducer: {
     auth: authReducer,
-    users: usersReducer, // <-- 2. AÑADIR
+    users: usersReducer,
+    menu: menuReducer,     // <-- 3. AÑADIR
+    orders: ordersReducer, // <-- 4. AÑADIR
   },
 });
 

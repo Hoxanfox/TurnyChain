@@ -1,5 +1,7 @@
 // =================================================================
-// ARCHIVO 2: /internal/service/user_service.go (ACTUALIZADO)
+// ARCHIVO 3: /internal/service/user_service.go (SIN CAMBIOS)
+// La belleza de la abstracción es que el servicio no necesita cambiar.
+// Sigue llamando a `userRepo.DeleteUser`, sin saber que la implementación interna ha cambiado.
 // =================================================================
 package service
 

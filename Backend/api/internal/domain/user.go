@@ -1,15 +1,14 @@
 // =================================================================
-// ARCHIVO 1: /internal/domain/user.go
-// Propósito: Definir el modelo de datos.
+// ARCHIVO 1: /internal/domain/user.go (ACTUALIZADO)
 // =================================================================
 package domain
 
 import "github.com/google/uuid"
 
-// User define la estructura de un usuario en nuestro sistema.
 type User struct {
 	ID           uuid.UUID `json:"id" db:"id"`
 	Username     string    `json:"username" db:"username"`
 	PasswordHash string    `json:"-" db:"password_hash"`
 	Role         string    `json:"role" db:"role"`
+	IsActive     bool      `json:"is_active" db:"is_active"` // <-- NUEVO CAMPO
 }

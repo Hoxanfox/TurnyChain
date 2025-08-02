@@ -1,5 +1,5 @@
 // =================================================================
-// ARCHIVO 1: /internal/repository/user_repository.go (ACTUALIZADO)
+// ARCHIVO 2: /internal/repository/user_repository.go (ACTUALIZADO)
 // =================================================================
 package repository
 
@@ -13,8 +13,8 @@ type UserRepository interface {
 	CreateUser(user *domain.User) (*domain.User, error)
 	GetUserByUsername(username string) (*domain.User, error)
 	GetUsers() ([]domain.User, error)
-	UpdateUser(user *domain.User) (*domain.User, error) // <-- NUEVO
-	DeleteUser(userID uuid.UUID) error               // <-- NUEVO
+	UpdateUser(user *domain.User) (*domain.User, error)
+	DeleteUser(userID uuid.UUID) error // La interfaz no cambia
 }
 
 type userRepository struct {
@@ -36,25 +36,25 @@ func (r *userRepository) CreateUser(user *domain.User) (*domain.User, error) {
 	return user, nil
 }
 
+// GetUserByUsername ahora solo busca usuarios activos.
 func (r *userRepository) GetUserByUsername(username string) (*domain.User, error) {
 	user := &domain.User{}
-	query := "SELECT id, username, password_hash, role FROM users WHERE username = $1"
-	err := r.db.QueryRow(query, username).Scan(&user.ID, &user.Username, &user.PasswordHash, &user.Role)
+	query := "SELECT id, username, password_hash, role, is_active FROM users WHERE username = $1 AND is_active = true"
+	err := r.db.QueryRow(query, username).Scan(&user.ID, &user.Username, &user.PasswordHash, &user.Role, &user.IsActive)
 	return user, err
 }
 
+// GetUsers ahora solo devuelve usuarios activos.
 func (r *userRepository) GetUsers() ([]domain.User, error) {
-    query := "SELECT id, username, role FROM users"
+    query := "SELECT id, username, role, is_active FROM users WHERE is_active = true"
     rows, err := r.db.Query(query)
-    if err != nil {
-        return nil, err
-    }
+    if err != nil { return nil, err }
     defer rows.Close()
 
     var users []domain.User
     for rows.Next() {
         var user domain.User
-        if err := rows.Scan(&user.ID, &user.Username, &user.Role); err != nil {
+        if err := rows.Scan(&user.ID, &user.Username, &user.Role, &user.IsActive); err != nil {
             return nil, err
         }
         users = append(users, user)
@@ -73,9 +73,9 @@ func (r *userRepository) UpdateUser(user *domain.User) (*domain.User, error) {
 	return user, nil
 }
 
-// DeleteUser elimina un usuario de la base de datos. // <-- NUEVO
+// DeleteUser ahora hace un "soft delete" actualizando la columna is_active.
 func (r *userRepository) DeleteUser(userID uuid.UUID) error {
-	query := "DELETE FROM users WHERE id = $1"
+	query := "UPDATE users SET is_active = false WHERE id = $1"
 	_, err := r.db.Exec(query, userID)
 	return err
 }
