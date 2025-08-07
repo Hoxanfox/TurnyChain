@@ -1,11 +1,11 @@
 // =================================================================
-// ARCHIVO 2: /internal/repository/order_repository.go (ACTUALIZADO)
+// ARCHIVO 3: /internal/repository/order_repository.go (CORREGIDO)
 // =================================================================
 package repository
 
 import (
 	"database/sql"
-	"strconv" 
+	"strconv" // <-- 1. IMPORTAMOS EL PAQUETE 'strconv'
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/domain"
 	"github.com/google/uuid"
 )
@@ -16,31 +16,30 @@ type OrderRepository interface {
 	GetOrderByID(orderID uuid.UUID) (*domain.Order, error)
 	UpdateOrderStatus(orderID, userID uuid.UUID, status string) (*domain.Order, error)
 	ManageOrder(orderID uuid.UUID, updates map[string]interface{}) (*domain.Order, error)
+	UpdateOrderItems(orderID uuid.UUID, items []domain.OrderItem, newTotal float64) error
 }
 
-type orderRepository struct {
-	db *sql.DB
-}
+type orderRepository struct { db *sql.DB }
 
 func NewOrderRepository(db *sql.DB) OrderRepository {
 	return &orderRepository{db: db}
 }
-
 func (r *orderRepository) CreateOrder(order *domain.Order) (*domain.Order, error) {
 	tx, err := r.db.Begin()
 	if err != nil { return nil, err }
 
 	order.ID = uuid.New()
-	orderQuery := `INSERT INTO orders (id, waiter_id, table_number, status, total) VALUES ($1, $2, $3, $4, $5) RETURNING id, created_at`
-	err = tx.QueryRow(orderQuery, order.ID, order.WaiterID, order.TableNumber, order.Status, order.Total).Scan(&order.ID, &order.CreatedAt)
+	// CORRECCIÓN: Añadimos table_id a la consulta de inserción.
+	orderQuery := `INSERT INTO orders (id, waiter_id, table_id, table_number, status, total) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, created_at`
+	err = tx.QueryRow(orderQuery, order.ID, order.WaiterID, order.TableID, order.TableNumber, order.Status, order.Total).Scan(&order.ID, &order.CreatedAt)
 	if err != nil {
 		tx.Rollback()
 		return nil, err
 	}
 
-	itemQuery := `INSERT INTO order_items (order_id, menu_item_id, quantity, price_at_order, notes) VALUES ($1, $2, $3, $4, $5)` // <-- ACTUALIZADO
+	itemQuery := `INSERT INTO order_items (order_id, menu_item_id, quantity, price_at_order, notes) VALUES ($1, $2, $3, $4, $5)`
 	for _, item := range order.Items {
-		_, err := tx.Exec(itemQuery, order.ID, item.MenuItemID, item.Quantity, item.PriceAtOrder, item.Notes) // <-- ACTUALIZADO
+		_, err := tx.Exec(itemQuery, order.ID, item.MenuItemID, item.Quantity, item.PriceAtOrder, item.Notes)
 		if err != nil {
 			tx.Rollback()
 			return nil, err
@@ -50,30 +49,27 @@ func (r *orderRepository) CreateOrder(order *domain.Order) (*domain.Order, error
 	return order, tx.Commit()
 }
 
+
 func (r *orderRepository) GetOrders(filters map[string]interface{}) ([]domain.Order, error) {
 	query := "SELECT id, waiter_id, table_number, status, total, created_at FROM orders WHERE 1=1"
 	args := []interface{}{}
 	argId := 1
 
 	if status, ok := filters["status"]; ok {
-		// 2. CORRECCIÓN: Usamos strconv.Itoa() para convertir el número a string.
 		query += " AND status = $" + strconv.Itoa(argId)
 		args = append(args, status)
 		argId++
 	}
 	if waiterID, ok := filters["waiter_id"]; ok {
-		// 3. CORRECCIÓN: Usamos strconv.Itoa() aquí también.
 		query += " AND waiter_id = $" + strconv.Itoa(argId)
 		args = append(args, waiterID)
 		argId++
 	}
 
 	rows, err := r.db.Query(query, args...)
-	if err != nil {
-		return nil, err
-	}
+	if err != nil { return nil, err }
 	defer rows.Close()
-
+	
 	var orders []domain.Order
 	for rows.Next() {
 		var order domain.Order
@@ -137,4 +133,33 @@ func (r *orderRepository) ManageOrder(orderID uuid.UUID, updates map[string]inte
 		return order, err
 	}
 	return nil, sql.ErrNoRows
+}
+
+func (r *orderRepository) UpdateOrderItems(orderID uuid.UUID, items []domain.OrderItem, newTotal float64) error {
+	tx, err := r.db.Begin()
+	if err != nil { return err }
+
+	_, err = tx.Exec("DELETE FROM order_items WHERE order_id = $1", orderID)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	itemQuery := `INSERT INTO order_items (order_id, menu_item_id, quantity, price_at_order, notes) VALUES ($1, $2, $3, $4, $5)`
+	// 2. CORRECCIÓN: Usamos la variable 'item' del bucle, no 'order.Items' que no existe aquí.
+	for _, item := range items {
+		_, err := tx.Exec(itemQuery, orderID, item.MenuItemID, item.Quantity, item.PriceAtOrder, item.Notes)
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+
+	_, err = tx.Exec("UPDATE orders SET total = $1 WHERE id = $2", newTotal, orderID)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return tx.Commit()
 }

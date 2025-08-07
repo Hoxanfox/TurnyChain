@@ -1,6 +1,5 @@
 // =================================================================
-// ARCHIVO 1: /src/types/menu.ts (NUEVO ARCHIVO)
-// Propósito: Definir los tipos de TypeScript para el Menú.
+// ARCHIVO 2: /src/types/menu.ts (ACTUALIZADO)
 // =================================================================
 export interface MenuItem {
   id: string;
@@ -8,4 +7,6 @@ export interface MenuItem {
   description: string;
   price: number;
   category: string;
+  is_available: boolean;
+  modifiers: Record<string, string[]>;
 }

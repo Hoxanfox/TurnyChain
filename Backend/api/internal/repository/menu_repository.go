@@ -1,5 +1,5 @@
 // =================================================================
-// ARCHIVO 1: /internal/repository/menu_repository.go (ACTUALIZADO)
+// ARCHIVO 4: /internal/repository/menu_repository.go (ACTUALIZADO)
 // =================================================================
 package repository
 
@@ -12,13 +12,11 @@ import (
 type MenuRepository interface {
 	CreateMenuItem(item *domain.MenuItem) (*domain.MenuItem, error)
 	GetMenuItems() ([]domain.MenuItem, error)
-	UpdateMenuItem(item *domain.MenuItem) (*domain.MenuItem, error) // <-- NUEVO
-	DeleteMenuItem(itemID uuid.UUID) error                       // <-- NUEVO
+	UpdateMenuItem(item *domain.MenuItem) (*domain.MenuItem, error)
+	DeleteMenuItem(itemID uuid.UUID) error
 }
 
-type menuRepository struct {
-	db *sql.DB
-}
+type menuRepository struct { db *sql.DB }
 
 func NewMenuRepository(db *sql.DB) MenuRepository {
 	return &menuRepository{db: db}
@@ -26,25 +24,22 @@ func NewMenuRepository(db *sql.DB) MenuRepository {
 
 func (r *menuRepository) CreateMenuItem(item *domain.MenuItem) (*domain.MenuItem, error) {
 	item.ID = uuid.New()
-	query := `INSERT INTO menu_items (id, name, description, price, category) VALUES ($1, $2, $3, $4, $5) RETURNING id`
-	err := r.db.QueryRow(query, item.ID, item.Name, item.Description, item.Price, item.Category).Scan(&item.ID)
-	if err != nil {
-		return nil, err
-	}
-	return item, nil
+	query := `INSERT INTO menu_items (id, name, description, price, category, is_available, modifiers) 
+			  VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`
+	err := r.db.QueryRow(query, item.ID, item.Name, item.Description, item.Price, item.Category, item.IsAvailable, item.Modifiers).Scan(&item.ID)
+	return item, err
 }
 
 func (r *menuRepository) GetMenuItems() ([]domain.MenuItem, error) {
-	query := "SELECT id, name, description, price, category FROM menu_items"
+	query := "SELECT id, name, description, price, category, is_available, modifiers FROM menu_items WHERE is_available = true"
 	rows, err := r.db.Query(query)
-	if err != nil {
-		return nil, err
-	}
+	if err != nil { return nil, err }
 	defer rows.Close()
+
 	var items []domain.MenuItem
 	for rows.Next() {
 		var item domain.MenuItem
-		if err := rows.Scan(&item.ID, &item.Name, &item.Description, &item.Price, &item.Category); err != nil {
+		if err := rows.Scan(&item.ID, &item.Name, &item.Description, &item.Price, &item.Category, &item.IsAvailable, &item.Modifiers); err != nil {
 			return nil, err
 		}
 		items = append(items, item)
@@ -52,23 +47,17 @@ func (r *menuRepository) GetMenuItems() ([]domain.MenuItem, error) {
 	return items, nil
 }
 
-// UpdateMenuItem actualiza un ítem del menú en la base de datos. // <-- NUEVO
 func (r *menuRepository) UpdateMenuItem(item *domain.MenuItem) (*domain.MenuItem, error) {
-	query := `UPDATE menu_items SET name = $1, description = $2, price = $3, category = $4 
-              WHERE id = $5 
-              RETURNING id, name, description, price, category`
-	err := r.db.QueryRow(query, item.Name, item.Description, item.Price, item.Category, item.ID).Scan(
-		&item.ID, &item.Name, &item.Description, &item.Price, &item.Category,
+	query := `UPDATE menu_items SET name = $1, description = $2, price = $3, category = $4, modifiers = $5 
+              WHERE id = $6 RETURNING id, name, description, price, category, is_available, modifiers`
+	err := r.db.QueryRow(query, item.Name, item.Description, item.Price, item.Category, item.Modifiers, item.ID).Scan(
+		&item.ID, &item.Name, &item.Description, &item.Price, &item.Category, &item.IsAvailable, &item.Modifiers,
 	)
-	if err != nil {
-		return nil, err
-	}
-	return item, nil
+	return item, err
 }
 
-// DeleteMenuItem elimina un ítem del menú de la base de datos. // <-- NUEVO
 func (r *menuRepository) DeleteMenuItem(itemID uuid.UUID) error {
-	query := "DELETE FROM menu_items WHERE id = $1"
+	query := "UPDATE menu_items SET is_available = false WHERE id = $1"
 	_, err := r.db.Exec(query, itemID)
 	return err
 }

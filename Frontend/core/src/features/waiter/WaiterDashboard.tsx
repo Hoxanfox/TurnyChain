@@ -1,35 +1,37 @@
 // =================================================================
-// ARCHIVO 4: /src/features/waiter/WaiterDashboard.tsx (REFACTORIZADO)
+// ARCHIVO 8: /src/features/waiter/WaiterDashboard.tsx (COMPLETO Y ACTUALIZADO)
 // =================================================================
-import React, { useState } from 'react';
-import { useDispatch } from 'react-redux';
+import React, { useState, useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { addNewOrder } from '../orders/ordersSlice';
-import type { AppDispatch } from '../../app/store';
+import { fetchTables } from '../tables/tablesSlice';
+import type { AppDispatch, RootState } from '../../app/store';
 import type { MenuItem } from '../../types/menu';
 import type { OrderItem } from '../../types/orders';
 import EditOrderItemModal from './components/EditOrderItemModal';
 import OrderDetailModal from '../shared/OrderDetailModal';
 import MenuDisplay from './components/MenuDisplay';
 import CurrentOrder from './components/CurrentOrder';
-//import MyOrdersList from './components/MyOrdersList';
-import LogoutButton from '../../components/LogoutButton';
 import MyOrdersModal from './components/MyOrdersModal';
+import LogoutButton from '../../components/LogoutButton';
 
 interface CartItem extends MenuItem {
   quantity: number;
   notes?: string;
 }
 
-type MobileView = 'order' | 'menu';
-
 const WaiterDashboard: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
+  const { tables } = useSelector((state: RootState) => state.tables);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [tableNumber, setTableNumber] = useState('');
   const [editingItem, setEditingItem] = useState<CartItem | null>(null);
   const [viewingOrderId, setViewingOrderId] = useState<string | null>(null);
   const [isMyOrdersModalOpen, setIsMyOrdersModalOpen] = useState(false);
-  const [mobileView, setMobileView] = useState<MobileView>('order');
+
+  useEffect(() => {
+    dispatch(fetchTables());
+  }, [dispatch]);
 
   const handleCartAction = (item: MenuItem, action: 'add' | 'remove' | 'delete') => {
     setCart(currentCart => {
@@ -71,7 +73,6 @@ const WaiterDashboard: React.FC = () => {
   return (
     <>
       <div className="flex flex-col lg:flex-row h-screen bg-gray-100 font-sans">
-        {/* Vista de Escritorio */}
         <div className="hidden lg:flex flex-col w-full">
           <header className="p-4 bg-white shadow-md flex justify-between items-center">
             <h1 className="text-xl font-bold text-indigo-600">TurnyChain - Mesero</h1>
@@ -85,41 +86,13 @@ const WaiterDashboard: React.FC = () => {
               <CurrentOrder 
                   cart={cart} tableNumber={tableNumber} onTableNumberChange={setTableNumber}
                   onCartAction={handleCartAction} onSendOrder={handleSendOrder} onEditItem={setEditingItem}
+                  tables={tables}
               />
             </div>
             <div className="w-2/3 p-4 flex flex-col">
               <div className="overflow-y-auto"><MenuDisplay onAddToCart={(item) => handleCartAction(item, 'add')} /></div>
             </div>
           </div>
-        </div>
-
-        {/* Vista Móvil */}
-        <div className="lg:hidden flex flex-col h-full w-full">
-          <header className="p-4 bg-white shadow-md flex justify-between items-center">
-            <button onClick={() => setIsMyOrdersModalOpen(true)} className="bg-blue-500 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-600">Mis Órdenes</button>
-            <LogoutButton />
-          </header>
-          <main className="flex-grow p-4 overflow-y-auto relative">
-            {mobileView === 'order' && (
-              <>
-                <CurrentOrder 
-                    cart={cart} tableNumber={tableNumber} onTableNumberChange={setTableNumber}
-                    onCartAction={handleCartAction} onSendOrder={handleSendOrder} onEditItem={setEditingItem}
-                />
-                <button onClick={() => setMobileView('menu')} className="absolute bottom-4 right-4 bg-indigo-600 text-white p-4 rounded-full shadow-lg hover:bg-indigo-700">
-                  Ver Menú &gt;&gt;&gt;
-                </button>
-              </>
-            )}
-            {mobileView === 'menu' && (
-              <>
-                <MenuDisplay onAddToCart={(item) => handleCartAction(item, 'add')} />
-                <button onClick={() => setMobileView('order')} className="absolute bottom-4 left-4 bg-indigo-600 text-white p-4 rounded-full shadow-lg hover:bg-indigo-700">
-                  &lt;&lt;&lt; Ver Orden
-                </button>
-              </>
-            )}
-          </main>
         </div>
       </div>
       

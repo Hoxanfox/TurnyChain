@@ -1,8 +1,9 @@
 // =================================================================
-// ARCHIVO 4: /src/features/waiter/components/CurrentOrder.tsx (CORREGIDO Y AÑADIDO)
+// ARCHIVO 10: /src/features/waiter/components/CurrentOrder.tsx (NUEVO ARCHIVO)
 // =================================================================
 import React from 'react';
 import type { MenuItem } from '../../../types/menu';
+import type { Table } from '../../../types/tables';
 
 interface CartItem extends MenuItem {
   quantity: number;
@@ -12,13 +13,14 @@ interface CartItem extends MenuItem {
 interface CurrentOrderProps {
   cart: CartItem[];
   tableNumber: string;
+  tables: Table[];
   onTableNumberChange: (value: string) => void;
   onCartAction: (item: CartItem, action: 'add' | 'remove' | 'delete') => void;
   onSendOrder: () => void;
-  onEditItem: (item: CartItem) => void; // Prop que faltaba declarar
+  onEditItem: (item: CartItem) => void;
 }
 
-const CurrentOrder: React.FC<CurrentOrderProps> = ({ cart, tableNumber, onTableNumberChange, onCartAction, onSendOrder, onEditItem }) => {
+const CurrentOrder: React.FC<CurrentOrderProps> = ({ cart, tableNumber, tables, onTableNumberChange, onCartAction, onSendOrder, onEditItem }) => {
   const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
   return (
@@ -26,7 +28,12 @@ const CurrentOrder: React.FC<CurrentOrderProps> = ({ cart, tableNumber, onTableN
       <h2 className="text-xl font-bold mb-4 text-gray-800">Nueva Orden</h2>
       <div className="mb-4">
         <label htmlFor="table" className="block text-sm font-medium text-gray-700">Mesa N°</label>
-        <input type="number" id="table" value={tableNumber} onChange={e => onTableNumberChange(e.target.value)} className="mt-1 block w-full px-3 py-2 border rounded-md" />
+        <select value={tableNumber} onChange={e => onTableNumberChange(e.target.value)} className="mt-1 block w-full px-3 py-2 border rounded-md">
+          <option value="" disabled>Seleccione una mesa</option>
+          {tables.map(table => (
+              <option key={table.id} value={table.table_number}>{table.table_number}</option>
+          ))}
+        </select>
       </div>
       <div className="flex-grow space-y-2 mb-4 overflow-y-auto max-h-48">
         {cart.length === 0 && <p className="text-gray-500 text-center mt-10">El carrito está vacío</p>}
@@ -44,14 +51,6 @@ const CurrentOrder: React.FC<CurrentOrderProps> = ({ cart, tableNumber, onTableN
             </div>
           </div>
         ))}
-      </div>
-      <div className="mb-4">
-        <label htmlFor="payment" className="block text-sm font-medium text-gray-700">Forma de Pago</label>
-        <select id="payment" className="mt-1 block w-full px-3 py-2 border rounded-md">
-          <option>Efectivo</option>
-          <option>Tarjeta</option>
-          <option>Nequi</option>
-        </select>
       </div>
       <div className="pt-4 border-t">
         <p className="text-lg font-bold flex justify-between">Total: <span>${total.toFixed(2)}</span></p>

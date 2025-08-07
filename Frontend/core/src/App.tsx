@@ -1,20 +1,21 @@
 // =================================================================
-// ARCHIVO 7: /src/App.tsx (ACTUALIZADO)
+// ARCHIVO 2: /src/App.tsx (ACTUALIZADO)
+// Propósito: Usar el nuevo hook para gestionar la conexión WebSocket.
 // =================================================================
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
-import { type RootState } from './app/store';
+import {type  RootState } from './app/store';
 import LoginPage from './features/auth/LoginPage';
 import AdminDashboard from './features/admin/AdminDashboard';
 import WaiterDashboard from './features/waiter/WaiterDashboard';
 import CashierDashboard from './features/cashier/CashierDashboard';
 import type { User } from './types/auth';
-import { useWebSockets } from './hooks/useWebSockets';
+import { useWebSockets } from './hooks/useWebSockets'; // <-- 1. IMPORTAR EL HOOK
 
 // Componente para gestionar la conexión WebSocket global
 const WebSocketManager: React.FC = () => {
-  useWebSockets();
+  useWebSockets(); // <-- 2. USAR EL HOOK
   return null; // Este componente no renderiza nada
 };
 
@@ -37,7 +38,8 @@ const App: React.FC = () => {
 
   return (
     <Router>
-      {user && <WebSocketManager />} {/* Activa los WebSockets solo si hay un usuario logueado */}
+      {/* 3. Activa el gestor de WebSockets solo si hay un usuario logueado */}
+      {user && <WebSocketManager />}
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/dashboard" element={<ProtectedRoute user={user} />} />

@@ -1,6 +1,5 @@
 // =================================================================
-// BACKEND: ARCHIVO 4: /internal/router/router.go (CORREGIDO)
-// Propósito: Añadir la ruta para la conexión WebSocket.
+// ARCHIVO 7: /internal/router/router.go (ACTUALIZADO)
 // =================================================================
 package router
 
@@ -11,25 +10,13 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *handler.UserHandler, menuHandler *handler.MenuHandler, orderHandler *handler.OrderHandler, wsHandler *handler.WebSocketHandler) {
-	// --- Ruta para WebSockets ---
-	app.Use("/ws", func(c *fiber.Ctx) error {
-		if websocket.IsWebSocketUpgrade(c) {
-			c.Locals("allowed", true)
-			return c.Next()
-		}
-		return fiber.ErrUpgradeRequired
-	})
+func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *handler.UserHandler, menuHandler *handler.MenuHandler, orderHandler *handler.OrderHandler, tableHandler *handler.TableHandler, wsHandler *handler.WebSocketHandler) {
 	app.Get("/ws", websocket.New(wsHandler.HandleConnection))
-
-	// --- Rutas de la API ---
+	
 	api := app.Group("/api")
-
-	// Ruta pública de login
 	auth := api.Group("/auth")
 	auth.Post("/login", authHandler.Login)
 
-	// A partir de aquí, todas las rutas requieren un token JWT válido.
 	protected := api.Group("/")
 	protected.Use(middleware.Protected())
 
@@ -50,5 +37,10 @@ func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *
 	orders.Get("/", orderHandler.GetOrders)
 	orders.Get("/:id", orderHandler.GetOrderByID)
 	orders.Put("/:id/status", orderHandler.UpdateOrderStatus)
-	orders.Put("/:id/manage", orderHandler.ManageOrder) // <-- NUEVA RUTA
+	orders.Put("/:id/manage", orderHandler.ManageOrder)
+	orders.Put("/:id/items", orderHandler.UpdateOrderItems) // <-- Esta línea ahora es válida
+
+	tables := protected.Group("/tables")
+	tables.Post("/", tableHandler.Create)
+	tables.Get("/", tableHandler.GetAll)
 }

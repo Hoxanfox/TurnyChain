@@ -138,3 +138,28 @@ func (h *OrderHandler) ManageOrder(c *fiber.Ctx) error {
 
 	return c.JSON(order)
 }
+
+// UpdateOrderItemsPayload define la estructura para actualizar los ítems de una orden. // <-- NUEVO
+type UpdateOrderItemsPayload struct {
+	Items []domain.OrderItem `json:"items"`
+}
+
+// UpdateOrderItems maneja la actualización de los ítems de una orden. // <-- NUEVO
+func (h *OrderHandler) UpdateOrderItems(c *fiber.Ctx) error {
+	orderID, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid order ID"})
+	}
+
+	payload := new(UpdateOrderItemsPayload)
+	if err := c.BodyParser(payload); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse JSON"})
+	}
+
+	order, err := h.orderService.UpdateOrderItems(orderID, payload.Items)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not update order items"})
+	}
+
+	return c.JSON(order)
+}
