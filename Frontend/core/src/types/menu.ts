@@ -1,12 +1,25 @@
 // =================================================================
-// ARCHIVO 2: /src/types/menu.ts (ACTUALIZADO)
+// ARCHIVO 1: /src/types/menu.ts (ACTUALIZADO)
 // =================================================================
+import type { Ingredient } from './ingredients';
+import type { Accompaniment } from './accompaniments';
+
 export interface MenuItem {
   id: string;
   name: string;
   description: string;
   price: number;
-  category: string;
+  category_id: string;
   is_available: boolean;
-  modifiers: Record<string, string[]>;
+  ingredients: Ingredient[];
+  accompaniments: Accompaniment[];
+}
+
+// Nuevo tipo para los ítems en el carrito, que pueden tener personalizaciones
+export interface CartItem extends MenuItem {
+    cartItemId: string; // ID único para este ítem en el carrito
+    finalPrice: number;
+    selectedAccompaniments: Accompaniment[];
+    removedIngredients: Ingredient[];
+    notes?: string;
 }

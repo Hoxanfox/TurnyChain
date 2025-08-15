@@ -1,5 +1,5 @@
 // =================================================================
-// ARCHIVO 5: /src/features/shared/OrderDetailModal.tsx
+// ARCHIVO 1: /src/features/shared/OrderDetailModal.tsx (REFACTORIZADO)
 // =================================================================
 import React, { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
@@ -22,24 +22,33 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ orderId, onClose })
   }, [orderId, dispatch]);
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
       <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-lg">
         <div className="flex justify-between items-center border-b pb-3 mb-4">
           <h2 className="text-xl font-bold">Detalle de la Orden</h2>
-          <button onClick={onClose} className="text-2xl font-bold">&times;</button>
+          <button onClick={onClose} className="text-2xl font-bold text-gray-600 hover:text-gray-900">&times;</button>
         </div>
         {detailsStatus === 'loading' && <p>Cargando detalles...</p>}
         {detailsStatus === 'succeeded' && selectedOrderDetails && (
           <div>
-            <p><strong>Mesa:</strong> {selectedOrderDetails.table_number}</p>
-            <p><strong>Estado:</strong> {selectedOrderDetails.status}</p>
-            <p><strong>Total:</strong> ${selectedOrderDetails.total.toFixed(2)}</p>
-            <h3 className="font-bold mt-4 mb-2">Ítems:</h3>
-            <ul className="list-disc pl-5">
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <p><strong>Mesa:</strong> {selectedOrderDetails.table_number}</p>
+              <p><strong>Estado:</strong> <span className="font-semibold text-blue-600">{selectedOrderDetails.status}</span></p>
+              <p><strong>Total:</strong> <span className="font-bold">${selectedOrderDetails.total.toFixed(2)}</span></p>
+              <p><strong>Mesero ID:</strong> {selectedOrderDetails.waiter_id.substring(0,8)}...</p>
+            </div>
+            <h3 className="font-bold mt-4 mb-2 border-t pt-2">Ítems:</h3>
+            <ul className="space-y-3 max-h-64 overflow-y-auto">
               {selectedOrderDetails.items.map((item, index) => (
-                <li key={index}>
-                  {item.quantity}x (ID: {item.menu_item_id.substring(0,8)}) @ ${item.price_at_order.toFixed(2)}
-                  {item.notes && <p className="text-sm italic text-gray-600">Nota: {item.notes}</p>}
+                <li key={index} className="p-2 bg-gray-50 rounded">
+                  <p className="font-semibold">{item.quantity}x {item.menu_item_name} (@ ${item.price_at_order.toFixed(2)})</p>
+                  {item.notes && <p className="text-sm italic text-gray-600 mt-1">Nota: {item.notes}</p>}
+                  {item.customizations?.removed_ingredients?.length > 0 && 
+                    <p className="text-xs text-red-500 mt-1">Sin: {item.customizations.removed_ingredients.map(i => i.name).join(', ')}</p>
+                  }
+                  {item.customizations?.selected_accompaniments?.length > 0 &&
+                    <p className="text-xs text-green-600 mt-1">Con: {item.customizations.selected_accompaniments.map(a => a.name).join(', ')}</p>
+                  }
                 </li>
               ))}
             </ul>

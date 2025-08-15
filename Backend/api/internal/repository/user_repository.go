@@ -51,7 +51,8 @@ func (r *userRepository) GetUsers() ([]domain.User, error) {
     if err != nil { return nil, err }
     defer rows.Close()
 
-    var users []domain.User
+    // CORRECCIÓN: Inicializamos la slice.
+    users := make([]domain.User, 0)
     for rows.Next() {
         var user domain.User
         if err := rows.Scan(&user.ID, &user.Username, &user.Role, &user.IsActive); err != nil {

@@ -1,10 +1,9 @@
 // =================================================================
-// ARCHIVO 4: /src/features/orders/ordersAPI.ts (CORREGIDO)
+// ARCHIVO 2: /src/features/orders/ordersAPI.ts
 // =================================================================
 import axios from 'axios';
 import type { Order, NewOrderPayload } from '../../types/orders';
 
-// CORRECCIÓN: Usamos una ruta relativa.
 const API_URL = '/api/orders';
 
 export const createOrder = async (orderData: NewOrderPayload, token: string): Promise<Order> => {

@@ -1,5 +1,5 @@
 // =================================================================
-// ARCHIVO 3: /src/features/orders/ordersSlice.ts (ACTUALIZADO)
+// ARCHIVO 3: /src/features/orders/ordersSlice.ts (CORREGIDO)
 // =================================================================
 import { createSlice, createAsyncThunk, type PayloadAction } from '@reduxjs/toolkit';
 import { createOrder, getOrders, getOrderDetails, updateOrderStatus, manageOrderAsAdmin } from './ordersAPI';
@@ -73,16 +73,16 @@ export const ordersSlice = createSlice({
   initialState,
   reducers: {
     orderAdded: (state, action: PayloadAction<Order>) => {
-      if (!state.activeOrders.find(order => order.id === action.payload.id)) {
+      if (!state.activeOrders.find((order: Order) => order.id === action.payload.id)) {
         state.activeOrders.unshift(action.payload);
       }
     },
     orderUpdated: (state, action: PayloadAction<Order>) => {
-        const index = state.activeOrders.findIndex(order => order.id === action.payload.id);
+        const index = state.activeOrders.findIndex((order: Order) => order.id === action.payload.id);
         if (index !== -1) {
             state.activeOrders[index] = action.payload;
         }
-        const myIndex = state.myOrders.findIndex(order => order.id === action.payload.id);
+        const myIndex = state.myOrders.findIndex((order: Order) => order.id === action.payload.id);
         if (myIndex !== -1) {
             state.myOrders[myIndex] = action.payload;
         }
@@ -106,13 +106,13 @@ export const ordersSlice = createSlice({
         state.selectedOrderDetails = action.payload;
       })
       .addCase(changeOrderStatus.fulfilled, (state, action: PayloadAction<Order>) => {
-        const index = state.activeOrders.findIndex(order => order.id === action.payload.id);
+        const index = state.activeOrders.findIndex((order: Order) => order.id === action.payload.id);
         if (index !== -1) {
           state.activeOrders[index] = action.payload;
         }
       })
       .addCase(cancelOrderAsAdmin.fulfilled, (state, action: PayloadAction<Order>) => {
-        const index = state.activeOrders.findIndex(order => order.id === action.payload.id);
+        const index = state.activeOrders.findIndex((order: Order) => order.id === action.payload.id);
         if (index !== -1) {
           state.activeOrders[index] = action.payload;
         }

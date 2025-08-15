@@ -1,14 +1,17 @@
 // =================================================================
-// ARCHIVO 7: /src/features/admin/AdminDashboard.tsx (ACTUALIZADO)
+// ARCHIVO 3: /src/features/admin/AdminDashboard.tsx (FINAL)
 // =================================================================
 import React, { useState } from 'react';
 import LogoutButton from '../../components/LogoutButton';
 import UserManagement from './components/UserManagement';
 import OrderManagement from './components/OrderManagement';
-import TableManagement from './components/TableManagement'; // <-- NUEVO
-import MenuManagement from './components/MenuManagement';   // <-- NUEVO
+import TableManagement from './components/TableManagement';
+import MenuManagement from './components/MenuManagement';
+import CategoryManagement from './components/CategoryManagement';
+import IngredientManagement from './components/IngredientManagement';
+import AccompanimentManagement from './components/AccompanimentManagement';
 
-type AdminTab = 'users' | 'orders' | 'tables' | 'menu';
+type AdminTab = 'users' | 'orders' | 'tables' | 'menu' | 'categories' | 'ingredients' | 'accompaniments';
 
 const AdminDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<AdminTab>('users');
@@ -27,11 +30,14 @@ const AdminDashboard: React.FC = () => {
       </header>
       
       <div className="mb-4 border-b border-gray-200">
-        <nav className="-mb-px flex space-x-2" aria-label="Tabs">
+        <nav className="-mb-px flex space-x-2 overflow-x-auto" aria-label="Tabs">
           <button onClick={() => setActiveTab('users')} className={tabClasses('users')}>Usuarios</button>
           <button onClick={() => setActiveTab('orders')} className={tabClasses('orders')}>Órdenes</button>
           <button onClick={() => setActiveTab('tables')} className={tabClasses('tables')}>Mesas</button>
           <button onClick={() => setActiveTab('menu')} className={tabClasses('menu')}>Menú</button>
+          <button onClick={() => setActiveTab('categories')} className={tabClasses('categories')}>Categorías</button>
+          <button onClick={() => setActiveTab('ingredients')} className={tabClasses('ingredients')}>Ingredientes</button>
+          <button onClick={() => setActiveTab('accompaniments')} className={tabClasses('accompaniments')}>Acompañantes</button>
         </nav>
       </div>
 
@@ -40,6 +46,9 @@ const AdminDashboard: React.FC = () => {
         {activeTab === 'orders' && <OrderManagement />}
         {activeTab === 'tables' && <TableManagement />}
         {activeTab === 'menu' && <MenuManagement />}
+        {activeTab === 'categories' && <CategoryManagement />}
+        {activeTab === 'ingredients' && <IngredientManagement />}
+        {activeTab === 'accompaniments' && <AccompanimentManagement />}
       </main>
     </div>
   );

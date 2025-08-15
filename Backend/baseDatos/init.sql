@@ -1,6 +1,9 @@
 -- =================================================================
--- CREACIÓN DE TABLAS (ACTUALIZADO PARA SPRINT 4)
+-- CREACIÓN DE TABLAS (ACTUALIZADO PARA SPRINT 5)
 -- =================================================================
+
+-- Borrar tablas antiguas si existen para un reinicio limpio
+DROP TABLE IF EXISTS "order_items", "orders", "menu_item_ingredients", "menu_item_accompaniments", "menu_items", "categories", "ingredients", "accompaniments", "tables", "users" CASCADE;
 
 -- Tabla para usuarios y roles
 CREATE TABLE "users" (
@@ -12,50 +15,75 @@ CREATE TABLE "users" (
   "created_at" timestamptz NOT NULL DEFAULT (now())
 );
 
--- Tabla para las mesas del restaurante (¡NUEVA!)
+-- Tabla para las mesas del restaurante
 CREATE TABLE "tables" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   "table_number" integer UNIQUE NOT NULL,
   "is_active" boolean NOT NULL DEFAULT true
 );
 
--- Tabla para los ítems del menú (¡ACTUALIZADA!)
+-- Nuevas tablas para la gestión granular del menú
+CREATE TABLE "categories" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "name" varchar(100) UNIQUE NOT NULL
+);
+
+CREATE TABLE "ingredients" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "name" varchar(100) UNIQUE NOT NULL
+);
+
+CREATE TABLE "accompaniments" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "name" varchar(100) UNIQUE NOT NULL,
+  "price" numeric(10, 2) NOT NULL DEFAULT 0
+);
+
+-- Tabla de ítems del menú refactorizada
 CREATE TABLE "menu_items" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   "name" varchar(255) NOT NULL,
   "description" text,
-  "price" numeric(10, 2) NOT NULL CHECK (price >= 0),
-  "category" varchar(50),
-  "is_available" boolean NOT NULL DEFAULT true, -- Para soft delete
-  "modifiers" jsonb -- Para opciones adicionales (ej. término de la carne)
+  "price" numeric(10, 2) NOT NULL,
+  "category_id" uuid NOT NULL REFERENCES "categories"("id"),
+  "is_available" boolean NOT NULL DEFAULT true
 );
 
--- Tabla para las órdenes (¡ACTUALIZADA!)
+-- Tablas de pivote para las relaciones
+CREATE TABLE "menu_item_ingredients" (
+  "menu_item_id" uuid NOT NULL REFERENCES "menu_items"("id") ON DELETE CASCADE,
+  "ingredient_id" uuid NOT NULL REFERENCES "ingredients"("id") ON DELETE CASCADE,
+  PRIMARY KEY ("menu_item_id", "ingredient_id")
+);
+
+CREATE TABLE "menu_item_accompaniments" (
+  "menu_item_id" uuid NOT NULL REFERENCES "menu_items"("id") ON DELETE CASCADE,
+  "accompaniment_id" uuid NOT NULL REFERENCES "accompaniments"("id") ON DELETE CASCADE,
+  PRIMARY KEY ("menu_item_id", "accompaniment_id")
+);
+
+-- Tabla para las órdenes
 CREATE TABLE "orders" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  "waiter_id" uuid NOT NULL,
-  "cashier_id" uuid,
-  "table_id" uuid NOT NULL, -- Ahora referencia a la tabla 'tables'
-  "table_number" integer NOT NULL, -- Mantenemos por conveniencia
+  "waiter_id" uuid NOT NULL REFERENCES "users"("id"),
+  "cashier_id" uuid REFERENCES "users"("id"),
+  "table_id" uuid NOT NULL REFERENCES "tables"("id"),
+  "table_number" integer NOT NULL,
   "status" varchar(30) NOT NULL DEFAULT 'pendiente_aprobacion',
   "total" numeric(10, 2) NOT NULL,
   "created_at" timestamptz NOT NULL DEFAULT (now()),
-  "updated_at" timestamptz NOT NULL DEFAULT (now()),
-  CONSTRAINT fk_waiter FOREIGN KEY(waiter_id) REFERENCES users(id),
-  CONSTRAINT fk_cashier FOREIGN KEY(cashier_id) REFERENCES users(id),
-  CONSTRAINT fk_table FOREIGN KEY(table_id) REFERENCES tables(id)
+  "updated_at" timestamptz NOT NULL DEFAULT (now())
 );
 
 -- Tabla de pivote para los ítems dentro de una orden
 CREATE TABLE "order_items" (
-  "order_id" uuid NOT NULL,
-  "menu_item_id" uuid NOT NULL,
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "order_id" uuid NOT NULL REFERENCES "orders"("id") ON DELETE CASCADE,
+  "menu_item_id" uuid NOT NULL REFERENCES "menu_items"("id"),
   "quantity" integer NOT NULL CHECK (quantity > 0),
   "price_at_order" numeric(10, 2) NOT NULL,
   "notes" text,
-  CONSTRAINT fk_order FOREIGN KEY(order_id) REFERENCES orders(id) ON DELETE CASCADE,
-  CONSTRAINT fk_menu_item FOREIGN KEY(menu_item_id) REFERENCES menu_items(id),
-  PRIMARY KEY ("order_id", "menu_item_id")
+  "customizations" jsonb
 );
 
 -- =================================================================
@@ -86,30 +114,27 @@ EXECUTE PROCEDURE trigger_set_timestamp();
 CREATE INDEX ON "orders" ("status");
 CREATE INDEX ON "orders" ("waiter_id");
 
--- Insertar usuarios de ejemplo
+-- Insertar usuarios
 INSERT INTO users (id, username, password_hash, role) VALUES 
 ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'admin', '$2a$12$weMjf207kO6kFCmqxMrOzujwsk781Qg00by1lWMc9jvLa9sfS.wGe', 'admin'),
 ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12', 'mesero1', '$2a$12$weMjf207kO6kFCmqxMrOzujwsk781Qg00by1lWMc9jvLa9sfS.wGe', 'mesero'),
 ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a13', 'cajero1', '$2a$12$weMjf207kO6kFCmqxMrOzujwsk781Qg00by1lWMc9jvLa9sfS.wGe', 'cajero');
 
--- Insertar mesas de ejemplo
+-- Insertar mesas
 INSERT INTO tables (id, table_number) VALUES
 ('b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b11', 1),
-('b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b12', 2),
-('b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b13', 3);
+('b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b12', 2);
 
--- Insertar ítems de menú de ejemplo
-INSERT INTO menu_items (id, name, description, price, category, modifiers) VALUES
-('f47ac10b-58cc-4372-a567-0e02b2c3d479', 'Hamburguesa Clásica', 'Carne de res, queso, lechuga, tomate.', 15.50, 'Platos Fuertes', '{"termino": ["medio", "tres cuartos", "bien cocido"], "adiciones": ["tocineta", "queso extra"]}'),
-('f47ac10b-58cc-4372-a567-0e02b2c3d480', 'Papas a la Francesa', 'Porción generosa de papas fritas.', 5.00, 'Entradas', NULL),
-('f47ac10b-58cc-4372-a567-0e02b2c3d481', 'Gaseosa', 'Botella de 350ml.', 3.00, 'Bebidas', '{"opciones": ["con hielo", "sin hielo"]}');
+-- Insertar categorías, ingredientes y acompañantes con UUIDs válidos
+INSERT INTO categories (id, name) VALUES ('c01e6f2b-2250-4630-8a2e-8a3d2a1f9c34', 'Platos Fuertes'), ('c02e6f2b-2250-4630-8a2e-8a3d2a1f9c35', 'Bebidas');
+INSERT INTO ingredients (id, name) VALUES ('i01e6f2b-2250-4630-8a2e-8a3d2a1f9c36', 'Panceta'), ('i02e6f2b-2250-4630-8a2e-8a3d2a1f9c37', 'Bondiola');
+INSERT INTO accompaniments (id, name, price) VALUES ('a01e6f2b-2250-4630-8a2e-8a3d2a1f9c38', 'Papa', 2.00), ('a02e6f2b-2250-4630-8a2e-8a3d2a1f9c39', 'Yuca', 2.50), ('a03e6f2b-2250-4630-8a2e-8a3d2a1f9c40', 'Hielo', 0.00);
 
--- Insertar una orden de ejemplo para el 'mesero1' en la 'mesa 1'
-INSERT INTO orders (id, waiter_id, table_id, table_number, status, total) VALUES
-('c4b5b7b0-1b1a-4b0e-8b0a-1b1a4b0e8b0a', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12', 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b11', 1, 'pendiente_aprobacion', 23.50);
+-- Insertar ítems de menú
+INSERT INTO menu_items (id, name, description, price, category_id) VALUES
+('m01e6f2b-2250-4630-8a2e-8a3d2a1f9c41', 'Picada de la Casa', 'Una deliciosa mezcla de carnes.', 50.00, 'c01e6f2b-2250-4630-8a2e-8a3d2a1f9c34'),
+('m02e6f2b-2250-4630-8a2e-8a3d2a1f9c42', 'Gaseosa', 'Botella de 350ml.', 3.00, 'c02e6f2b-2250-4630-8a2e-8a3d2a1f9c35');
 
--- Insertar los ítems de la orden de ejemplo
-INSERT INTO order_items (order_id, menu_item_id, quantity, price_at_order, notes) VALUES
-('c4b5b7b0-1b1a-4b0e-8b0a-1b1a4b0e8b0a', 'f47ac10b-58cc-4372-a567-0e02b2c3d479', 1, 15.50, 'Término medio, sin cebolla'),
-('c4b5b7b0-1b1a-4b0e-8b0a-1b1a4b0e8b0a', 'f47ac10b-58cc-4372-a567-0e02b2c3d480', 1, 5.00, NULL),
-('c4b5b7b0-1b1a-4b0e-8b0a-1b1a4b0e8b0a', 'f47ac10b-58cc-4372-a567-0e02b2c3d481', 1, 3.00, NULL);
+-- Relacionar ítems con ingredientes y acompañantes
+INSERT INTO menu_item_ingredients (menu_item_id, ingredient_id) VALUES ('m01e6f2b-2250-4630-8a2e-8a3d2a1f9c41', 'i01e6f2b-2250-4630-8a2e-8a3d2a1f9c36'), ('m01e6f2b-2250-4630-8a2e-8a3d2a1f9c41', 'i02e6f2b-2250-4630-8a2e-8a3d2a1f9c37');
+INSERT INTO menu_item_accompaniments (menu_item_id, accompaniment_id) VALUES ('m01e6f2b-2250-4630-8a2e-8a3d2a1f9c41', 'a01e6f2b-2250-4630-8a2e-8a3d2a1f9c38'), ('m01e6f2b-2250-4630-8a2e-8a3d2a1f9c41', 'a02e6f2b-2250-4630-8a2e-8a3d2a1f9c39'), ('m02e6f2b-2250-4630-8a2e-8a3d2a1f9c42', 'a03e6f2b-2250-4630-8a2e-8a3d2a1f9c40');

@@ -38,7 +38,8 @@ func (r *tableRepository) GetAll(onlyActive bool) ([]domain.Table, error) {
 	if err != nil { return nil, err }
 	defer rows.Close()
 	
-	var tables []domain.Table
+	// CORRECCIÓN: Inicializamos la slice.
+	tables := make([]domain.Table, 0)
 	for rows.Next() {
 		var table domain.Table
 		if err := rows.Scan(&table.ID, &table.TableNumber, &table.IsActive); err != nil {
