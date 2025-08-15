@@ -1,6 +1,5 @@
 // =================================================================
-// ARCHIVO 1: /internal/service/menu_service.go (ACTUALIZADO)
-// Propósito: Notificar al hub después de cada operación del menú.
+// ARCHIVO 2: /internal/service/menu_service.go (CORREGIDO Y COMPLETO)
 // =================================================================
 package service
 
@@ -12,38 +11,42 @@ import (
 )
 
 type MenuService interface {
-	CreateMenuItem(name, description, category string, price float64, modifiers domain.Modifiers) (*domain.MenuItem, error)
+	CreateMenuItem(payload CreateMenuItemPayload) (*domain.MenuItem, error)
 	GetMenuItems() ([]domain.MenuItem, error)
-	UpdateMenuItem(id uuid.UUID, name, description, category string, price float64, modifiers domain.Modifiers) (*domain.MenuItem, error)
+	UpdateMenuItem(id uuid.UUID, payload UpdateMenuItemPayload) (*domain.MenuItem, error)
 	DeleteMenuItem(id uuid.UUID) error
 }
 
+// Structs para los payloads que vienen del handler
+type CreateMenuItemPayload struct {
+	Name             string      `json:"name"`
+	Description      string      `json:"description"`
+	Price            float64     `json:"price"`
+	CategoryID       uuid.UUID   `json:"category_id"`
+	IngredientIDs    []uuid.UUID `json:"ingredient_ids"`
+	AccompanimentIDs []uuid.UUID `json:"accompaniment_ids"`
+}
+type UpdateMenuItemPayload CreateMenuItemPayload
+
 type menuService struct {
 	menuRepo repository.MenuRepository
-	wsHub    *wshub.Hub // <-- NUEVA DEPENDENCIA
+	wsHub    *wshub.Hub
 }
 
-func NewMenuService(repo repository.MenuRepository, wsHub *wshub.Hub) MenuService { // <-- ACTUALIZADO
-	return &menuService{
-		menuRepo: repo,
-		wsHub:    wsHub, // <-- NUEVA DEPENDENCIA
-	}
+func NewMenuService(repo repository.MenuRepository, wsHub *wshub.Hub) MenuService {
+	return &menuService{menuRepo: repo, wsHub: wsHub}
 }
 
-func (s *menuService) CreateMenuItem(name, description, category string, price float64, modifiers domain.Modifiers) (*domain.MenuItem, error) {
+func (s *menuService) CreateMenuItem(payload CreateMenuItemPayload) (*domain.MenuItem, error) {
 	item := &domain.MenuItem{
-		Name:        name,
-		Description: description,
-		Price:       price,
-		Category:    category,
+		Name:        payload.Name,
+		Description: payload.Description,
+		Price:       payload.Price,
+		CategoryID:  payload.CategoryID,
 		IsAvailable: true,
-		Modifiers:   modifiers,
 	}
-	createdItem, err := s.menuRepo.CreateMenuItem(item)
-	if err != nil {
-		return nil, err
-	}
-	// Notificar a todos los clientes sobre el nuevo ítem
+	createdItem, err := s.menuRepo.CreateMenuItem(item, payload.IngredientIDs, payload.AccompanimentIDs)
+	if err != nil { return nil, err }
 	s.wsHub.BroadcastMessage("MENU_ITEM_ADDED", createdItem)
 	return createdItem, nil
 }
@@ -52,30 +55,23 @@ func (s *menuService) GetMenuItems() ([]domain.MenuItem, error) {
 	return s.menuRepo.GetMenuItems()
 }
 
-func (s *menuService) UpdateMenuItem(id uuid.UUID, name, description, category string, price float64, modifiers domain.Modifiers) (*domain.MenuItem, error) {
+func (s *menuService) UpdateMenuItem(id uuid.UUID, payload UpdateMenuItemPayload) (*domain.MenuItem, error) {
 	item := &domain.MenuItem{
 		ID:          id,
-		Name:        name,
-		Description: description,
-		Price:       price,
-		Category:    category,
-		Modifiers:   modifiers,
+		Name:        payload.Name,
+		Description: payload.Description,
+		Price:       payload.Price,
+		CategoryID:  payload.CategoryID,
 	}
-	updatedItem, err := s.menuRepo.UpdateMenuItem(item)
-	if err != nil {
-		return nil, err
-	}
-	// Notificar a todos los clientes sobre la actualización
+	updatedItem, err := s.menuRepo.UpdateMenuItem(item, payload.IngredientIDs, payload.AccompanimentIDs)
+	if err != nil { return nil, err }
 	s.wsHub.BroadcastMessage("MENU_ITEM_UPDATED", updatedItem)
 	return updatedItem, nil
 }
 
 func (s *menuService) DeleteMenuItem(id uuid.UUID) error {
 	err := s.menuRepo.DeleteMenuItem(id)
-	if err != nil {
-		return err
-	}
-	// Notificar a todos los clientes sobre la eliminación
+	if err != nil { return err }
 	s.wsHub.BroadcastMessage("MENU_ITEM_DELETED", map[string]string{"id": id.String()})
 	return nil
 }

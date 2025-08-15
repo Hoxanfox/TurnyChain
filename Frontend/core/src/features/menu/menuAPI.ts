@@ -1,10 +1,20 @@
 // =================================================================
-// ARCHIVO 1: /src/features/menu/menuAPI.ts (ACTUALIZADO)
+// ARCHIVO 2: /src/features/menu/menuAPI.ts (ACTUALIZADO)
 // =================================================================
 import axios from 'axios';
 import type { MenuItem } from '../../types/menu';
 
 const API_URL = '/api/menu';
+
+// Payload para crear/actualizar un ítem del menú
+export interface MenuItemPayload {
+    name: string;
+    description: string;
+    price: number;
+    category_id: string;
+    ingredient_ids: string[];
+    accompaniment_ids: string[];
+}
 
 export const getMenuItems = async (token: string): Promise<MenuItem[]> => {
   const config = { headers: { Authorization: `Bearer ${token}` } };
@@ -12,16 +22,15 @@ export const getMenuItems = async (token: string): Promise<MenuItem[]> => {
   return response.data;
 };
 
-export const createMenuItem = async (itemData: Omit<MenuItem, 'id' | 'is_available'>, token: string): Promise<MenuItem> => {
+export const createMenuItem = async (itemData: MenuItemPayload, token: string): Promise<MenuItem> => {
     const config = { headers: { Authorization: `Bearer ${token}` } };
     const response = await axios.post(API_URL, itemData, config);
     return response.data;
 };
 
-export const updateMenuItem = async (itemData: MenuItem, token: string): Promise<MenuItem> => {
+export const updateMenuItem = async (id: string, itemData: MenuItemPayload, token: string): Promise<MenuItem> => {
     const config = { headers: { Authorization: `Bearer ${token}` } };
-    const { id, ...updateData } = itemData;
-    const response = await axios.put(`${API_URL}/${id}`, updateData, config);
+    const response = await axios.put(`${API_URL}/${id}`, itemData, config);
     return response.data;
 };
 

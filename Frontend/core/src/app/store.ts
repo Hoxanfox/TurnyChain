@@ -1,12 +1,15 @@
 // =================================================================
-// ARCHIVO 9: /src/app/store.ts (ACTUALIZADO)
+// ARCHIVO 11: /src/app/store.ts (CORREGIDO)
 // =================================================================
 import { configureStore } from '@reduxjs/toolkit';
 import authReducer from '../features/auth/authSlice';
 import usersReducer from '../features/users/usersSlice';
 import menuReducer from '../features/menu/menuSlice';
 import ordersReducer from '../features/orders/ordersSlice';
-import tablesReducer from '../features/tables/tablesSlice'; // <-- NUEVO
+import tablesReducer from '../features/tables/tablesSlice';
+import categoriesReducer from '../features/categories/categoriesSlice';
+import ingredientsReducer from '../features/ingredients/ingredientsSlice';
+import accompanimentsReducer from '../features/accompaniments/accompanimentsSlice';
 
 export const store = configureStore({
   reducer: {
@@ -14,7 +17,10 @@ export const store = configureStore({
     users: usersReducer,
     menu: menuReducer,
     orders: ordersReducer,
-    tables: tablesReducer, // <-- NUEVO
+    tables: tablesReducer,
+    categories: categoriesReducer,
+    ingredients: ingredientsReducer,
+    accompaniments: accompanimentsReducer,
   },
 });
 

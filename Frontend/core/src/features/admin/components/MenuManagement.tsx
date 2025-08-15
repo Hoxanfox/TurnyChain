@@ -1,5 +1,5 @@
 // =================================================================
-// ARCHIVO 5: /src/features/admin/components/MenuManagement.tsx (ACTUALIZADO)
+// ARCHIVO 2: /src/features/admin/components/MenuManagement.tsx
 // =================================================================
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
@@ -10,7 +10,7 @@ import MenuItemModal from './MenuItemModal';
 
 const MenuManagement: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
-  const { items, status } = useSelector((state: RootState) => state.menu);
+  const { items = [], status = 'idle' } = useSelector((state: RootState) => state.menu) || {};
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
 
@@ -42,12 +42,19 @@ const MenuManagement: React.FC = () => {
         Añadir Nuevo Ítem
       </button>
       <table className="min-w-full bg-white">
-        {/* ... (table header) ... */}
+        <thead className="bg-gray-200">
+          <tr>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nombre</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Categoría ID</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Precio</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
+          </tr>
+        </thead>
         <tbody className="divide-y divide-gray-200">
-          {items.map(item => (
+          {Array.isArray(items) && items.map(item => (
             <tr key={item.id}>
               <td className="px-6 py-4 whitespace-nowrap">{item.name}</td>
-              <td className="px-6 py-4 whitespace-nowrap">{item.category}</td>
+              <td className="px-6 py-4 whitespace-nowrap font-mono text-xs">{item.category_id}</td>
               <td className="px-6 py-4 whitespace-nowrap">${item.price.toFixed(2)}</td>
               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                 <button onClick={() => handleOpenModal(item)} className="text-indigo-600 hover:text-indigo-900">Editar</button>

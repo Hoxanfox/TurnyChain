@@ -1,8 +1,8 @@
 // =================================================================
-// ARCHIVO 6: /src/features/menu/menuSlice.ts (CORREGIDO)
+// ARCHIVO 3: /src/features/menu/menuSlice.ts (CORREGIDO)
 // =================================================================
 import { createSlice, createAsyncThunk, type PayloadAction } from '@reduxjs/toolkit';
-import { getMenuItems, createMenuItem, updateMenuItem, deleteMenuItem } from './menuAPI';
+import { getMenuItems, createMenuItem, updateMenuItem, deleteMenuItem, type MenuItemPayload } from './menuAPI';
 import type { MenuItem } from '../../types/menu';
 import type { RootState } from '../../app/store';
 
@@ -25,17 +25,17 @@ export const fetchMenu = createAsyncThunk('menu/fetchMenu', async (_, { getState
     catch (error: any) { return rejectWithValue(error.response?.data?.error); }
 });
 
-export const addNewMenuItem = createAsyncThunk('menu/addNew', async (itemData: Omit<MenuItem, 'id' | 'is_available'>, { getState, rejectWithValue }) => {
+export const addNewMenuItem = createAsyncThunk('menu/addNew', async (itemData: MenuItemPayload, { getState, rejectWithValue }) => {
     const token = (getState() as RootState).auth.token;
     if (!token) return rejectWithValue('No se encontró el token');
     try { return await createMenuItem(itemData, token); }
     catch (error: any) { return rejectWithValue(error.response?.data?.error); }
 });
 
-export const updateExistingMenuItem = createAsyncThunk('menu/updateExisting', async (itemData: MenuItem, { getState, rejectWithValue }) => {
+export const updateExistingMenuItem = createAsyncThunk('menu/updateExisting', async ({ id, itemData }: { id: string, itemData: MenuItemPayload }, { getState, rejectWithValue }) => {
     const token = (getState() as RootState).auth.token;
     if (!token) return rejectWithValue('No se encontró el token');
-    try { return await updateMenuItem(itemData, token); }
+    try { return await updateMenuItem(id, itemData, token); }
     catch (error: any) { return rejectWithValue(error.response?.data?.error); }
 });
 
@@ -50,6 +50,7 @@ export const menuSlice = createSlice({
   name: 'menu',
   initialState,
   reducers: {
+    // CORRECCIÓN: Añadimos los reducers para las actualizaciones en tiempo real.
     menuItemAdded: (state, action: PayloadAction<MenuItem>) => {
       if (!state.items.find(item => item.id === action.payload.id)) {
         state.items.push(action.payload);
@@ -70,21 +71,12 @@ export const menuSlice = createSlice({
       .addCase(fetchMenu.pending, (state) => { state.status = 'loading'; })
       .addCase(fetchMenu.fulfilled, (state, action: PayloadAction<MenuItem[]>) => {
         state.status = 'succeeded';
-        state.items = action.payload;
+        state.items = action.payload || [];
       })
-      .addCase(fetchMenu.rejected, (state, action) => { state.status = 'failed'; state.error = action.payload as string; })
-      // CORRECCIÓN: Se añaden guiones bajos para indicar que los parámetros no se usan.
-      .addCase(addNewMenuItem.fulfilled, (_state, _action) => {
-        // La actualización ahora se maneja por WebSocket.
-      })
-      .addCase(updateExistingMenuItem.fulfilled, (_state, _action) => {
-        // La actualización ahora se maneja por WebSocket.
-      })
-      .addCase(softDeleteMenuItem.fulfilled, (_state, _action) => {
-        // La actualización ahora se maneja por WebSocket.
-      });
+      .addCase(fetchMenu.rejected, (state, action) => { state.status = 'failed'; state.error = action.payload as string; });
   },
 });
 
+// CORRECCIÓN: Exportamos las nuevas acciones.
 export const { menuItemAdded, menuItemUpdated, menuItemRemoved } = menuSlice.actions;
 export default menuSlice.reducer;

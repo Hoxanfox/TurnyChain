@@ -1,11 +1,9 @@
 // =================================================================
-// ARCHIVO 2: /internal/handler/menu_handler.go (CORREGIDO)
-// Propósito: Manejar el nuevo campo 'modifiers'.
+// ARCHIVO 3: /internal/handler/menu_handler.go (CORREGIDO Y COMPLETO)
 // =================================================================
 package handler
 
 import (
-	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/domain"
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/service"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
@@ -19,22 +17,12 @@ func NewMenuHandler(s service.MenuService) *MenuHandler {
 	return &MenuHandler{menuService: s}
 }
 
-// CORRECCIÓN: Se añade el campo 'Modifiers' al payload.
-type MenuItemPayload struct {
-	Name        string           `json:"name"`
-	Description string           `json:"description"`
-	Price       float64          `json:"price"`
-	Category    string           `json:"category"`
-	Modifiers   domain.Modifiers `json:"modifiers"`
-}
-
 func (h *MenuHandler) CreateMenuItem(c *fiber.Ctx) error {
-	payload := new(MenuItemPayload)
+	payload := new(service.CreateMenuItemPayload)
 	if err := c.BodyParser(payload); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse JSON"})
 	}
-	// CORRECCIÓN: Se pasa el campo 'Modifiers' al servicio.
-	item, err := h.menuService.CreateMenuItem(payload.Name, payload.Description, payload.Category, payload.Price, payload.Modifiers)
+	item, err := h.menuService.CreateMenuItem(*payload)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not create menu item"})
 	}
@@ -54,12 +42,11 @@ func (h *MenuHandler) UpdateMenuItem(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid menu item ID"})
 	}
-	payload := new(MenuItemPayload)
+	payload := new(service.UpdateMenuItemPayload)
 	if err := c.BodyParser(payload); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse JSON"})
 	}
-	// CORRECCIÓN: Se pasa el campo 'Modifiers' al servicio.
-	item, err := h.menuService.UpdateMenuItem(id, payload.Name, payload.Description, payload.Category, payload.Price, payload.Modifiers)
+	item, err := h.menuService.UpdateMenuItem(id, *payload)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not update menu item"})
 	}
