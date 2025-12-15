@@ -5,6 +5,8 @@ package service
 
 import (
 	"errors"
+	"log"
+
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/domain"
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/repository"
 	wshub "github.com/Hoxanfox/TurnyChain/Backend/api/internal/websocket"
@@ -21,16 +23,18 @@ type OrderService interface {
 }
 
 type orderService struct {
-	orderRepo repository.OrderRepository
-	tableRepo repository.TableRepository
-	wsHub     *wshub.Hub
+	orderRepo  repository.OrderRepository
+	tableRepo  repository.TableRepository
+	wsHub      *wshub.Hub
+	blockchain BlockchainService
 }
 
-func NewOrderService(orderRepo repository.OrderRepository, tableRepo repository.TableRepository, wsHub *wshub.Hub) OrderService {
+func NewOrderService(orderRepo repository.OrderRepository, tableRepo repository.TableRepository, wsHub *wshub.Hub, bc BlockchainService) OrderService {
 	return &orderService{
-		orderRepo: orderRepo,
-		tableRepo: tableRepo,
-		wsHub:     wsHub,
+		orderRepo:  orderRepo,
+		tableRepo:  tableRepo,
+		wsHub:      wsHub,
+		blockchain: bc,
 	}
 }
 
@@ -39,10 +43,10 @@ func (s *orderService) CreateOrder(waiterID uuid.UUID, tableNumber int, items []
 		return nil, errors.New("la orden no puede estar vacía")
 	}
 
-    table, err := s.tableRepo.GetByNumber(tableNumber)
-    if err != nil {
-        return nil, errors.New("la mesa seleccionada no es válida o no está activa")
-    }
+	table, err := s.tableRepo.GetByNumber(tableNumber)
+	if err != nil {
+		return nil, errors.New("la mesa seleccionada no es válida o no está activa")
+	}
 
 	var total float64
 	for _, item := range items {
@@ -84,7 +88,30 @@ func (s *orderService) GetOrderByID(orderID uuid.UUID) (*domain.Order, error) {
 
 func (s *orderService) UpdateOrderStatus(orderID, userID uuid.UUID, newStatus string) (*domain.Order, error) {
 	updatedOrder, err := s.orderRepo.UpdateOrderStatus(orderID, userID, newStatus)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
+
+	// --- LÓGICA BLOCKCHAIN ---
+	if newStatus == "pagado" && s.blockchain != nil {
+		// IMPORTANTE: Obtener la orden COMPLETA con Items para la blockchain
+		fullOrder, err := s.orderRepo.GetOrderByID(orderID)
+		if err != nil {
+			log.Printf("⚠️ No se pudo obtener la orden completa para blockchain: %v", err)
+		} else {
+			// Ejecutar en goroutine para no bloquear al usuario
+			go func(ord *domain.Order) {
+				_, err := s.blockchain.NotarizeOrder(ord)
+				if err != nil {
+					log.Printf("❌ Error Blockchain: %v", err)
+				} else {
+					log.Printf("✅ Orden %s notarizada en blockchain correctamente", ord.ID)
+				}
+			}(fullOrder)
+		}
+	}
+	// -------------------------
+
 	s.wsHub.BroadcastMessage("ORDER_STATUS_UPDATED", updatedOrder)
 	return updatedOrder, nil
 }
@@ -96,10 +123,14 @@ func (s *orderService) UpdateOrderItems(orderID uuid.UUID, items []domain.OrderI
 	}
 
 	err := s.orderRepo.UpdateOrderItems(orderID, items, newTotal)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 
 	updatedOrder, err := s.orderRepo.GetOrderByID(orderID)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 
 	s.wsHub.BroadcastMessage("ORDER_ITEMS_UPDATED", updatedOrder)
 	return updatedOrder, nil
@@ -113,9 +144,11 @@ func (s *orderService) ManageOrderAsAdmin(orderID uuid.UUID, status *string, new
 	if newWaiterID != nil {
 		updates["waiter_id"] = *newWaiterID
 	}
-	
+
 	managedOrder, err := s.orderRepo.ManageOrder(orderID, updates)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	s.wsHub.BroadcastMessage("ORDER_MANAGED", managedOrder)
 	return managedOrder, nil
 }

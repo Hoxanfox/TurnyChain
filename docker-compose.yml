@@ -1,16 +1,7 @@
-# Ubicación: /Backend/docker-compose.yml
-
 version: '3.8'
 
-# Ubicación: /TurnyChain/docker-compose.yml
-
-# 1. Definimos nuestra red personalizada al principio
-networks:
-  turny_chain_network:
-    driver: bridge
-
 services:
-  # Servicio para la base de datos PostgreSQL
+  # --- 1. BASE DE DATOS ---
   postgres:
     build: ./Backend/baseDatos
     container_name: restaurant_db_container
@@ -22,38 +13,42 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    # 2. Asignamos el servicio a nuestra red
-    networks:
-      - turny_chain_network
     restart: unless-stopped
 
-  # Servicio para la aplicación de Go (backend)
-  app:
+  # --- 2. BACKEND (API GO) ---
+  backend:
     build: ./Backend/api
     container_name: restaurant_app_container
+    ports:
+      - "8080:8080"
     depends_on:
       - postgres
+    
+    # [IMPORTANTE] Esto permite que el contenedor vea tu Anvil corriendo en la terminal
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
     environment:
+      # DB
       DATABASE_URL: "user=postgres password=1234 dbname=restaurant_db host=postgres sslmode=disable"
-    # 3. Asignamos el servicio a nuestra red
-    networks:
-      - turny_chain_network
+      
+      # BLOCKCHAIN (Asegúrate de que esta dirección sea la que obtuviste en el deploy)
+      BLOCKCHAIN_RPC_URL: "http://host.docker.internal:8545"
+      CONTRACT_ADDRESS: "0x5FbDB2315678afecb367f032d93F642f64180aa3" 
+      WALLET_PRIVATE_KEY: "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+      INVOICE_ENCRYPTION_KEY: "12345678901234567890123456789012"
+    
     restart: unless-stopped
 
-  # Servicio para la aplicación de React (frontend)
+  # --- 3. FRONTEND (REACT) ---
   frontend:
     build: ./Frontend/core
-    container_name: restaurant_ui_container
+    container_name: restaurant_frontend_container
     ports:
-      - "5173:80"
+      - "3000:80" # O el puerto que uses (5173 para Vite, 3000 para React standard)
     depends_on:
-      - app
-    # 4. Asignamos el servicio a nuestra red
-    networks:
-      - turny_chain_network
+      - backend
     restart: unless-stopped
 
-# 5. Declaramos el volumen como antes
 volumes:
   postgres_data:
-

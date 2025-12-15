@@ -23,13 +23,24 @@ func main() {
 	if connStr == "" {
 		connStr = "user=postgres password=1234 dbname=restaurant_db host=localhost sslmode=disable"
 	}
-	
+
 	db, err := sql.Open("postgres", connStr)
-	if err != nil { log.Fatalf("Error al conectar a la base de datos: %v", err) }
+	if err != nil {
+		log.Fatalf("Error al conectar a la base de datos: %v", err)
+	}
 	defer db.Close()
 
 	wsHub := wshub.NewHub()
 	go wsHub.Run()
+
+	// --- INICIALIZAR BLOCKCHAIN ---
+	rpcURL := os.Getenv("BLOCKCHAIN_RPC_URL")
+	privateKey := os.Getenv("WALLET_PRIVATE_KEY")
+	contractAddr := os.Getenv("CONTRACT_ADDRESS")
+
+	// Creamos el servicio (si faltan variables, devolverá nil y logs de advertencia, pero no crashea)
+	blockchainService := service.NewBlockchainService(rpcURL, privateKey, contractAddr)
+	// -----------------------------
 
 	// Repositorios
 	userRepo := repository.NewUserRepository(db)
@@ -44,7 +55,9 @@ func main() {
 	userService := service.NewUserService(userRepo)
 	authService := service.NewAuthService(userRepo)
 	menuService := service.NewMenuService(menuRepo, wsHub)
-	orderService := service.NewOrderService(orderRepo, tableRepo, wsHub)
+
+	// MODIFICADO: Pasamos blockchainService
+	orderService := service.NewOrderService(orderRepo, tableRepo, wsHub, blockchainService)
 	tableService := service.NewTableService(tableRepo)
 	categoryService := service.NewCategoryService(categoryRepo)
 	ingredientService := service.NewIngredientService(ingredientRepo)
