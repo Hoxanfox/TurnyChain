@@ -8,13 +8,22 @@ import (
 	"encoding/json"
 	"errors"
 	"time"
+
 	"github.com/google/uuid"
 )
 
-// Customizations es un tipo para manejar el campo JSONB.
+// CustomizationsInput es lo que recibe el backend desde el frontend (solo IDs)
+// El frontend envía lo que NO quiere el cliente
+type CustomizationsInput struct {
+	RemovedIngredientIDs       []uuid.UUID `json:"removed_ingredient_ids"`       // Ingredientes que NO quiere
+	UnselectedAccompanimentIDs []uuid.UUID `json:"unselected_accompaniment_ids"` // Acompañamientos que NO quiere
+}
+
+// Customizations es lo que se almacena en BD y se devuelve al frontend (datos completos)
+// Solo contiene los elementos que SÍ seleccionó el cliente (filtrados)
 type Customizations struct {
-	RemovedIngredients   []Ingredient  `json:"removed_ingredients"`
-	SelectedAccompaniments []Accompaniment `json:"selected_accompaniments"`
+	ActiveIngredients      []Ingredient    `json:"active_ingredients"`      // Ingredientes que SÍ lleva (todos - removidos)
+	SelectedAccompaniments []Accompaniment `json:"selected_accompaniments"` // Acompañamientos que SÍ lleva (todos - no seleccionados)
 }
 
 func (c Customizations) Value() (driver.Value, error) {
@@ -22,18 +31,21 @@ func (c Customizations) Value() (driver.Value, error) {
 }
 
 func (c *Customizations) Scan(value interface{}) error {
-    if value == nil {
-        *c = Customizations{}
-        return nil
-    }
+	if value == nil {
+		*c = Customizations{}
+		return nil
+	}
 	b, ok := value.([]byte)
-	if !ok { return errors.New("type assertion to []byte failed") }
+	if !ok {
+		return errors.New("type assertion to []byte failed")
+	}
 	return json.Unmarshal(b, &c)
 }
 
 type Order struct {
 	ID          uuid.UUID   `json:"id" db:"id"`
 	WaiterID    uuid.UUID   `json:"waiter_id" db:"waiter_id"`
+	WaiterName  string      `json:"waiter_name,omitempty" db:"waiter_name"`
 	CashierID   *uuid.UUID  `json:"cashier_id,omitempty" db:"cashier_id"`
 	TableID     uuid.UUID   `json:"table_id" db:"table_id"`
 	TableNumber int         `json:"table_number" db:"table_number"`
@@ -45,10 +57,11 @@ type Order struct {
 }
 
 type OrderItem struct {
-	MenuItemID     uuid.UUID      `json:"menu_item_id" db:"menu_item_id"`
-	MenuItemName   string         `json:"menu_item_name,omitempty" db:"name"`
-	Quantity       int            `json:"quantity" db:"quantity"`
-	PriceAtOrder   float64        `json:"price_at_order" db:"price_at_order"`
-	Notes          *string        `json:"notes,omitempty" db:"notes"`
-	Customizations Customizations `json:"customizations" db:"customizations"`
+	MenuItemID          uuid.UUID            `json:"menu_item_id" db:"menu_item_id"`
+	MenuItemName        string               `json:"menu_item_name,omitempty" db:"name"`
+	Quantity            int                  `json:"quantity" db:"quantity"`
+	PriceAtOrder        float64              `json:"price_at_order" db:"price_at_order"`
+	Notes               *string              `json:"notes,omitempty" db:"notes"`
+	Customizations      Customizations       `json:"customizations" db:"customizations"`
+	CustomizationsInput *CustomizationsInput `json:"customizations_input,omitempty" db:"-"` // Solo para input, no se guarda en BD
 }

@@ -6,9 +6,10 @@ package repository
 import (
 	"database/sql"
 	"strconv"
+
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/domain"
 	"github.com/google/uuid"
-	"github.com/lib/pq" 
+	"github.com/lib/pq"
 )
 
 type OrderRepository interface {
@@ -20,7 +21,7 @@ type OrderRepository interface {
 	UpdateOrderItems(orderID uuid.UUID, items []domain.OrderItem, newTotal float64) error
 }
 
-type orderRepository struct { db *sql.DB }
+type orderRepository struct{ db *sql.DB }
 
 func NewOrderRepository(db *sql.DB) OrderRepository {
 	return &orderRepository{db: db}
@@ -28,7 +29,9 @@ func NewOrderRepository(db *sql.DB) OrderRepository {
 
 func (r *orderRepository) CreateOrder(order *domain.Order) (*domain.Order, error) {
 	tx, err := r.db.Begin()
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 
 	order.ID = uuid.New()
 	orderQuery := `INSERT INTO orders (id, waiter_id, table_id, table_number, status, total) 
@@ -50,42 +53,61 @@ func (r *orderRepository) CreateOrder(order *domain.Order) (*domain.Order, error
 		}
 	}
 
-	return order, tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+
+	// Obtener el nombre del mesero
+	waiterQuery := `SELECT username FROM users WHERE id = $1`
+	if err := r.db.QueryRow(waiterQuery, order.WaiterID).Scan(&order.WaiterName); err != nil {
+		// Si no se puede obtener el nombre, no es un error crítico
+		order.WaiterName = ""
+	}
+
+	return order, nil
 }
 
 func (r *orderRepository) GetOrders(filters map[string]interface{}) ([]domain.Order, error) {
-	query := `SELECT id, waiter_id, cashier_id, table_number, status, total, created_at, updated_at 
-              FROM orders WHERE 1=1`
+	query := `SELECT o.id, o.waiter_id, u.username as waiter_name, o.cashier_id, o.table_number, o.status, o.total, o.created_at, o.updated_at 
+              FROM orders o
+              LEFT JOIN users u ON o.waiter_id = u.id
+              WHERE 1=1`
 	args := []interface{}{}
 	argId := 1
 
 	if status, ok := filters["status"]; ok {
-		query += " AND status = $" + strconv.Itoa(argId)
+		query += " AND o.status = $" + strconv.Itoa(argId)
 		args = append(args, status)
 		argId++
 	}
 	if waiterID, ok := filters["waiter_id"]; ok {
-		query += " AND waiter_id = $" + strconv.Itoa(argId)
+		query += " AND o.waiter_id = $" + strconv.Itoa(argId)
 		args = append(args, waiterID)
 		argId++
 	}
 
 	rows, err := r.db.Query(query, args...)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	defer rows.Close()
-	
+
 	ordersMap := make(map[uuid.UUID]*domain.Order)
 	var orderIDs []uuid.UUID
 
 	for rows.Next() {
 		var order domain.Order
-		var cashierID sql.NullString // <-- 2. Usamos un tipo que puede manejar NULLs
-		if err := rows.Scan(&order.ID, &order.WaiterID, &cashierID, &order.TableNumber, &order.Status, &order.Total, &order.CreatedAt, &order.UpdatedAt); err != nil {
+		var cashierID sql.NullString
+		var waiterName sql.NullString
+		if err := rows.Scan(&order.ID, &order.WaiterID, &waiterName, &cashierID, &order.TableNumber, &order.Status, &order.Total, &order.CreatedAt, &order.UpdatedAt); err != nil {
 			return nil, err
 		}
 		if cashierID.Valid {
 			id, _ := uuid.Parse(cashierID.String)
 			order.CashierID = &id
+		}
+		if waiterName.Valid {
+			order.WaiterName = waiterName.String
 		}
 		ordersMap[order.ID] = &order
 		orderIDs = append(orderIDs, order.ID)
@@ -100,7 +122,7 @@ func (r *orderRepository) GetOrders(filters map[string]interface{}) ([]domain.Or
 		FROM order_items oi
 		JOIN menu_items mi ON oi.menu_item_id = mi.id
 		WHERE oi.order_id = ANY($1)`
-		
+
 	// 3. CORRECCIÓN: Usamos pq.Array para pasar la lista de IDs a la consulta.
 	itemRows, err := r.db.Query(itemsQuery, pq.Array(orderIDs))
 	if err != nil {
@@ -129,10 +151,17 @@ func (r *orderRepository) GetOrders(filters map[string]interface{}) ([]domain.Or
 
 func (r *orderRepository) GetOrderByID(orderID uuid.UUID) (*domain.Order, error) {
 	order := &domain.Order{}
-	orderQuery := "SELECT id, waiter_id, cashier_id, table_number, status, total, created_at, updated_at FROM orders WHERE id = $1"
-	err := r.db.QueryRow(orderQuery, orderID).Scan(&order.ID, &order.WaiterID, &order.CashierID, &order.TableNumber, &order.Status, &order.Total, &order.CreatedAt, &order.UpdatedAt)
+	orderQuery := `SELECT o.id, o.waiter_id, u.username as waiter_name, o.cashier_id, o.table_number, o.status, o.total, o.created_at, o.updated_at 
+	               FROM orders o
+	               LEFT JOIN users u ON o.waiter_id = u.id
+	               WHERE o.id = $1`
+	var waiterName sql.NullString
+	err := r.db.QueryRow(orderQuery, orderID).Scan(&order.ID, &order.WaiterID, &waiterName, &order.CashierID, &order.TableNumber, &order.Status, &order.Total, &order.CreatedAt, &order.UpdatedAt)
 	if err != nil {
 		return nil, err
+	}
+	if waiterName.Valid {
+		order.WaiterName = waiterName.String
 	}
 
 	itemsQuery := `
@@ -140,7 +169,7 @@ func (r *orderRepository) GetOrderByID(orderID uuid.UUID) (*domain.Order, error)
 		FROM order_items oi
 		JOIN menu_items mi ON oi.menu_item_id = mi.id
 		WHERE oi.order_id = $1`
-		
+
 	rows, err := r.db.Query(itemsQuery, orderID)
 	if err != nil {
 		return nil, err
@@ -162,34 +191,62 @@ func (r *orderRepository) GetOrderByID(orderID uuid.UUID) (*domain.Order, error)
 
 func (r *orderRepository) UpdateOrderStatus(orderID, userID uuid.UUID, status string) (*domain.Order, error) {
 	order := &domain.Order{}
-	query := `UPDATE orders SET status = $1, cashier_id = $2 WHERE id = $3 RETURNING id, waiter_id, cashier_id, table_number, status, total, created_at, updated_at`
+	query := `UPDATE orders SET status = $1, cashier_id = $2 WHERE id = $3 
+	          RETURNING id, waiter_id, cashier_id, table_number, status, total, created_at, updated_at`
 	err := r.db.QueryRow(query, status, userID, orderID).Scan(
 		&order.ID, &order.WaiterID, &order.CashierID, &order.TableNumber, &order.Status, &order.Total, &order.CreatedAt, &order.UpdatedAt,
 	)
-	return order, err
+	if err != nil {
+		return nil, err
+	}
+
+	// Obtener el nombre del mesero
+	waiterQuery := `SELECT username FROM users WHERE id = $1`
+	if err := r.db.QueryRow(waiterQuery, order.WaiterID).Scan(&order.WaiterName); err != nil {
+		order.WaiterName = ""
+	}
+
+	return order, nil
 }
 
 func (r *orderRepository) ManageOrder(orderID uuid.UUID, updates map[string]interface{}) (*domain.Order, error) {
 	order := &domain.Order{}
 	status, hasStatus := updates["status"]
 	waiterID, hasWaiter := updates["waiter_id"]
-	
+
 	if hasStatus {
 		query := `UPDATE orders SET status = $1 WHERE id = $2 RETURNING id, waiter_id, cashier_id, table_number, status, total, created_at, updated_at`
 		err := r.db.QueryRow(query, status, orderID).Scan(&order.ID, &order.WaiterID, &order.CashierID, &order.TableNumber, &order.Status, &order.Total, &order.CreatedAt, &order.UpdatedAt)
-		return order, err
+		if err != nil {
+			return nil, err
+		}
 	}
 	if hasWaiter {
 		query := `UPDATE orders SET waiter_id = $1 WHERE id = $2 RETURNING id, waiter_id, cashier_id, table_number, status, total, created_at, updated_at`
 		err := r.db.QueryRow(query, waiterID, orderID).Scan(&order.ID, &order.WaiterID, &order.CashierID, &order.TableNumber, &order.Status, &order.Total, &order.CreatedAt, &order.UpdatedAt)
-		return order, err
+		if err != nil {
+			return nil, err
+		}
 	}
-	return nil, sql.ErrNoRows
+
+	if order.ID == uuid.Nil {
+		return nil, sql.ErrNoRows
+	}
+
+	// Obtener el nombre del mesero
+	waiterQuery := `SELECT username FROM users WHERE id = $1`
+	if err := r.db.QueryRow(waiterQuery, order.WaiterID).Scan(&order.WaiterName); err != nil {
+		order.WaiterName = ""
+	}
+
+	return order, nil
 }
 
 func (r *orderRepository) UpdateOrderItems(orderID uuid.UUID, items []domain.OrderItem, newTotal float64) error {
 	tx, err := r.db.Begin()
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 
 	_, err = tx.Exec("DELETE FROM order_items WHERE order_id = $1", orderID)
 	if err != nil {

@@ -76,12 +76,19 @@ func (s *blockchainService) NotarizeOrder(order *domain.Order) (string, error) {
 		return "", fmt.Errorf("servicio blockchain no disponible")
 	}
 
-	// 1. Convertir orden a JSON y Encriptar
-	orderJSON, _ := json.Marshal(order)
-	encryptedData, err := utils.Encrypt(string(orderJSON))
+	// 1. Crear factura optimizada para blockchain (solo datos esenciales)
+	invoice := domain.CreateBlockchainInvoice(order)
+
+	// 2. Convertir factura a JSON y Encriptar
+	invoiceJSON, _ := json.Marshal(invoice)
+	encryptedData, err := utils.Encrypt(string(invoiceJSON))
 	if err != nil {
 		return "", err
 	}
+
+	// Log del tamaño reducido
+	log.Printf("📊 Factura optimizada: %d bytes (vs orden completa: estimado ~%d bytes)",
+		len(invoiceJSON), len(invoiceJSON)*3)
 
 	// 2. Empaquetar datos para el contrato
 	data, err := s.parsedABI.Pack("notarize", order.ID.String(), encryptedData)

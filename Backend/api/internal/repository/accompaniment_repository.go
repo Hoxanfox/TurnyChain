@@ -5,6 +5,7 @@ package repository
 
 import (
 	"database/sql"
+
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/domain"
 	"github.com/google/uuid"
 )
@@ -12,12 +13,16 @@ import (
 type AccompanimentRepository interface {
 	Create(name string, price float64) (*domain.Accompaniment, error)
 	GetAll() ([]domain.Accompaniment, error)
+	GetByIDs(ids []uuid.UUID) ([]domain.Accompaniment, error)
 	Update(id uuid.UUID, name string, price float64) (*domain.Accompaniment, error)
 	Delete(id uuid.UUID) error
 }
 
-type accompanimentRepository struct { db *sql.DB }
-func NewAccompanimentRepository(db *sql.DB) AccompanimentRepository { return &accompanimentRepository{db: db} }
+type accompanimentRepository struct{ db *sql.DB }
+
+func NewAccompanimentRepository(db *sql.DB) AccompanimentRepository {
+	return &accompanimentRepository{db: db}
+}
 
 func (r *accompanimentRepository) Create(name string, price float64) (*domain.Accompaniment, error) {
 	acc := &domain.Accompaniment{ID: uuid.New(), Name: name, Price: price}
@@ -28,14 +33,42 @@ func (r *accompanimentRepository) Create(name string, price float64) (*domain.Ac
 
 func (r *accompanimentRepository) GetAll() ([]domain.Accompaniment, error) {
 	rows, err := r.db.Query("SELECT id, name, price FROM accompaniments")
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	defer rows.Close()
-	
+
 	// CORRECCIÓN: Inicializamos la slice.
 	accompaniments := make([]domain.Accompaniment, 0)
 	for rows.Next() {
 		var acc domain.Accompaniment
-		if err := rows.Scan(&acc.ID, &acc.Name, &acc.Price); err != nil { return nil, err }
+		if err := rows.Scan(&acc.ID, &acc.Name, &acc.Price); err != nil {
+			return nil, err
+		}
+		accompaniments = append(accompaniments, acc)
+	}
+	return accompaniments, nil
+}
+
+func (r *accompanimentRepository) GetByIDs(ids []uuid.UUID) ([]domain.Accompaniment, error) {
+	if len(ids) == 0 {
+		return []domain.Accompaniment{}, nil
+	}
+
+	query := "SELECT id, name, price FROM accompaniments WHERE id = ANY($1)"
+
+	rows, err := r.db.Query(query, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	accompaniments := make([]domain.Accompaniment, 0)
+	for rows.Next() {
+		var acc domain.Accompaniment
+		if err := rows.Scan(&acc.ID, &acc.Name, &acc.Price); err != nil {
+			return nil, err
+		}
 		accompaniments = append(accompaniments, acc)
 	}
 	return accompaniments, nil

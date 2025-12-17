@@ -56,8 +56,8 @@ func main() {
 	authService := service.NewAuthService(userRepo)
 	menuService := service.NewMenuService(menuRepo, wsHub)
 
-	// MODIFICADO: Pasamos blockchainService
-	orderService := service.NewOrderService(orderRepo, tableRepo, wsHub, blockchainService)
+	// MODIFICADO: Pasamos blockchainService, menuRepo, ingredientRepo y accompanimentRepo
+	orderService := service.NewOrderService(orderRepo, tableRepo, menuRepo, ingredientRepo, accompanimentRepo, wsHub, blockchainService)
 	tableService := service.NewTableService(tableRepo)
 	categoryService := service.NewCategoryService(categoryRepo)
 	ingredientService := service.NewIngredientService(ingredientRepo)
