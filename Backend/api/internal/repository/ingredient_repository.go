@@ -5,6 +5,7 @@ package repository
 
 import (
 	"database/sql"
+
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/domain"
 	"github.com/google/uuid"
 )
@@ -12,11 +13,13 @@ import (
 type IngredientRepository interface {
 	Create(name string) (*domain.Ingredient, error)
 	GetAll() ([]domain.Ingredient, error)
+	GetByIDs(ids []uuid.UUID) ([]domain.Ingredient, error)
 	Update(id uuid.UUID, name string) (*domain.Ingredient, error)
 	Delete(id uuid.UUID) error
 }
 
-type ingredientRepository struct { db *sql.DB }
+type ingredientRepository struct{ db *sql.DB }
+
 func NewIngredientRepository(db *sql.DB) IngredientRepository { return &ingredientRepository{db: db} }
 
 func (r *ingredientRepository) Create(name string) (*domain.Ingredient, error) {
@@ -28,14 +31,43 @@ func (r *ingredientRepository) Create(name string) (*domain.Ingredient, error) {
 
 func (r *ingredientRepository) GetAll() ([]domain.Ingredient, error) {
 	rows, err := r.db.Query("SELECT id, name FROM ingredients")
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	defer rows.Close()
-	
+
 	// CORRECCIÓN: Inicializamos la slice.
 	ingredients := make([]domain.Ingredient, 0)
 	for rows.Next() {
 		var ingredient domain.Ingredient
-		if err := rows.Scan(&ingredient.ID, &ingredient.Name); err != nil { return nil, err }
+		if err := rows.Scan(&ingredient.ID, &ingredient.Name); err != nil {
+			return nil, err
+		}
+		ingredients = append(ingredients, ingredient)
+	}
+	return ingredients, nil
+}
+
+func (r *ingredientRepository) GetByIDs(ids []uuid.UUID) ([]domain.Ingredient, error) {
+	if len(ids) == 0 {
+		return []domain.Ingredient{}, nil
+	}
+
+	// Crear placeholders para la query ($1, $2, $3, ...)
+	query := "SELECT id, name FROM ingredients WHERE id = ANY($1)"
+
+	rows, err := r.db.Query(query, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	ingredients := make([]domain.Ingredient, 0)
+	for rows.Next() {
+		var ingredient domain.Ingredient
+		if err := rows.Scan(&ingredient.ID, &ingredient.Name); err != nil {
+			return nil, err
+		}
 		ingredients = append(ingredients, ingredient)
 	}
 	return ingredients, nil

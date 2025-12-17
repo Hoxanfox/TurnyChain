@@ -1,59 +1,53 @@
-# Ubicación: /Backend/docker-compose.yml
-
 version: '3.8'
 
-# Ubicación: /TurnyChain/docker-compose.yml
-
-# 1. Definimos nuestra red personalizada al principio
-networks:
-  turny_chain_network:
-    driver: bridge
-
 services:
-  # Servicio para la base de datos PostgreSQL
+  # --- 1. BASE DE DATOS ---
   postgres:
     build: ./Backend/baseDatos
     container_name: restaurant_db_container
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: 1234
-      POSTGRES_DB: restaurant_db
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    # 2. Asignamos el servicio a nuestra red
-    networks:
-      - turny_chain_network
     restart: unless-stopped
 
-  # Servicio para la aplicación de Go (backend)
-  app:
+  # --- 2. BACKEND (API GO) ---
+  backend:
     build: ./Backend/api
     container_name: restaurant_app_container
+    ports:
+      - "8080:8080"
     depends_on:
       - postgres
+    
+    # Nota: Ya no necesitamos "extra_hosts" porque vamos a internet (Alchemy),
+    # no a tu máquina local.
+    
     environment:
-      DATABASE_URL: "user=postgres password=1234 dbname=restaurant_db host=postgres sslmode=disable"
-    # 3. Asignamos el servicio a nuestra red
-    networks:
-      - turny_chain_network
+      DATABASE_URL: ${DATABASE_URL}
+      BLOCKCHAIN_RPC_URL: ${BLOCKCHAIN_RPC_URL}
+      CONTRACT_ADDRESS: ${CONTRACT_ADDRESS}
+      WALLET_PRIVATE_KEY: ${WALLET_PRIVATE_KEY}
+      INVOICE_ENCRYPTION_KEY: ${INVOICE_ENCRYPTION_KEY}
     restart: unless-stopped
 
-  # Servicio para la aplicación de React (frontend)
+  # --- 3. FRONTEND (REACT) ---
   frontend:
-    build: ./Frontend/core
-    container_name: restaurant_ui_container
+    build: 
+      context: ./Frontend/core
+      # Inyectamos la IP al momento de construir la imagen
+      args:
+        - VITE_API_URL=${VITE_API_URL}
+    container_name: restaurant_frontend_container
     ports:
-      - "5173:80"
+      - "3000:80" 
     depends_on:
-      - app
-    # 4. Asignamos el servicio a nuestra red
-    networks:
-      - turny_chain_network
+      - backend
     restart: unless-stopped
 
-# 5. Declaramos el volumen como antes
 volumes:
   postgres_data:
-

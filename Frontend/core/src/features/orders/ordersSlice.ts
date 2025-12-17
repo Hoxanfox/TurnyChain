@@ -1,5 +1,5 @@
 // =================================================================
-// ARCHIVO 3: /src/features/orders/ordersSlice.ts (CORREGIDO)
+// ARCHIVO 3: /src/features/orders/ordersSlice.ts
 // =================================================================
 import { createSlice, createAsyncThunk, type PayloadAction } from '@reduxjs/toolkit';
 import { createOrder, getOrders, getOrderDetails, updateOrderStatus, manageOrderAsAdmin } from './ordersAPI';

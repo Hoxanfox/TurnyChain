@@ -114,11 +114,12 @@ EXECUTE PROCEDURE trigger_set_timestamp();
 CREATE INDEX ON "orders" ("status");
 CREATE INDEX ON "orders" ("waiter_id");
 
--- Insertar usuarios
+-- Insertar usuarios (Contraseña para todos: 1234)
+-- Hash generado con Costo 10 (Go Default)
 INSERT INTO users (id, username, password_hash, role) VALUES 
-('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'admin', '$2a$12$weMjf207kO6kFCmqxMrOzujwsk781Qg00by1lWMc9jvLa9sfS.wGe', 'admin'),
-('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12', 'mesero1', '$2a$12$weMjf207kO6kFCmqxMrOzujwsk781Qg00by1lWMc9jvLa9sfS.wGe', 'mesero'),
-('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a13', 'cajero1', '$2a$12$weMjf207kO6kFCmqxMrOzujwsk781Qg00by1lWMc9jvLa9sfS.wGe', 'cajero');
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'admin', '$2a$10$WSGyBeAYZbWnKWpZPFYisOytio6OZFExD6uKYRIXjOHOyndQanxzq', 'admin'),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12', 'mesero1', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'mesero'),
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a13', 'cajero1', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'cajero');
 
 -- Insertar mesas
 INSERT INTO tables (id, table_number) VALUES
