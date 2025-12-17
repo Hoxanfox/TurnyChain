@@ -6,9 +6,9 @@ services:
     build: ./Backend/baseDatos
     container_name: restaurant_db_container
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: 1234
-      POSTGRES_DB: restaurant_db
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     ports:
       - "5432:5432"
     volumes:
@@ -24,28 +24,27 @@ services:
     depends_on:
       - postgres
     
-    # [IMPORTANTE] Esto permite que el contenedor vea tu Anvil corriendo en la terminal
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-
-    environment:
-      # DB
-      DATABASE_URL: "user=postgres password=1234 dbname=restaurant_db host=postgres sslmode=disable"
-      
-      # BLOCKCHAIN (Asegúrate de que esta dirección sea la que obtuviste en el deploy)
-      BLOCKCHAIN_RPC_URL: "http://host.docker.internal:8545"
-      CONTRACT_ADDRESS: "0x5FbDB2315678afecb367f032d93F642f64180aa3" 
-      WALLET_PRIVATE_KEY: "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
-      INVOICE_ENCRYPTION_KEY: "12345678901234567890123456789012"
+    # Nota: Ya no necesitamos "extra_hosts" porque vamos a internet (Alchemy),
+    # no a tu máquina local.
     
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      BLOCKCHAIN_RPC_URL: ${BLOCKCHAIN_RPC_URL}
+      CONTRACT_ADDRESS: ${CONTRACT_ADDRESS}
+      WALLET_PRIVATE_KEY: ${WALLET_PRIVATE_KEY}
+      INVOICE_ENCRYPTION_KEY: ${INVOICE_ENCRYPTION_KEY}
     restart: unless-stopped
 
   # --- 3. FRONTEND (REACT) ---
   frontend:
-    build: ./Frontend/core
+    build: 
+      context: ./Frontend/core
+      # Inyectamos la IP al momento de construir la imagen
+      args:
+        - VITE_API_URL=${VITE_API_URL}
     container_name: restaurant_frontend_container
     ports:
-      - "3000:80" # O el puerto que uses (5173 para Vite, 3000 para React standard)
+      - "3000:80" 
     depends_on:
       - backend
     restart: unless-stopped
