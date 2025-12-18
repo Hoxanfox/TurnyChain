@@ -77,6 +77,13 @@ func main() {
 	app := fiber.New()
 	app.Use(cors.New())
 
+	// Servir archivos estáticos de uploads en /api/static (SIN autenticación)
+	uploadsDir := "./uploads"
+	if err := os.MkdirAll(uploadsDir, os.ModePerm); err != nil {
+		log.Fatalf("No se pudo crear carpeta uploads: %v", err)
+	}
+	app.Static("/api/static", uploadsDir)
+
 	router.SetupRoutes(app, authHandler, userHandler, menuHandler, orderHandler, tableHandler, categoryHandler, ingredientHandler, accompanimentHandler, wsHandler)
 
 	log.Println("Iniciando servidor en el puerto 8080...")

@@ -71,6 +71,9 @@ CREATE TABLE "orders" (
   "table_number" integer NOT NULL,
   "status" varchar(30) NOT NULL DEFAULT 'pendiente_aprobacion',
   "total" numeric(10, 2) NOT NULL,
+  -- Nuevos campos para el flujo de pagos con evidencia
+  "payment_method" varchar(20) NULL,
+  "payment_proof_path" text NULL,
   "created_at" timestamptz NOT NULL DEFAULT (now()),
   "updated_at" timestamptz NOT NULL DEFAULT (now())
 );

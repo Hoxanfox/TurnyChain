@@ -5,7 +5,7 @@
 import React, { useState, type FormEvent } from 'react';
 import { useDispatch } from 'react-redux';
 import type { AppDispatch } from '../../../app/store';
-import { addNewUser } from '../usersSlice';
+import { addNewUser } from '../api/usersSlice.ts';
 
 const CreateUserForm: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();

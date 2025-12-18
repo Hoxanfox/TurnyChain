@@ -3,7 +3,7 @@
 // =================================================================
 import React, { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchMenu } from '../../menu/menuSlice';
+import { fetchMenu } from '../../admin/components/menu/api/menuSlice.ts';
 import type { AppDispatch, RootState } from '../../../app/store';
 import type { MenuItem } from '../../../types/menu';
 

@@ -3,12 +3,14 @@
 // =================================================================
 import React, { useState, useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { addNewOrder } from '../orders/ordersSlice';
-import { fetchTables } from '../tables/tablesSlice';
+import { addNewOrder, fetchMyOrders } from '../shared/orders/api/ordersSlice.ts';
+import { fetchTables } from '../admin/components/tables/api/tablesSlice.ts';
 import type { AppDispatch, RootState } from '../../app/store';
 import type { MenuItem, CartItem } from '../../types/menu';
-import OrderDetailModal from '../shared/OrderDetailModal';
+import OrderDetailModal from '../shared/orders/components/OrderDetailModal.tsx';
 import MyOrdersModal from './components/MyOrdersModal';
+import CheckoutModal from './components/CheckoutModal';
+import CheckoutBeforeSendModal from './components/CheckoutBeforeSendModal';
 import LogoutButton from '../../components/LogoutButton';
 import CustomizeOrderItemModal from './components/CustomizeOrderItemModal';
 import { Swiper, SwiperSlide } from 'swiper/react';
@@ -19,6 +21,7 @@ import 'swiper/swiper-bundle.css';
 import TablesSlide from './slides/TablesSlide';
 import MenuSlide from './slides/MenuSlide';
 import CartSlide from './slides/CartSlide';
+import PaymentsSlide from './slides/PaymentsSlide';
 
 // Importar hook de media query y vista desktop
 import { useIsDesktop } from '../../hooks/useMediaQuery';
@@ -49,6 +52,11 @@ const WaiterDashboard: React.FC = () => {
   const [isMyOrdersModalOpen, setIsMyOrdersModalOpen] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [activeSlide, setActiveSlide] = useState(0);
+  const [checkoutOrderId, setCheckoutOrderId] = useState<string | null>(null);
+  const [checkoutOrderTotal, setCheckoutOrderTotal] = useState<number>(0);
+  const [checkoutTableNumber, setCheckoutTableNumber] = useState<number>(0);
+  const [isCheckoutBeforeSend, setIsCheckoutBeforeSend] = useState(false);
+  const [_paymentData, setPaymentData] = useState<{ method: string; proofFile: File | null } | null>(null);
 
   useEffect(() => {
     dispatch(fetchTables());
@@ -129,20 +137,65 @@ const WaiterDashboard: React.FC = () => {
   const handleSendOrder = () => {
     if (!canSendOrder(cart, tableId)) return;
 
-    const payload = buildOrderPayload(cart, tableId, tables);
-    if (!payload) return;
+    // Calcular el total del carrito
+    const total = cart.reduce((sum, item) => sum + item.finalPrice, 0);
+    const selectedTable = findTableById(tables, tableId);
 
-    console.log("Enviando payload de la orden al backend:", JSON.stringify(payload, null, 2));
+    if (!selectedTable) return;
 
-    dispatch(addNewOrder(payload));
-    setCart([]);
-    setTableId('');
+    // Abrir modal de checkout antes de enviar
+    setCheckoutOrderTotal(total);
+    setCheckoutTableNumber(selectedTable.table_number);
+    setIsCheckoutBeforeSend(true);
   };
 
   const handleSelectOrder = (orderId: string) => {
     setIsMyOrdersModalOpen(false);
     setIsHistoryModalOpen(false);
     setViewingOrderId(orderId);
+  };
+
+  const handleCheckout = (orderId: string, total: number, tableNumber: number) => {
+    setIsMyOrdersModalOpen(false);
+    setIsHistoryModalOpen(false);
+    setCheckoutOrderId(orderId);
+    setCheckoutOrderTotal(total);
+    setCheckoutTableNumber(tableNumber);
+  };
+
+  const handleCheckoutSuccess = () => {
+    setCheckoutOrderId(null);
+    setCheckoutOrderTotal(0);
+    setCheckoutTableNumber(0);
+    dispatch(fetchMyOrders()); // Recargar órdenes después del pago
+  };
+
+  const handleConfirmPaymentBeforeSend = (paymentMethod: 'efectivo' | 'transferencia', proofFile: File | null) => {
+    // Guardar los datos de pago
+    setPaymentData({ method: paymentMethod, proofFile });
+
+    // Cerrar el modal de checkout
+    setIsCheckoutBeforeSend(false);
+
+    // Ahora sí enviar la orden con los datos de pago
+    const payload = buildOrderPayload(cart, tableId, tables);
+    if (!payload) return;
+
+    console.log("Enviando payload de la orden al backend con datos de pago:", {
+      orderData: payload,
+      paymentMethod,
+      hasProofFile: !!proofFile
+    });
+
+    dispatch(addNewOrder({
+      orderData: payload,
+      paymentMethod,
+      paymentProofFile: proofFile
+    }));
+
+    setCart([]);
+    setTableId('');
+    setPaymentData(null);
   };
 
   const selectedTable = findTableById(tables, tableId);
@@ -216,6 +269,13 @@ const WaiterDashboard: React.FC = () => {
                 onNavigateBack={handleNavigateToMenu}
               />
             </SwiperSlide>
+
+            {/* Slide 4: Pagos */}
+            <SwiperSlide>
+              <PaymentsSlide
+                onViewOrderDetails={(orderId) => setViewingOrderId(orderId)}
+              />
+            </SwiperSlide>
           </Swiper>
         </div>
 
@@ -243,11 +303,19 @@ const WaiterDashboard: React.FC = () => {
               }`}
               aria-label="Ir a Comanda"
             />
+            <button
+              onClick={() => swiperRef.current?.slideTo(3)}
+              className={`w-2 h-2 rounded-full transition-all ${
+                activeSlide === 3 ? 'bg-indigo-600 w-8' : 'bg-gray-300'
+              }`}
+              aria-label="Ir a Pagos"
+            />
           </div>
           <p className="text-center text-xs text-gray-500">
             {activeSlide === 0 && 'Paso 1: Selecciona una mesa'}
             {activeSlide === 1 && 'Paso 2: Elige del menú'}
             {activeSlide === 2 && 'Paso 3: Revisa y envía la comanda'}
+            {activeSlide === 3 && '💳 Gestión de Pagos'}
           </p>
         </footer>
       </div>
@@ -257,6 +325,7 @@ const WaiterDashboard: React.FC = () => {
         <MyOrdersModal
           onClose={() => setIsMyOrdersModalOpen(false)}
           onSelectOrder={handleSelectOrder}
+          onCheckout={handleCheckout}
           filterByToday={true}
         />
       )}
@@ -264,6 +333,7 @@ const WaiterDashboard: React.FC = () => {
         <MyOrdersModal
           onClose={() => setIsHistoryModalOpen(false)}
           onSelectOrder={handleSelectOrder}
+          onCheckout={handleCheckout}
           filterByToday={false}
         />
       )}
@@ -285,6 +355,23 @@ const WaiterDashboard: React.FC = () => {
           item={editingCartItem}
           onClose={() => setEditingCartItem(null)}
           onConfirm={handleConfirmEditCartItem}
+        />
+      )}
+      {checkoutOrderId && (
+        <CheckoutModal
+          orderId={checkoutOrderId}
+          orderTotal={checkoutOrderTotal}
+          tableNumber={checkoutTableNumber}
+          onClose={() => setCheckoutOrderId(null)}
+          onSuccess={handleCheckoutSuccess}
+        />
+      )}
+      {isCheckoutBeforeSend && (
+        <CheckoutBeforeSendModal
+          orderTotal={checkoutOrderTotal}
+          tableNumber={checkoutTableNumber}
+          onClose={() => setIsCheckoutBeforeSend(false)}
+          onConfirm={handleConfirmPaymentBeforeSend}
         />
       )}
     </>

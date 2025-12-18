@@ -4,8 +4,8 @@
 // =================================================================
 import { useEffect, useRef } from 'react';
 import { useDispatch } from 'react-redux';
-import { orderAdded, orderUpdated } from '../features/orders/ordersSlice';
-import { menuItemAdded, menuItemUpdated, menuItemRemoved } from '../features/menu/menuSlice';
+import { orderAdded, orderUpdated } from '../features/shared/orders/api/ordersSlice.ts';
+import { menuItemAdded, menuItemUpdated, menuItemRemoved } from '../features/admin/components/menu/api/menuSlice.ts';
 import type { AppDispatch } from '../app/store';
 import type { Order } from '../types/orders';
 import type { MenuItem } from '../types/menu';

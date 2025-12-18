@@ -40,6 +40,8 @@ export interface Order {
   total: number;
   created_at: string;
   items: OrderItem[];
+  payment_method?: string; // "transferencia" | "efectivo"
+  payment_proof_path?: string; // Ruta de la imagen del comprobante
 }
 
 // ============================================

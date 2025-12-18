@@ -33,6 +33,9 @@ services:
       CONTRACT_ADDRESS: ${CONTRACT_ADDRESS}
       WALLET_PRIVATE_KEY: ${WALLET_PRIVATE_KEY}
       INVOICE_ENCRYPTION_KEY: ${INVOICE_ENCRYPTION_KEY}
+    volumes:
+      # Persistir uploads de comprobantes fuera del contenedor
+      - uploads_data:/app/uploads
     restart: unless-stopped
 
   # --- 3. FRONTEND (REACT) ---
@@ -51,3 +54,4 @@ services:
 
 volumes:
   postgres_data:
+  uploads_data:

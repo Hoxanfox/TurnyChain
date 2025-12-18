@@ -8,10 +8,11 @@ import MyOrdersList from './MyOrdersList';
 interface MyOrdersModalProps {
   onClose: () => void;
   onSelectOrder: (orderId: string) => void;
+  onCheckout?: (orderId: string, total: number, tableNumber: number) => void; // Nueva prop para checkout
   filterByToday?: boolean; // Nueva prop para filtrar por hoy
 }
 
-const MyOrdersModal: React.FC<MyOrdersModalProps> = ({ onClose, onSelectOrder, filterByToday = false }) => {
+const MyOrdersModal: React.FC<MyOrdersModalProps> = ({ onClose, onSelectOrder, onCheckout, filterByToday = false }) => {
   const title = filterByToday ? 'Mis Órdenes de Hoy' : 'Historial de Órdenes';
 
   return (
@@ -22,7 +23,11 @@ const MyOrdersModal: React.FC<MyOrdersModalProps> = ({ onClose, onSelectOrder, f
           <button onClick={onClose} className="text-2xl font-bold text-gray-600 hover:text-gray-900">&times;</button>
         </div>
         <div className="flex-grow overflow-y-auto">
-          <MyOrdersList onSelectOrder={onSelectOrder} filterByToday={filterByToday} />
+          <MyOrdersList
+            onSelectOrder={onSelectOrder}
+            onCheckout={onCheckout}
+            filterByToday={filterByToday}
+          />
         </div>
       </div>
     </div>

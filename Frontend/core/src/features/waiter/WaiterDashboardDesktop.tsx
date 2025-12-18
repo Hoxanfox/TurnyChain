@@ -4,12 +4,13 @@
 // =================================================================
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { addNewOrder } from '../orders/ordersSlice';
-import { fetchTables } from '../tables/tablesSlice';
+import { addNewOrder } from '../shared/orders/api/ordersSlice.ts';
+import { fetchTables } from '../admin/components/tables/api/tablesSlice.ts';
 import type { AppDispatch, RootState } from '../../app/store';
 import type { MenuItem, CartItem } from '../../types/menu';
-import OrderDetailModal from '../shared/OrderDetailModal';
+import OrderDetailModal from '../shared/orders/components/OrderDetailModal.tsx';
 import MyOrdersModal from './components/MyOrdersModal';
+import CheckoutBeforeSendModal from './components/CheckoutBeforeSendModal';
 import LogoutButton from '../../components/LogoutButton';
 import CustomizeOrderItemModal from './components/CustomizeOrderItemModal';
 import MenuDisplay from './components/MenuDisplay';
@@ -38,6 +39,10 @@ const WaiterDashboardDesktop: React.FC = () => {
   const [viewingOrderId, setViewingOrderId] = useState<string | null>(null);
   const [isMyOrdersModalOpen, setIsMyOrdersModalOpen] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [isCheckoutBeforeSend, setIsCheckoutBeforeSend] = useState(false);
+  const [checkoutOrderTotal, setCheckoutOrderTotal] = useState<number>(0);
+  const [checkoutTableNumber, setCheckoutTableNumber] = useState<number>(0);
+  const [_paymentData, setPaymentData] = useState<{ method: string; proofFile: File | null } | null>(null);
 
   useEffect(() => {
     dispatch(fetchTables());
@@ -89,14 +94,44 @@ const WaiterDashboardDesktop: React.FC = () => {
   const handleSendOrder = () => {
     if (!canSendOrder(cart, tableId)) return;
 
+    // Calcular el total del carrito
+    const total = cart.reduce((sum, item) => sum + item.finalPrice, 0);
+    const selectedTable = findTableById(tables, tableId);
+
+    if (!selectedTable) return;
+
+    // Abrir modal de checkout antes de enviar
+    setCheckoutOrderTotal(total);
+    setCheckoutTableNumber(selectedTable.table_number);
+    setIsCheckoutBeforeSend(true);
+  };
+
+  const handleConfirmPaymentBeforeSend = (paymentMethod: 'efectivo' | 'transferencia', proofFile: File | null) => {
+    // Guardar los datos de pago
+    setPaymentData({ method: paymentMethod, proofFile });
+
+    // Cerrar el modal de checkout
+    setIsCheckoutBeforeSend(false);
+
+    // Ahora sí enviar la orden con los datos de pago
     const payload = buildOrderPayload(cart, tableId, tables);
     if (!payload) return;
 
-    console.log("Enviando payload de la orden al backend:", JSON.stringify(payload, null, 2));
+    console.log("Enviando payload de la orden al backend con datos de pago:", {
+      orderData: payload,
+      paymentMethod,
+      hasProofFile: !!proofFile
+    });
 
-    dispatch(addNewOrder(payload));
+    dispatch(addNewOrder({
+      orderData: payload,
+      paymentMethod,
+      paymentProofFile: proofFile
+    }));
+
     setCart([]);
     setTableId('');
+    setPaymentData(null);
   };
 
   const handleSelectOrder = (orderId: string) => {
@@ -246,6 +281,14 @@ const WaiterDashboardDesktop: React.FC = () => {
           item={editingCartItem}
           onClose={() => setEditingCartItem(null)}
           onConfirm={handleConfirmEditCartItem}
+        />
+      )}
+      {isCheckoutBeforeSend && (
+        <CheckoutBeforeSendModal
+          orderTotal={checkoutOrderTotal}
+          tableNumber={checkoutTableNumber}
+          onClose={() => setIsCheckoutBeforeSend(false)}
+          onConfirm={handleConfirmPaymentBeforeSend}
         />
       )}
     </>

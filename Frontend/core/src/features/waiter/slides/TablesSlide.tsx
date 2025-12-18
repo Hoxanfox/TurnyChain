@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchTables } from '../../tables/tablesSlice';
+import { fetchTables } from '../../admin/components/tables/api/tablesSlice.ts';
 import type { AppDispatch, RootState } from '../../../app/store';
 
 interface TablesSlideProps {

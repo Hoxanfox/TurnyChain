@@ -19,6 +19,7 @@ type OrderRepository interface {
 	UpdateOrderStatus(orderID, userID uuid.UUID, status string) (*domain.Order, error)
 	ManageOrder(orderID uuid.UUID, updates map[string]interface{}) (*domain.Order, error)
 	UpdateOrderItems(orderID uuid.UUID, items []domain.OrderItem, newTotal float64) error
+	AddPaymentProof(orderID uuid.UUID, method string, proofPath string) (*domain.Order, error)
 }
 
 type orderRepository struct{ db *sql.DB }
@@ -68,7 +69,7 @@ func (r *orderRepository) CreateOrder(order *domain.Order) (*domain.Order, error
 }
 
 func (r *orderRepository) GetOrders(filters map[string]interface{}) ([]domain.Order, error) {
-	query := `SELECT o.id, o.waiter_id, u.username as waiter_name, o.cashier_id, o.table_number, o.status, o.total, o.created_at, o.updated_at 
+	query := `SELECT o.id, o.waiter_id, u.username as waiter_name, o.cashier_id, o.table_number, o.status, o.total, o.payment_method, o.payment_proof_path, o.created_at, o.updated_at 
               FROM orders o
               LEFT JOIN users u ON o.waiter_id = u.id
               WHERE 1=1`
@@ -99,7 +100,9 @@ func (r *orderRepository) GetOrders(filters map[string]interface{}) ([]domain.Or
 		var order domain.Order
 		var cashierID sql.NullString
 		var waiterName sql.NullString
-		if err := rows.Scan(&order.ID, &order.WaiterID, &waiterName, &cashierID, &order.TableNumber, &order.Status, &order.Total, &order.CreatedAt, &order.UpdatedAt); err != nil {
+		var paymentMethod sql.NullString
+		var paymentProof sql.NullString
+		if err := rows.Scan(&order.ID, &order.WaiterID, &waiterName, &cashierID, &order.TableNumber, &order.Status, &order.Total, &paymentMethod, &paymentProof, &order.CreatedAt, &order.UpdatedAt); err != nil {
 			return nil, err
 		}
 		if cashierID.Valid {
@@ -108,6 +111,14 @@ func (r *orderRepository) GetOrders(filters map[string]interface{}) ([]domain.Or
 		}
 		if waiterName.Valid {
 			order.WaiterName = waiterName.String
+		}
+		if paymentMethod.Valid {
+			pm := paymentMethod.String
+			order.PaymentMethod = &pm
+		}
+		if paymentProof.Valid {
+			pp := paymentProof.String
+			order.PaymentProofPath = &pp
 		}
 		ordersMap[order.ID] = &order
 		orderIDs = append(orderIDs, order.ID)
@@ -151,17 +162,27 @@ func (r *orderRepository) GetOrders(filters map[string]interface{}) ([]domain.Or
 
 func (r *orderRepository) GetOrderByID(orderID uuid.UUID) (*domain.Order, error) {
 	order := &domain.Order{}
-	orderQuery := `SELECT o.id, o.waiter_id, u.username as waiter_name, o.cashier_id, o.table_number, o.status, o.total, o.created_at, o.updated_at 
+	orderQuery := `SELECT o.id, o.waiter_id, u.username as waiter_name, o.cashier_id, o.table_number, o.status, o.total, o.payment_method, o.payment_proof_path, o.created_at, o.updated_at 
 	               FROM orders o
 	               LEFT JOIN users u ON o.waiter_id = u.id
 	               WHERE o.id = $1`
 	var waiterName sql.NullString
-	err := r.db.QueryRow(orderQuery, orderID).Scan(&order.ID, &order.WaiterID, &waiterName, &order.CashierID, &order.TableNumber, &order.Status, &order.Total, &order.CreatedAt, &order.UpdatedAt)
+	var paymentMethod sql.NullString
+	var paymentProof sql.NullString
+	err := r.db.QueryRow(orderQuery, orderID).Scan(&order.ID, &order.WaiterID, &waiterName, &order.CashierID, &order.TableNumber, &order.Status, &order.Total, &paymentMethod, &paymentProof, &order.CreatedAt, &order.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
 	if waiterName.Valid {
 		order.WaiterName = waiterName.String
+	}
+	if paymentMethod.Valid {
+		pm := paymentMethod.String
+		order.PaymentMethod = &pm
+	}
+	if paymentProof.Valid {
+		pp := paymentProof.String
+		order.PaymentProofPath = &pp
 	}
 
 	itemsQuery := `
@@ -192,9 +213,9 @@ func (r *orderRepository) GetOrderByID(orderID uuid.UUID) (*domain.Order, error)
 func (r *orderRepository) UpdateOrderStatus(orderID, userID uuid.UUID, status string) (*domain.Order, error) {
 	order := &domain.Order{}
 	query := `UPDATE orders SET status = $1, cashier_id = $2 WHERE id = $3 
-	          RETURNING id, waiter_id, cashier_id, table_number, status, total, created_at, updated_at`
+	          RETURNING id, waiter_id, cashier_id, table_number, status, total, payment_method, payment_proof_path, created_at, updated_at`
 	err := r.db.QueryRow(query, status, userID, orderID).Scan(
-		&order.ID, &order.WaiterID, &order.CashierID, &order.TableNumber, &order.Status, &order.Total, &order.CreatedAt, &order.UpdatedAt,
+		&order.ID, &order.WaiterID, &order.CashierID, &order.TableNumber, &order.Status, &order.Total, &order.PaymentMethod, &order.PaymentProofPath, &order.CreatedAt, &order.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -215,15 +236,15 @@ func (r *orderRepository) ManageOrder(orderID uuid.UUID, updates map[string]inte
 	waiterID, hasWaiter := updates["waiter_id"]
 
 	if hasStatus {
-		query := `UPDATE orders SET status = $1 WHERE id = $2 RETURNING id, waiter_id, cashier_id, table_number, status, total, created_at, updated_at`
-		err := r.db.QueryRow(query, status, orderID).Scan(&order.ID, &order.WaiterID, &order.CashierID, &order.TableNumber, &order.Status, &order.Total, &order.CreatedAt, &order.UpdatedAt)
+		query := `UPDATE orders SET status = $1 WHERE id = $2 RETURNING id, waiter_id, cashier_id, table_number, status, total, payment_method, payment_proof_path, created_at, updated_at`
+		err := r.db.QueryRow(query, status, orderID).Scan(&order.ID, &order.WaiterID, &order.CashierID, &order.TableNumber, &order.Status, &order.Total, &order.PaymentMethod, &order.PaymentProofPath, &order.CreatedAt, &order.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
 	}
 	if hasWaiter {
-		query := `UPDATE orders SET waiter_id = $1 WHERE id = $2 RETURNING id, waiter_id, cashier_id, table_number, status, total, created_at, updated_at`
-		err := r.db.QueryRow(query, waiterID, orderID).Scan(&order.ID, &order.WaiterID, &order.CashierID, &order.TableNumber, &order.Status, &order.Total, &order.CreatedAt, &order.UpdatedAt)
+		query := `UPDATE orders SET waiter_id = $1 WHERE id = $2 RETURNING id, waiter_id, cashier_id, table_number, status, total, payment_method, payment_proof_path, created_at, updated_at`
+		err := r.db.QueryRow(query, waiterID, orderID).Scan(&order.ID, &order.WaiterID, &order.CashierID, &order.TableNumber, &order.Status, &order.Total, &order.PaymentMethod, &order.PaymentProofPath, &order.CreatedAt, &order.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -270,4 +291,46 @@ func (r *orderRepository) UpdateOrderItems(orderID uuid.UUID, items []domain.Ord
 	}
 
 	return tx.Commit()
+}
+
+func (r *orderRepository) AddPaymentProof(orderID uuid.UUID, method string, proofPath string) (*domain.Order, error) {
+	order := &domain.Order{}
+
+	// Determinar el nuevo estado según el método de pago
+	var newStatus string
+	if method == "efectivo" {
+		// Para efectivo, puede ir directo a 'pagado' o 'por_verificar' según tu lógica de negocio
+		// Voy a asumir que efectivo necesita verificación también
+		newStatus = "por_verificar"
+	} else {
+		// Para transferencia, requiere verificación
+		newStatus = "por_verificar"
+	}
+
+	var query string
+	var err error
+
+	if proofPath != "" {
+		// Con comprobante
+		query = `UPDATE orders SET payment_method = $1, payment_proof_path = $2, status = $3 WHERE id = $4 
+		          RETURNING id, waiter_id, cashier_id, table_number, status, total, payment_method, payment_proof_path, created_at, updated_at`
+		err = r.db.QueryRow(query, method, proofPath, newStatus, orderID).Scan(&order.ID, &order.WaiterID, &order.CashierID, &order.TableNumber, &order.Status, &order.Total, &order.PaymentMethod, &order.PaymentProofPath, &order.CreatedAt, &order.UpdatedAt)
+	} else {
+		// Sin comprobante (efectivo)
+		query = `UPDATE orders SET payment_method = $1, status = $2 WHERE id = $3 
+		          RETURNING id, waiter_id, cashier_id, table_number, status, total, payment_method, payment_proof_path, created_at, updated_at`
+		err = r.db.QueryRow(query, method, newStatus, orderID).Scan(&order.ID, &order.WaiterID, &order.CashierID, &order.TableNumber, &order.Status, &order.Total, &order.PaymentMethod, &order.PaymentProofPath, &order.CreatedAt, &order.UpdatedAt)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Obtener el nombre del mesero
+	waiterQuery := `SELECT username FROM users WHERE id = $1`
+	if err := r.db.QueryRow(waiterQuery, order.WaiterID).Scan(&order.WaiterName); err != nil {
+		order.WaiterName = ""
+	}
+
+	return order, nil
 }

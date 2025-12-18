@@ -5,11 +5,11 @@ import React, { useState } from 'react';
 import LogoutButton from '../../components/LogoutButton';
 import UserManagement from './components/UserManagement';
 import OrderManagement from './components/OrderManagement';
-import TableManagement from './components/TableManagement';
-import MenuManagement from './components/MenuManagement';
-import CategoryManagement from './components/CategoryManagement';
-import IngredientManagement from './components/IngredientManagement';
-import AccompanimentManagement from './components/AccompanimentManagement';
+import TableManagement from './components/tables/TableManagement.tsx';
+import MenuManagement from './components/menu/MenuManagement.tsx';
+import CategoryManagement from './components/categories/CategoryManagement.tsx';
+import IngredientManagement from './components/ingredients/IngredientManagement.tsx';
+import AccompanimentManagement from './components/accompaniments/AccompanimentManagement.tsx';
 
 type AdminTab = 'users' | 'orders' | 'tables' | 'menu' | 'categories' | 'ingredients' | 'accompaniments';
 

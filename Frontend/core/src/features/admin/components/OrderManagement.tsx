@@ -3,10 +3,10 @@
 // =================================================================
 import React, { useEffect, useState, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchActiveOrders, cancelOrderAsAdmin, orderAdded, orderUpdated } from '../../orders/ordersSlice';
+import { fetchActiveOrders, cancelOrderAsAdmin, orderAdded, orderUpdated } from '../../shared/orders/api/ordersSlice.ts';
 import type { AppDispatch, RootState } from '../../../app/store';
-import OrderDetailModal from '../../shared/OrderDetailModal';
-import OrderGridView from '../../shared/OrderGridView';
+import OrderDetailModal from '../../shared/orders/components/OrderDetailModal.tsx';
+import OrderGridView from '../../shared/orders/components/OrderGridView.tsx';
 import type { Order } from '../../../types/orders';
 
 const OrderManagement: React.FC = () => {
@@ -18,7 +18,10 @@ const OrderManagement: React.FC = () => {
   useEffect(() => {
     dispatch(fetchActiveOrders());
     
-    const ws = new WebSocket('ws://localhost:8080/ws');
+    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    const wsUrl = `${protocol}://${window.location.host}/ws`;
+    const ws = new WebSocket(wsUrl);
+
     ws.onmessage = (event) => {
       const message = JSON.parse(event.data);
       if (message.type === 'NEW_PENDING_ORDER') {

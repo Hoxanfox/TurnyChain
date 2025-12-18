@@ -54,6 +54,9 @@ type Order struct {
 	Items       []OrderItem `json:"items"`
 	CreatedAt   time.Time   `json:"created_at" db:"created_at"`
 	UpdatedAt   time.Time   `json:"updated_at" db:"updated_at"`
+	// Nuevos campos para el flujo de pago con evidencia
+	PaymentMethod    *string `json:"payment_method,omitempty" db:"payment_method"`
+	PaymentProofPath *string `json:"payment_proof_path,omitempty" db:"payment_proof_path"`
 }
 
 type OrderItem struct {

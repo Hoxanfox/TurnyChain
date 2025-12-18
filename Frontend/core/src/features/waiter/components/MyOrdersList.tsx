@@ -3,15 +3,16 @@
 // =================================================================
 import React, { useEffect, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchMyOrders } from '../../orders/ordersSlice';
+import { fetchMyOrders } from '../../shared/orders/api/ordersSlice.ts';
 import type { AppDispatch, RootState } from '../../../app/store';
 
 interface MyOrdersListProps {
   onSelectOrder: (orderId: string) => void;
+  onCheckout?: (orderId: string, total: number, tableNumber: number) => void;
   filterByToday?: boolean; // Nueva prop para filtrar por hoy
 }
 
-const MyOrdersList: React.FC<MyOrdersListProps> = ({ onSelectOrder, filterByToday = false }) => {
+const MyOrdersList: React.FC<MyOrdersListProps> = ({ onSelectOrder, onCheckout, filterByToday = false }) => {
   const dispatch = useDispatch<AppDispatch>();
   const { myOrders, myOrdersStatus } = useSelector((state: RootState) => state.orders);
 
@@ -50,18 +51,62 @@ const MyOrdersList: React.FC<MyOrdersListProps> = ({ onSelectOrder, filterByToda
       )}
       <div className="space-y-3 overflow-y-auto" style={{maxHeight: 'calc(100vh - 150px)'}}>
         {filteredOrders.map(order => (
-          <button key={order.id} onClick={() => onSelectOrder(order.id)} className="w-full text-left p-3 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
-            <div className="flex justify-between font-semibold">
-              <span>Mesa {order.table_number}</span>
-              <span>${order.total.toFixed(2)}</span>
-            </div>
-            <div className="text-sm text-gray-600">
-              <span>Estado: {order.status}</span>
-            </div>
-            <div className="text-xs text-gray-500 mt-1">
-              {new Date(order.created_at).toLocaleString('es-ES')}
-            </div>
-          </button>
+          <div key={order.id} className="bg-gray-100 rounded-lg overflow-hidden">
+            <button
+              onClick={() => onSelectOrder(order.id)}
+              className="w-full text-left p-3 hover:bg-gray-200 transition-colors"
+            >
+              <div className="flex justify-between font-semibold">
+                <span>Mesa {order.table_number}</span>
+                <span>${order.total.toFixed(2)}</span>
+              </div>
+              <div className="text-sm text-gray-600 flex items-center gap-2">
+                <span className={`px-2 py-0.5 rounded text-xs ${
+                  order.status === 'entregado' 
+                    ? 'bg-green-100 text-green-800'
+                    : order.status === 'por_verificar'
+                    ? 'bg-yellow-100 text-yellow-800'
+                    : order.status === 'pagado'
+                    ? 'bg-blue-100 text-blue-800'
+                    : 'bg-gray-200 text-gray-700'
+                }`}>
+                  {order.status}
+                </span>
+                {order.payment_method && (
+                  <span className="text-xs">
+                    {order.payment_method === 'transferencia' ? '📱' : '💵'}
+                  </span>
+                )}
+              </div>
+              <div className="text-xs text-gray-500 mt-1">
+                {new Date(order.created_at).toLocaleString('es-ES')}
+              </div>
+            </button>
+
+            {/* Botón de Checkout para órdenes entregadas */}
+            {order.status === 'entregado' && onCheckout && !order.payment_method && (
+              <div className="px-3 pb-3">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onCheckout(order.id, order.total, order.table_number);
+                  }}
+                  className="w-full py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors font-semibold text-sm"
+                >
+                  💳 Procesar Pago
+                </button>
+              </div>
+            )}
+
+            {/* Indicador de pago en proceso */}
+            {order.status === 'por_verificar' && (
+              <div className="px-3 pb-3">
+                <div className="w-full py-2 bg-yellow-100 text-yellow-800 rounded-md text-center text-sm font-medium">
+                  ⏳ Pago en verificación
+                </div>
+              </div>
+            )}
+          </div>
         ))}
       </div>
     </div>

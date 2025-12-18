@@ -15,11 +15,12 @@ import (
 
 type OrderService interface {
 	CreateOrder(waiterID uuid.UUID, tableNumber int, items []domain.OrderItem) (*domain.Order, error)
-	GetOrders(userRole string, userID uuid.UUID, status string) ([]domain.Order, error)
+	GetOrders(userRole string, userID uuid.UUID, status string, myOrders string) ([]domain.Order, error)
 	GetOrderByID(orderID uuid.UUID) (*domain.Order, error)
 	UpdateOrderStatus(orderID, userID uuid.UUID, newStatus string) (*domain.Order, error)
 	UpdateOrderItems(orderID uuid.UUID, items []domain.OrderItem) (*domain.Order, error)
 	ManageOrderAsAdmin(orderID uuid.UUID, status *string, newWaiterID *uuid.UUID) (*domain.Order, error)
+	AddPaymentProof(orderID uuid.UUID, method string, proofPath string) (*domain.Order, error)
 }
 
 type orderService struct {
@@ -137,14 +138,20 @@ func (s *orderService) CreateOrder(waiterID uuid.UUID, tableNumber int, items []
 	return createdOrder, nil
 }
 
-func (s *orderService) GetOrders(userRole string, userID uuid.UUID, status string) ([]domain.Order, error) {
+func (s *orderService) GetOrders(userRole string, userID uuid.UUID, status string, myOrders string) ([]domain.Order, error) {
 	filters := make(map[string]interface{})
 	if status != "" {
 		filters["status"] = status
 	}
-	if userRole == "mesero" {
+
+	// Si my_orders=true, filtrar por waiter_id independientemente del rol
+	if myOrders == "true" {
+		filters["waiter_id"] = userID
+	} else if userRole == "mesero" {
+		// Si es mesero y no se especifica my_orders, filtrar por defecto
 		filters["waiter_id"] = userID
 	}
+
 	return s.orderRepo.GetOrders(filters)
 }
 
@@ -217,4 +224,21 @@ func (s *orderService) ManageOrderAsAdmin(orderID uuid.UUID, status *string, new
 	}
 	s.wsHub.BroadcastMessage("ORDER_MANAGED", managedOrder)
 	return managedOrder, nil
+}
+
+func (s *orderService) AddPaymentProof(orderID uuid.UUID, method string, proofPath string) (*domain.Order, error) {
+	// Validar método
+	if method != "transferencia" && method != "efectivo" {
+		return nil, errors.New("método de pago inválido")
+	}
+
+	// Delegar al repositorio. El repositorio pone el status en 'por_verificar' cuando corresponda.
+	order, err := s.orderRepo.AddPaymentProof(orderID, method, proofPath)
+	if err != nil {
+		return nil, err
+	}
+
+	// Notificar via WebSocket que la orden cambió
+	s.wsHub.BroadcastMessage("ORDER_PAYMENT_PROOF_UPLOADED", order)
+	return order, nil
 }

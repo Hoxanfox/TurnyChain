@@ -214,15 +214,23 @@ const CurrentOrder: React.FC<CurrentOrderProps> = ({
         })}
       </div>
       <div className="pt-4 border-t">
-        <p className="text-lg font-bold flex justify-between">
+        <p className="text-lg font-bold flex justify-between mb-4">
           Total: <span className="text-green-700">${total.toFixed(2)}</span>
         </p>
+
+        {/* Indicador de que debe cobrar primero */}
+        <div className="mb-4 p-3 bg-blue-50 border-2 border-blue-300 rounded-lg">
+          <p className="text-sm text-blue-800 font-semibold text-center">
+            💳 Primero cobra, luego envía la comanda
+          </p>
+        </div>
+
         <button
           onClick={onSendOrder}
-          className="mt-4 w-full bg-green-500 text-white py-2 rounded-lg hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+          className="w-full bg-gradient-to-r from-green-600 to-green-700 text-white py-3 rounded-lg hover:from-green-700 hover:to-green-800 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all font-bold shadow-lg disabled:shadow-none"
           disabled={!tableId || cart.length === 0}
         >
-          Enviar Orden
+          💰 Cobrar y Enviar Orden
         </button>
       </div>
     </div>

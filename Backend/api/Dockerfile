@@ -28,6 +28,9 @@ FROM alpine:latest
 
 WORKDIR /app
 
+# Creamos carpeta uploads y asignamos permisos
+RUN mkdir -p /app/uploads && chmod -R 0777 /app/uploads
+
 # Copiamos ÚNICAMENTE el binario compilado de la etapa anterior
 COPY --from=builder /app/main .
 
