@@ -36,8 +36,23 @@ const OrderGridView: React.FC<OrderGridViewProps> = ({ orders, renderActions }) 
               {order.status}
             </span>
           </div>
-          <p className="text-gray-600 text-xs">Mesero: {order.waiter_id.substring(0, 8)}</p>
-          <p className="text-gray-800 text-2xl font-bold mt-1">${order.total.toFixed(2)}</p>
+
+          {/* Información del mesero */}
+          <p className="text-gray-600 text-sm font-medium">
+            👤 Mesero: {order.waiter_name || order.waiter_id.substring(0, 8)}
+          </p>
+
+          {/* Tiempo de llegada */}
+          <p className="text-gray-500 text-xs mt-1">
+            🕐 {new Date(order.created_at).toLocaleString('es-ES', {
+              hour: '2-digit',
+              minute: '2-digit',
+              day: '2-digit',
+              month: '2-digit'
+            })}
+          </p>
+
+          <p className="text-gray-800 text-2xl font-bold mt-2">${order.total.toFixed(2)}</p>
 
           {/* Info de pago compacta */}
           {order.payment_method && (

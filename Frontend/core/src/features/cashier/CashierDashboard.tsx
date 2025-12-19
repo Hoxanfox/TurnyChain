@@ -35,6 +35,15 @@ const QuickProofView: React.FC<QuickProofViewProps> = ({ order, onConfirm, onRej
             <p className="text-sm text-gray-600">
               Mesa {order.table_number} • Total: ${order.total.toFixed(2)}
             </p>
+            <p className="text-xs text-gray-500 mt-1">
+              👤 Mesero: {order.waiter_name || order.waiter_id.substring(0, 8)} •
+              🕐 {new Date(order.created_at).toLocaleString('es-ES', {
+                hour: '2-digit',
+                minute: '2-digit',
+                day: '2-digit',
+                month: '2-digit'
+              })}
+            </p>
           </div>
           <button
             onClick={onClose}
@@ -172,6 +181,17 @@ const CashierDashboard: React.FC = () => {
     }, {} as Record<number, Order[]>);
   }, [activeOrders, filterStatus]);
 
+  // Ordenar órdenes de la mesa seleccionada por tiempo (más nueva primero)
+  const sortedSelectedOrders = useMemo(() => {
+    if (!selectedTable || !ordersByTable[selectedTable]) return [];
+
+    return [...ordersByTable[selectedTable]].sort((a, b) => {
+      const dateA = new Date(a.created_at).getTime();
+      const dateB = new Date(b.created_at).getTime();
+      return dateB - dateA; // Más nueva primero (descendente)
+    });
+  }, [selectedTable, ordersByTable]);
+
   // Contar órdenes por verificar
   const pendingVerificationCount = useMemo(() => {
     return activeOrders?.filter(o => o.status === 'por_verificar').length || 0;
@@ -277,7 +297,7 @@ const CashierDashboard: React.FC = () => {
             {status === 'loading' && <p>Cargando órdenes...</p>}
             {selectedTable ? (
               <OrderGridView
-                orders={ordersByTable[selectedTable]}
+                orders={sortedSelectedOrders}
                 renderActions={(order) => (
                   <>
                     {order.status === 'por_verificar' ? (
