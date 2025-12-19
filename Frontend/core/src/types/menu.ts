@@ -18,6 +18,7 @@ export interface MenuItem {
 // Nuevo tipo para los ítems en el carrito, que pueden tener personalizaciones
 export interface CartItem extends MenuItem {
     cartItemId: string; // ID único para este ítem en el carrito
+    quantity: number; // Cantidad de este ítem
     finalPrice: number;
     selectedAccompaniments: Accompaniment[];
     removedIngredients: Ingredient[];

@@ -92,6 +92,14 @@ export const manageOrderAsAdmin = async (orderId: string, updates: { status?: st
 };
 
 export const uploadPaymentProof = async (orderId: string, file: File, method: string, token: string): Promise<Order> => {
+  console.log('🔄 [Frontend] Enviando comprobante de pago:', {
+    orderId,
+    method,
+    fileName: file.name,
+    fileSize: file.size,
+    fileType: file.type
+  });
+
   const formData = new FormData();
   formData.append('file', file);
   formData.append('method', method);
@@ -105,5 +113,12 @@ export const uploadPaymentProof = async (orderId: string, file: File, method: st
   };
 
   const response = await axios.post(`${API_URL}/${orderId}/proof`, formData, config);
+
+  console.log('✅ [Frontend] Comprobante enviado exitosamente:', {
+    orderId: response.data.id,
+    status: response.data.status,
+    payment_method: response.data.payment_method
+  });
+
   return response.data;
 };

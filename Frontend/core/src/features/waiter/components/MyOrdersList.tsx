@@ -83,26 +83,35 @@ const MyOrdersList: React.FC<MyOrdersListProps> = ({ onSelectOrder, onCheckout, 
               </div>
             </button>
 
-            {/* Botón de Checkout para órdenes entregadas */}
-            {order.status === 'entregado' && onCheckout && !order.payment_method && (
-              <div className="px-3 pb-3">
+            {/* Botón de Checkout para órdenes entregadas o por verificar */}
+            {(order.status === 'entregado' || order.status === 'por_verificar') && onCheckout && (
+              <div className="px-3 pb-3 space-y-2">
+                {order.status === 'por_verificar' && (
+                  <div className="w-full py-2 bg-yellow-100 text-yellow-800 rounded-md text-center text-xs font-medium border border-yellow-300">
+                    ⚠️ Pago pendiente de verificación
+                  </div>
+                )}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     onCheckout(order.id, order.total, order.table_number);
                   }}
-                  className="w-full py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors font-semibold text-sm"
+                  className={`w-full py-2 text-white rounded-md hover:opacity-90 transition-all font-semibold text-sm shadow-md ${
+                    order.status === 'por_verificar' 
+                      ? 'bg-orange-600 hover:bg-orange-700' 
+                      : 'bg-green-600 hover:bg-green-700'
+                  }`}
                 >
-                  💳 Procesar Pago
+                  {order.status === 'por_verificar' ? '🔄 Reintentar Pago' : '💳 Procesar Pago'}
                 </button>
               </div>
             )}
 
-            {/* Indicador de pago en proceso */}
-            {order.status === 'por_verificar' && (
+            {/* Indicador de pago ya procesado */}
+            {order.payment_method && order.status !== 'por_verificar' && (
               <div className="px-3 pb-3">
-                <div className="w-full py-2 bg-yellow-100 text-yellow-800 rounded-md text-center text-sm font-medium">
-                  ⏳ Pago en verificación
+                <div className="w-full py-2 bg-green-100 text-green-800 rounded-md text-center text-sm font-medium border border-green-300">
+                  ✅ Pago procesado
                 </div>
               </div>
             )}

@@ -160,6 +160,33 @@ func (r *orderRepository) GetOrders(filters map[string]interface{}) ([]domain.Or
 	return finalOrders, nil
 }
 
+// loadOrderItems es un método auxiliar privado que carga los items de una orden
+// IMPORTANTE: Este método asegura que SIEMPRE se carguen los items antes de enviar por WebSocket
+func (r *orderRepository) loadOrderItems(orderID uuid.UUID) ([]domain.OrderItem, error) {
+	itemsQuery := `
+		SELECT oi.menu_item_id, mi.name, oi.quantity, oi.price_at_order, oi.notes, oi.customizations
+		FROM order_items oi
+		JOIN menu_items mi ON oi.menu_item_id = mi.id
+		WHERE oi.order_id = $1`
+
+	rows, err := r.db.Query(itemsQuery, orderID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := make([]domain.OrderItem, 0)
+	for rows.Next() {
+		var item domain.OrderItem
+		if err := rows.Scan(&item.MenuItemID, &item.MenuItemName, &item.Quantity, &item.PriceAtOrder, &item.Notes, &item.Customizations); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+
+	return items, nil
+}
+
 func (r *orderRepository) GetOrderByID(orderID uuid.UUID) (*domain.Order, error) {
 	order := &domain.Order{}
 	orderQuery := `SELECT o.id, o.waiter_id, u.username as waiter_name, o.cashier_id, o.table_number, o.status, o.total, o.payment_method, o.payment_proof_path, o.created_at, o.updated_at 
@@ -185,25 +212,10 @@ func (r *orderRepository) GetOrderByID(orderID uuid.UUID) (*domain.Order, error)
 		order.PaymentProofPath = &pp
 	}
 
-	itemsQuery := `
-		SELECT oi.menu_item_id, mi.name, oi.quantity, oi.price_at_order, oi.notes, oi.customizations
-		FROM order_items oi
-		JOIN menu_items mi ON oi.menu_item_id = mi.id
-		WHERE oi.order_id = $1`
-
-	rows, err := r.db.Query(itemsQuery, orderID)
+	// Usar el método auxiliar para cargar items
+	items, err := r.loadOrderItems(orderID)
 	if err != nil {
 		return nil, err
-	}
-	defer rows.Close()
-
-	items := make([]domain.OrderItem, 0)
-	for rows.Next() {
-		var item domain.OrderItem
-		if err := rows.Scan(&item.MenuItemID, &item.MenuItemName, &item.Quantity, &item.PriceAtOrder, &item.Notes, &item.Customizations); err != nil {
-			return nil, err
-		}
-		items = append(items, item)
 	}
 	order.Items = items
 
@@ -226,6 +238,16 @@ func (r *orderRepository) UpdateOrderStatus(orderID, userID uuid.UUID, status st
 	if err := r.db.QueryRow(waiterQuery, order.WaiterID).Scan(&order.WaiterName); err != nil {
 		order.WaiterName = ""
 	}
+
+	// 🔧 CORRECCIÓN: Cargar items antes de devolver la orden
+	// Esto asegura que los eventos WebSocket SIEMPRE incluyan los items
+	items, err := r.loadOrderItems(orderID)
+	if err != nil {
+		// Log del error pero no falla la operación
+		// Ya que el update del status sí se completó
+		return nil, err
+	}
+	order.Items = items
 
 	return order, nil
 }
@@ -259,6 +281,14 @@ func (r *orderRepository) ManageOrder(orderID uuid.UUID, updates map[string]inte
 	if err := r.db.QueryRow(waiterQuery, order.WaiterID).Scan(&order.WaiterName); err != nil {
 		order.WaiterName = ""
 	}
+
+	// 🔧 CORRECCIÓN: Cargar items antes de devolver la orden
+	// Esto asegura que los eventos WebSocket SIEMPRE incluyan los items
+	items, err := r.loadOrderItems(orderID)
+	if err != nil {
+		return nil, err
+	}
+	order.Items = items
 
 	return order, nil
 }
@@ -331,6 +361,15 @@ func (r *orderRepository) AddPaymentProof(orderID uuid.UUID, method string, proo
 	if err := r.db.QueryRow(waiterQuery, order.WaiterID).Scan(&order.WaiterName); err != nil {
 		order.WaiterName = ""
 	}
+
+	// 🔧 CORRECCIÓN CRÍTICA: Cargar items antes de devolver la orden
+	// Esto evita el error "TypeError: can't access property 'slice', S.items is null"
+	// que ocurría cuando el frontend recibía la orden sin items por WebSocket
+	items, err := r.loadOrderItems(orderID)
+	if err != nil {
+		return nil, err
+	}
+	order.Items = items
 
 	return order, nil
 }

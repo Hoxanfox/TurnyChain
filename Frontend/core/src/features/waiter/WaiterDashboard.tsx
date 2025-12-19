@@ -32,6 +32,8 @@ import {
   createCartItemFromCustomization,
   removeItemFromCart,
   updateCartItemPrice,
+  incrementItemQuantity,
+  decrementItemQuantity,
   buildOrderPayload,
   canSendOrder,
   findTableById,
@@ -56,7 +58,6 @@ const WaiterDashboard: React.FC = () => {
   const [checkoutOrderTotal, setCheckoutOrderTotal] = useState<number>(0);
   const [checkoutTableNumber, setCheckoutTableNumber] = useState<number>(0);
   const [isCheckoutBeforeSend, setIsCheckoutBeforeSend] = useState(false);
-  const [_paymentData, setPaymentData] = useState<{ method: string; proofFile: File | null } | null>(null);
 
   useEffect(() => {
     dispatch(fetchTables());
@@ -134,6 +135,14 @@ const WaiterDashboard: React.FC = () => {
     setCart(currentCart => updateCartItemPrice(currentCart, cartItemId, newPrice));
   };
 
+  const handleIncrementQuantity = (cartItemId: string) => {
+    setCart(currentCart => incrementItemQuantity(currentCart, cartItemId));
+  };
+
+  const handleDecrementQuantity = (cartItemId: string) => {
+    setCart(currentCart => decrementItemQuantity(currentCart, cartItemId));
+  };
+
   const handleSendOrder = () => {
     if (!canSendOrder(cart, tableId)) return;
 
@@ -171,9 +180,6 @@ const WaiterDashboard: React.FC = () => {
   };
 
   const handleConfirmPaymentBeforeSend = (paymentMethod: 'efectivo' | 'transferencia', proofFile: File | null) => {
-    // Guardar los datos de pago
-    setPaymentData({ method: paymentMethod, proofFile });
-
     // Cerrar el modal de checkout
     setIsCheckoutBeforeSend(false);
 
@@ -195,7 +201,6 @@ const WaiterDashboard: React.FC = () => {
 
     setCart([]);
     setTableId('');
-    setPaymentData(null);
   };
 
   const selectedTable = findTableById(tables, tableId);
@@ -265,6 +270,8 @@ const WaiterDashboard: React.FC = () => {
                 onSendOrder={handleSendOrder}
                 onEditItem={handleEditCartItem}
                 onUpdateItemPrice={handleUpdateItemPrice}
+                onIncrementQuantity={handleIncrementQuantity}
+                onDecrementQuantity={handleDecrementQuantity}
                 onNavigateToMenu={handleNavigateToMenu}
                 onNavigateBack={handleNavigateToMenu}
               />

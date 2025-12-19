@@ -12,6 +12,8 @@ interface CartSlideProps {
   onSendOrder: () => void;
   onEditItem: (item: CartItem) => void;
   onUpdateItemPrice?: (cartItemId: string, newPrice: number) => void;
+  onIncrementQuantity?: (cartItemId: string) => void;
+  onDecrementQuantity?: (cartItemId: string) => void;
   onNavigateToMenu?: () => void;
   onNavigateBack?: () => void;
 }
@@ -25,6 +27,8 @@ const CartSlide: React.FC<CartSlideProps> = ({
   onSendOrder,
   onEditItem,
   onUpdateItemPrice,
+  onIncrementQuantity,
+  onDecrementQuantity,
   onNavigateToMenu,
   onNavigateBack
 }) => {
@@ -68,6 +72,8 @@ const CartSlide: React.FC<CartSlideProps> = ({
         onSendOrder={onSendOrder}
         onEditItem={onEditItem}
         onUpdateItemPrice={onUpdateItemPrice}
+        onIncrementQuantity={onIncrementQuantity}
+        onDecrementQuantity={onDecrementQuantity}
       />
     </div>
   );

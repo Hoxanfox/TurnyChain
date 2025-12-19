@@ -18,14 +18,23 @@ export const useWebSockets = () => {
 
   useEffect(() => {
     if (!ws.current) {
+      // ✅ Obtener datos del usuario desde localStorage
+      const userId = localStorage.getItem('user_id') || 'unknown';
+      const userRole = localStorage.getItem('user_role') || 'unknown';
+
+      // ✅ Construir URL con query params para roles
       const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-      const wsUrl = `${protocol}://${window.location.host}/ws`;
-      
+      const wsUrl = `${protocol}://${window.location.host}/ws?user_id=${userId}&role=${userRole}`;
+
+      console.log(`🔌 Conectando WebSocket como ${userRole} (${userId})`);
+
       ws.current = new WebSocket(wsUrl);
 
       ws.current.onopen = () => {
-        console.log('Conectado al servidor de WebSockets');
-        
+        console.log('✅ WebSocket conectado exitosamente');
+        console.log(`   - Role: ${userRole}`);
+        console.log(`   - UserID: ${userId}`);
+
         // Iniciar el heartbeat para mantener la conexión viva
         heartbeatInterval.current = setInterval(() => {
           if (ws.current?.readyState === WebSocket.OPEN) {
@@ -38,12 +47,25 @@ export const useWebSockets = () => {
       ws.current.onmessage = (event) => {
         try {
           const message = JSON.parse(event.data);
-          
+          console.log('📨 Mensaje WebSocket recibido:', message);
+
           // Lógica para órdenes
           if (message.type === 'NEW_PENDING_ORDER') {
             dispatch(orderAdded(message.payload as Order));
-          } else if (['ORDER_STATUS_UPDATED', 'ORDER_MANAGED'].includes(message.type)) {
+          } else if (['ORDER_STATUS_UPDATED', 'ORDER_MANAGED', 'ORDER_UPDATED'].includes(message.type)) {
             dispatch(orderUpdated(message.payload as Order));
+          } else if (message.type === 'PAYMENT_VERIFICATION_PENDING') {
+            // ✅ Nueva orden para verificar pago
+            console.log('🔔 Nueva orden para verificar:', message.payload);
+            if (message.payload.order) {
+              dispatch(orderUpdated(message.payload.order as Order));
+            }
+          } else if (message.type === 'ORDER_READY_FOR_PAYMENT') {
+            // ✅ Orden lista para cobrar
+            console.log('💰 Orden lista para cobrar:', message.payload);
+            if (message.payload.order) {
+              dispatch(orderUpdated(message.payload.order as Order));
+            }
           }
 
           // Lógica para el menú
@@ -61,11 +83,15 @@ export const useWebSockets = () => {
       };
 
       ws.current.onclose = () => {
-        console.log('Desconectado del servidor de WebSockets');
+        console.log('👋 WebSocket desconectado');
         // Limpiar el intervalo si la conexión se cierra
         if (heartbeatInterval.current) {
           clearInterval(heartbeatInterval.current);
         }
+      };
+
+      ws.current.onerror = (error) => {
+        console.error('❌ Error en WebSocket:', error);
       };
     }
 

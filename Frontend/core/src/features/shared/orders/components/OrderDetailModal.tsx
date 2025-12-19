@@ -142,12 +142,12 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ orderId, onClose, e
 
   // Debug: Ver qué datos están llegando del backend
   useEffect(() => {
-    if (selectedOrderDetails && selectedOrderDetails.items.length > 0) {
+    if (selectedOrderDetails && (selectedOrderDetails.items?.length || 0) > 0) {
       const firstItem = selectedOrderDetails.items[0];
 
       console.log('🔍 DEBUG - Detalle de Orden (NUEVO FORMATO):', {
         orderId: selectedOrderDetails.id,
-        totalItems: selectedOrderDetails.items.length,
+        totalItems: selectedOrderDetails.items?.length || 0,
         primerItem: firstItem,
         customizations: firstItem.customizations,
         active_ingredients: firstItem.customizations?.active_ingredients || [],
@@ -201,7 +201,7 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ orderId, onClose, e
             )}
             <h3 className="font-bold mt-4 mb-2 border-t pt-2">Ítems:</h3>
             <ul className="space-y-3">
-              {selectedOrderDetails.items.map((item, index) => {
+              {(selectedOrderDetails.items || []).map((item, index) => {
                 return (
                   <li key={index} className="p-3 bg-gray-50 rounded border">
                     {editingItemIndex === index ? (

@@ -74,7 +74,18 @@ export const login = createAsyncThunk(
         role: decodedToken.role,
       };
       
+      // ✅ Guardar datos necesarios para WebSocket
       localStorage.setItem('token', data.token);
+      localStorage.setItem('user_id', decodedToken.sub);
+      localStorage.setItem('user_role', decodedToken.role);
+      localStorage.setItem('username', loggedInUser.username);
+
+      console.log('✅ Login exitoso:', {
+        user_id: decodedToken.sub,
+        role: decodedToken.role,
+        username: loggedInUser.username
+      });
+
       return { token: data.token, user: loggedInUser };
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.error || 'Login fallido');
@@ -92,6 +103,10 @@ export const authSlice = createSlice({
       state.user = null;
       state.token = null;
       localStorage.removeItem('token');
+      localStorage.removeItem('user_id');
+      localStorage.removeItem('user_role');
+      localStorage.removeItem('username');
+      console.log('👋 Logout exitoso');
     },
   },
   extraReducers: (builder) => {

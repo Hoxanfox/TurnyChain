@@ -160,8 +160,11 @@ func (s *orderService) GetOrderByID(orderID uuid.UUID) (*domain.Order, error) {
 }
 
 func (s *orderService) UpdateOrderStatus(orderID, userID uuid.UUID, newStatus string) (*domain.Order, error) {
+	log.Printf("📊 [Service] Actualizando orden %s a estado '%s'", orderID.String(), newStatus)
+
 	updatedOrder, err := s.orderRepo.UpdateOrderStatus(orderID, userID, newStatus)
 	if err != nil {
+		log.Printf("❌ [Service] Error actualizando estado: %v", err)
 		return nil, err
 	}
 
@@ -185,7 +188,33 @@ func (s *orderService) UpdateOrderStatus(orderID, userID uuid.UUID, newStatus st
 	}
 	// -------------------------
 
+	// Broadcast general
 	s.wsHub.BroadcastMessage("ORDER_STATUS_UPDATED", updatedOrder)
+	log.Printf("📡 [Service] Evento 'ORDER_STATUS_UPDATED' emitido para orden %s", orderID.String())
+
+	// Notificar específicamente a cajeros si la orden requiere su atención
+	if newStatus == "por_verificar" {
+		s.wsHub.BroadcastToRole("cashier", "PAYMENT_VERIFICATION_PENDING", map[string]interface{}{
+			"order_id":     updatedOrder.ID.String(),
+			"table_number": updatedOrder.TableNumber,
+			"method":       updatedOrder.PaymentMethod,
+			"total":        updatedOrder.Total,
+			"status":       updatedOrder.Status,
+			"order":        updatedOrder,
+		})
+		log.Printf("📡 [Service] Notificación 'PAYMENT_VERIFICATION_PENDING' enviada a cajeros")
+	} else if newStatus == "entregado" && updatedOrder.PaymentMethod != nil && *updatedOrder.PaymentMethod != "" {
+		// Si una orden entregada tiene método de pago, significa que ya fue rechazada y está lista para reenvío
+		s.wsHub.BroadcastToRole("cashier", "ORDER_READY_FOR_PAYMENT", map[string]interface{}{
+			"order_id":     updatedOrder.ID.String(),
+			"table_number": updatedOrder.TableNumber,
+			"status":       updatedOrder.Status,
+			"has_payment":  true,
+			"order":        updatedOrder,
+		})
+		log.Printf("📡 [Service] Notificación 'ORDER_READY_FOR_PAYMENT' enviada a cajeros")
+	}
+
 	return updatedOrder, nil
 }
 
@@ -232,13 +261,34 @@ func (s *orderService) AddPaymentProof(orderID uuid.UUID, method string, proofPa
 		return nil, errors.New("método de pago inválido")
 	}
 
+	log.Printf("📤 [Backend] Recibiendo comprobante para orden %s", orderID.String())
+	log.Printf("   - Método: %s", method)
+	log.Printf("   - Ruta comprobante: %s", proofPath)
+
 	// Delegar al repositorio. El repositorio pone el status en 'por_verificar' cuando corresponda.
 	order, err := s.orderRepo.AddPaymentProof(orderID, method, proofPath)
 	if err != nil {
+		log.Printf("❌ [Backend] Error al actualizar orden %s: %v", orderID.String(), err)
 		return nil, err
 	}
 
-	// Notificar via WebSocket que la orden cambió
-	s.wsHub.BroadcastMessage("ORDER_PAYMENT_PROOF_UPLOADED", order)
+	log.Printf("✅ [Backend] Orden %s actualizada a estado '%s'", orderID.String(), order.Status)
+
+	// Notificar via WebSocket broadcast general que la orden cambió
+	s.wsHub.BroadcastMessage("ORDER_UPDATED", order)
+	log.Printf("📡 [Backend] Evento broadcast 'ORDER_UPDATED' emitido para orden %s", orderID.String())
+
+	// Notificar específicamente a los cajeros sobre verificación de pago pendiente
+	s.wsHub.BroadcastToRole("cashier", "PAYMENT_VERIFICATION_PENDING", map[string]interface{}{
+		"order_id":     order.ID.String(),
+		"table_number": order.TableNumber,
+		"method":       order.PaymentMethod,
+		"total":        order.Total,
+		"status":       order.Status,
+		"action":       "resubmitted", // Indica que es un reenvío o nuevo envío
+		"order":        order,         // Incluir la orden completa para el frontend
+	})
+	log.Printf("📡 [Backend] Notificación 'PAYMENT_VERIFICATION_PENDING' enviada a cajeros para orden %s", orderID.String())
+
 	return order, nil
 }

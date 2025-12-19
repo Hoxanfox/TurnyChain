@@ -13,7 +13,9 @@ interface CurrentOrderProps {
   onCartAction: (item: CartItem, action: 'delete') => void;
   onSendOrder: () => void;
   onEditItem: (item: CartItem) => void;
-  onUpdateItemPrice?: (cartItemId: string, newPrice: number) => void; // Nueva función para actualizar precio
+  onUpdateItemPrice?: (cartItemId: string, newPrice: number) => void;
+  onIncrementQuantity?: (cartItemId: string) => void; // Nueva función
+  onDecrementQuantity?: (cartItemId: string) => void; // Nueva función
 }
 
 const CurrentOrder: React.FC<CurrentOrderProps> = ({
@@ -24,7 +26,9 @@ const CurrentOrder: React.FC<CurrentOrderProps> = ({
   onCartAction,
   onSendOrder,
   onEditItem,
-  onUpdateItemPrice
+  onUpdateItemPrice,
+  onIncrementQuantity,
+  onDecrementQuantity
 }) => {
   const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
   const [tempPrice, setTempPrice] = useState<number>(0);
@@ -72,6 +76,33 @@ const CurrentOrder: React.FC<CurrentOrderProps> = ({
                 <div className="flex-1">
                   <p className="font-semibold text-base">{item.name}</p>
 
+                  {/* Controles de Cantidad */}
+                  {onIncrementQuantity && onDecrementQuantity && (
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="text-xs font-medium text-gray-600">Cantidad:</span>
+                      <div className="flex items-center gap-1 bg-white border border-gray-300 rounded-md overflow-hidden">
+                        <button
+                          onClick={() => onDecrementQuantity(item.cartItemId)}
+                          disabled={item.quantity <= 1}
+                          className="px-3 py-1 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors font-bold text-lg"
+                          title="Disminuir cantidad"
+                        >
+                          −
+                        </button>
+                        <span className="px-3 py-1 font-bold text-base min-w-[2rem] text-center bg-gray-50">
+                          {item.quantity}
+                        </span>
+                        <button
+                          onClick={() => onIncrementQuantity(item.cartItemId)}
+                          className="px-3 py-1 hover:bg-gray-100 transition-colors font-bold text-lg"
+                          title="Aumentar cantidad"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   {editingPriceId === item.cartItemId ? (
                     <div className="flex items-center gap-2 mt-2">
                       <span className="text-sm font-medium">$</span>
@@ -99,6 +130,11 @@ const CurrentOrder: React.FC<CurrentOrderProps> = ({
                   ) : (
                     <div className="flex items-center gap-2 mt-1">
                       <p className="text-sm font-bold text-green-700">${item.finalPrice.toFixed(2)}</p>
+                      {item.quantity > 1 && (
+                        <span className="text-xs text-gray-500">
+                          (${(item.finalPrice / item.quantity).toFixed(2)} c/u)
+                        </span>
+                      )}
                       {onUpdateItemPrice && (
                         <button
                           onClick={() => handleStartEditPrice(item)}

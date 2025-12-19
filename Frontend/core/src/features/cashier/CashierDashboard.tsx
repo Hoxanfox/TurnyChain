@@ -3,15 +3,15 @@
 // =================================================================
 import React, { useEffect, useState, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchActiveOrders, changeOrderStatus, orderAdded, orderUpdated } from '../shared/orders/api/ordersSlice.ts';
+import { fetchActiveOrders, changeOrderStatus } from '../shared/orders/api/ordersSlice.ts';
 import type { AppDispatch, RootState } from '../../app/store';
 import LogoutButton from '../../components/LogoutButton';
 import OrderDetailModal from '../shared/orders/components/OrderDetailModal.tsx';
 import OrderGridView from '../shared/orders/components/OrderGridView.tsx';
 import type { Order } from '../../types/orders';
 import { getPaymentProofUrl } from '../../utils/imageUtils';
-
-// ============================================================
+import { useCashierWebSocket } from '../../hooks/useCashierWebSocket';
+import { Notification } from '../../components/Notification';
 // Componente para vista rápida del comprobante
 // ============================================================
 interface QuickProofViewProps {
@@ -110,7 +110,7 @@ const QuickProofView: React.FC<QuickProofViewProps> = ({ order, onConfirm, onRej
           <div className="mt-6 pt-4 border-t">
             <h4 className="font-semibold mb-2">Items de la orden:</h4>
             <ul className="space-y-2">
-              {order.items.map((item, idx) => (
+              {(order.items || []).map((item, idx) => (
                 <li key={idx} className="text-sm flex justify-between">
                   <span>
                     {item.quantity}x {item.menu_item_name}
@@ -139,20 +139,19 @@ const CashierDashboard: React.FC = () => {
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<'all' | 'por_verificar'>('all');
   const [quickProofOrder, setQuickProofOrder] = useState<Order | null>(null);
+  const [notification, setNotification] = useState<{
+    title: string;
+    message: string;
+    type: 'info' | 'success' | 'warning' | 'error';
+  } | null>(null);
+
+  // ✅ Usar el hook personalizado de WebSocket para cajero con notificaciones
+  useCashierWebSocket((options) => {
+    setNotification(options);
+  });
 
   useEffect(() => {
     dispatch(fetchActiveOrders());
-
-    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const wsUrl = `${protocol}://${window.location.host}/ws`;
-    const ws = new WebSocket(wsUrl);
-
-    ws.onmessage = (event) => {
-      const message = JSON.parse(event.data);
-      if (message.type === 'NEW_PENDING_ORDER') dispatch(orderAdded(message.payload as Order));
-      else if (['ORDER_STATUS_UPDATED', 'ORDER_MANAGED'].includes(message.type)) dispatch(orderUpdated(message.payload as Order));
-    };
-    return () => { ws.close(); };
   }, [dispatch]);
 
   const ordersByTable = useMemo(() => {
@@ -347,6 +346,16 @@ const CashierDashboard: React.FC = () => {
           onConfirm={() => handleConfirmPayment(quickProofOrder.id)}
           onReject={() => handleRejectPayment(quickProofOrder.id)}
           onClose={() => setQuickProofOrder(null)}
+        />
+      )}
+
+      {/* Notificaciones en tiempo real */}
+      {notification && (
+        <Notification
+          title={notification.title}
+          message={notification.message}
+          type={notification.type}
+          onClose={() => setNotification(null)}
         />
       )}
     </>

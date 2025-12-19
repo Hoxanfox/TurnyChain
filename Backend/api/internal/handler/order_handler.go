@@ -6,6 +6,7 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"time"
@@ -135,17 +136,29 @@ func (h *OrderHandler) UploadPaymentProof(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid order ID"})
 	}
 
+	// Obtener información del usuario desde el token
+	userID := c.Locals("user_id").(string)
+	userRole := c.Locals("user_role").(string)
+
+	log.Printf("📤 [Handler] Recibiendo comprobante para orden %s", orderID.String())
+	log.Printf("   - Usuario: %s (Role: %s)", userID, userRole)
+
 	// Parsear método
 	method := c.FormValue("method")
 	if method == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "payment method is required"})
 	}
 
+	log.Printf("   - Método de pago: %s", method)
+
 	// Obtener el archivo
 	file, err := c.FormFile("file")
 	if err != nil {
+		log.Printf("❌ [Handler] Error al obtener archivo: %v", err)
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "file is required"})
 	}
+
+	log.Printf("   - Archivo recibido: %s (%d bytes)", file.Filename, file.Size)
 
 	// Crear carpeta ./uploads/proofs si no existe
 	uploadDir := "./uploads/proofs"
@@ -159,8 +172,11 @@ func (h *OrderHandler) UploadPaymentProof(c *fiber.Ctx) error {
 	destination := filepath.Join(uploadDir, filename)
 
 	if err := c.SaveFile(file, destination); err != nil {
+		log.Printf("❌ [Handler] Error al guardar archivo: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "could not save file"})
 	}
+
+	log.Printf("💾 [Handler] Archivo guardado en: %s", destination)
 
 	// Guardar la ruta relativa en DB
 	proofPath := "/static/proofs/" + filename
@@ -168,8 +184,11 @@ func (h *OrderHandler) UploadPaymentProof(c *fiber.Ctx) error {
 	if err != nil {
 		// Intentar limpiar el archivo si DB falla
 		_ = os.Remove(destination)
+		log.Printf("❌ [Handler] Error al actualizar orden: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "could not update order with proof"})
 	}
+
+	log.Printf("✅ [Handler] Comprobante procesado exitosamente para orden %s", orderID.String())
 
 	return c.JSON(order)
 }

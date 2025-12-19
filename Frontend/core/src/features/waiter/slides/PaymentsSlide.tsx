@@ -56,13 +56,26 @@ const PaymentsSlide: React.FC<PaymentsSlideProps> = ({ onViewOrderDetails }) => 
   // Filtrar por estado
   const filteredOrders = useMemo(() => {
     if (filterStatus === 'all') return todayOrders;
+    if (filterStatus === 'entregado') {
+      // Por Cobrar: incluir entregadas sin pago Y entregadas con pago pendiente
+      return todayOrders.filter(order => order.status === 'entregado');
+    }
+    if (filterStatus === 'por_verificar') {
+      // En Verificación: solo las que están siendo verificadas
+      return todayOrders.filter(order => order.status === 'por_verificar');
+    }
     return todayOrders.filter(order => order.status === filterStatus);
   }, [todayOrders, filterStatus]);
 
   // Contadores
   const counts = useMemo(() => {
     return {
-      entregado: todayOrders.filter(o => o.status === 'entregado' && !o.payment_method).length,
+      // Por Cobrar: entregadas sin pago Y entregadas con pago pendiente (rechazadas)
+      entregado: todayOrders.filter(o =>
+        (o.status === 'entregado' && !o.payment_method) ||
+        (o.status === 'entregado' && o.payment_method)
+      ).length,
+      // En Verificación: solo las que están siendo verificadas por el cajero
       por_verificar: todayOrders.filter(o => o.status === 'por_verificar').length,
       pagado: todayOrders.filter(o => o.status === 'pagado').length,
     };
@@ -174,9 +187,22 @@ const PaymentsSlide: React.FC<PaymentsSlideProps> = ({ onViewOrderDetails }) => 
                 </div>
                 <div className="text-right">
                   <p className="text-2xl font-bold text-indigo-600">${order.total.toFixed(2)}</p>
-                  <span className={`text-xs font-semibold px-2 py-1 rounded-full ${getStatusBadgeClass(order.status)}`}>
-                    {order.status}
-                  </span>
+                  <div className="flex flex-col items-end gap-1">
+                    <span className={`text-xs font-semibold px-2 py-1 rounded-full ${getStatusBadgeClass(order.status)}`}>
+                      {order.status === 'por_verificar' && '⏳ '}
+                      {order.status}
+                    </span>
+                    {(order.status === 'entregado' && order.payment_method) && (
+                      <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded-full font-bold">
+                        🔄 Pago Rechazado
+                      </span>
+                    )}
+                    {(order.status === 'entregado' && !order.payment_method) && (
+                      <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full font-bold">
+                        ⚠️ Sin Cobrar
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -185,14 +211,14 @@ const PaymentsSlide: React.FC<PaymentsSlideProps> = ({ onViewOrderDetails }) => 
             <div className="p-3 bg-gray-50 border-b">
               <p className="text-xs text-gray-600 font-semibold mb-1">Resumen de la orden:</p>
               <div className="space-y-1">
-                {order.items.slice(0, 3).map((item, idx) => (
+                {(order.items || []).slice(0, 3).map((item, idx) => (
                   <div key={idx} className="flex justify-between text-xs text-gray-700">
                     <span>{item.quantity}x {item.menu_item_name}</span>
                     <span className="font-semibold">${(item.quantity * item.price_at_order).toFixed(2)}</span>
                   </div>
                 ))}
-                {order.items.length > 3 && (
-                  <p className="text-xs text-gray-500 italic">+ {order.items.length - 3} items más...</p>
+                {(order.items?.length || 0) > 3 && (
+                  <p className="text-xs text-gray-500 italic">+ {(order.items?.length || 0) - 3} items más...</p>
                 )}
               </div>
             </div>
@@ -225,6 +251,7 @@ const PaymentsSlide: React.FC<PaymentsSlideProps> = ({ onViewOrderDetails }) => 
                 👁️ Ver Detalles
               </button>
 
+              {/* Botón para cobrar órdenes entregadas sin método de pago */}
               {order.status === 'entregado' && !order.payment_method && (
                 <button
                   onClick={() => handleOpenCheckout(order.id, order.total, order.table_number)}
@@ -234,12 +261,17 @@ const PaymentsSlide: React.FC<PaymentsSlideProps> = ({ onViewOrderDetails }) => 
                 </button>
               )}
 
-              {order.status === 'por_verificar' && (
-                <div className="flex-1 py-2 px-3 bg-yellow-100 text-yellow-800 rounded-lg text-center font-medium text-sm">
-                  ⏳ En verificación
-                </div>
+              {/* Botón para reintentar pago en órdenes por verificar O entregadas con método de pago */}
+              {(order.status === 'por_verificar' || (order.status === 'entregado' && order.payment_method)) && (
+                <button
+                  onClick={() => handleOpenCheckout(order.id, order.total, order.table_number)}
+                  className="flex-1 py-2 px-3 bg-gradient-to-r from-orange-600 to-orange-700 text-white rounded-lg hover:from-orange-700 hover:to-orange-800 transition-all font-bold text-sm shadow-md"
+                >
+                  🔄 Reintentar Pago
+                </button>
               )}
 
+              {/* Indicador visual para órdenes pagadas */}
               {order.status === 'pagado' && (
                 <div className="flex-1 py-2 px-3 bg-blue-100 text-blue-800 rounded-lg text-center font-medium text-sm">
                   ✅ Pagado

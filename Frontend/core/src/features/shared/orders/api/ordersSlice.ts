@@ -95,13 +95,28 @@ export const ordersSlice = createSlice({
       }
     },
     orderUpdated: (state, action: PayloadAction<Order>) => {
-        const index = state.activeOrders.findIndex((order: Order) => order.id === action.payload.id);
+        const updatedOrder = action.payload;
+
+        // 🛡️ Actualizar en activeOrders
+        const index = state.activeOrders.findIndex((order: Order) => order.id === updatedOrder.id);
         if (index !== -1) {
-            state.activeOrders[index] = action.payload;
+            // Preservar items existentes si el payload no trae items
+            const existingItems = state.activeOrders[index].items;
+            state.activeOrders[index] = {
+                ...updatedOrder,
+                items: updatedOrder.items || existingItems || []
+            };
         }
-        const myIndex = state.myOrders.findIndex((order: Order) => order.id === action.payload.id);
+
+        // 🛡️ Actualizar en myOrders
+        const myIndex = state.myOrders.findIndex((order: Order) => order.id === updatedOrder.id);
         if (myIndex !== -1) {
-            state.myOrders[myIndex] = action.payload;
+            // Preservar items existentes si el payload no trae items
+            const existingItems = state.myOrders[myIndex].items;
+            state.myOrders[myIndex] = {
+                ...updatedOrder,
+                items: updatedOrder.items || existingItems || []
+            };
         }
     }
   },
