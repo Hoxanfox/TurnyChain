@@ -37,6 +37,11 @@ const OrderGridView: React.FC<OrderGridViewProps> = ({ orders, renderActions }) 
             </span>
           </div>
 
+          {/* ID de orden corto */}
+          <p className="text-gray-700 text-xs font-mono bg-gray-100 px-2 py-1 rounded mb-2">
+            🆔 #{order.id.slice(0, 8).toUpperCase()}
+          </p>
+
           {/* Información del mesero */}
           <p className="text-gray-600 text-sm font-medium">
             👤 Mesero: {order.waiter_name || order.waiter_id.substring(0, 8)}

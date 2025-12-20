@@ -61,11 +61,13 @@ interface CashierDashboardDesktopProps {
   onSortByChange: (sortBy: SortBy) => void;
   onClearFilters: () => void;
   onExportReport: () => void;
+  onOpenPrintSettings: () => void;
   onCloseNotification: () => void;
   onSelectTable: (tableNumber: number) => void;
   onStatusChange: (orderId: string, status: string) => void;
   onConfirmPayment: (orderId: string) => void;
   onRejectPayment: (orderId: string) => void;
+  onPrintCommand: (orderId: string) => void;
   onViewProof: () => void;
 }
 
@@ -89,11 +91,13 @@ export const CashierDashboardDesktop: React.FC<CashierDashboardDesktopProps> = (
   onSortByChange,
   onClearFilters,
   onExportReport,
+  onOpenPrintSettings,
   onCloseNotification,
   onSelectTable,
   onStatusChange,
   onConfirmPayment,
   onRejectPayment,
+  onPrintCommand,
 }) => {
   const [selectedProofOrder, setSelectedProofOrder] = useState<Order | null>(null);
   const [selectedOrderIdForDetail, setSelectedOrderIdForDetail] = useState<string | null>(null);
@@ -152,6 +156,7 @@ export const CashierDashboardDesktop: React.FC<CashierDashboardDesktopProps> = (
           showStats={showStats}
           onToggleStats={onToggleStats}
           onExportReport={onExportReport}
+          onOpenPrintSettings={onOpenPrintSettings}
           activeFiltersCount={activeFiltersCount}
         />
 
@@ -191,6 +196,7 @@ export const CashierDashboardDesktop: React.FC<CashierDashboardDesktopProps> = (
             onRejectPayment={onRejectPayment}
             onViewProof={(order) => setSelectedProofOrder(order)}
             onViewDetail={(orderId) => setSelectedOrderIdForDetail(orderId)}
+            onPrintCommand={onPrintCommand}
           />
         </div>
 

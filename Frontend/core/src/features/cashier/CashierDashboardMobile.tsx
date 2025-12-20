@@ -10,6 +10,7 @@ import { TableCard } from './components/TableCard';
 import { TableOrdersModal } from './components/TableOrdersModal';
 import { QuickActionsBar } from './components/QuickActionsBar';
 import { Notification } from '../../components/Notification';
+import LogoutButton from '../../components/LogoutButton';
 import OrderDetailModal from '../shared/orders/components/OrderDetailModal';
 
 interface CashierStatistics {
@@ -58,10 +59,12 @@ interface CashierDashboardMobileProps {
   onSortByChange: (sortBy: SortBy) => void;
   onClearFilters: () => void;
   onExportReport: () => void;
+  onOpenPrintSettings: () => void;
   onCloseNotification: () => void;
   onStatusChange: (orderId: string, status: string) => void;
   onConfirmPayment: (orderId: string) => void;
   onRejectPayment: (orderId: string) => void;
+  onPrintCommand: (orderId: string) => void;
 }
 
 export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
@@ -82,10 +85,12 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
   onSortByChange,
   onClearFilters,
   onExportReport,
+  onOpenPrintSettings,
   onCloseNotification,
   onStatusChange,
   onConfirmPayment,
   onRejectPayment,
+  onPrintCommand,
 }) => {
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [selectedTableNumber, setSelectedTableNumber] = useState<number | null>(null);
@@ -155,38 +160,52 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
       {/* Header fijo */}
       <div className="sticky top-0 z-40 bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg">
         <div className="p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <span className="text-3xl">💰</span>
-              <div>
-                <h1 className="text-2xl font-bold">Caja</h1>
-                <p className="text-sm opacity-90">{allOrders.length} órdenes activas</p>
+          <div className="flex items-center justify-between mb-3 gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-3xl flex-shrink-0">💰</span>
+              <div className="min-w-0">
+                <h1 className="text-2xl font-bold truncate">Caja</h1>
+                <p className="text-sm opacity-90 truncate">{allOrders.length} órdenes activas</p>
               </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-1.5 flex-shrink-0 flex-wrap justify-end">
               <button
                 onClick={() => setShowFilterModal(true)}
-                className="relative p-3 bg-white bg-opacity-20 rounded-xl hover:bg-opacity-30 transition-all"
+                className="relative p-2.5 bg-white bg-opacity-20 rounded-xl hover:bg-opacity-30 transition-all"
               >
-                <span className="text-2xl">🔍</span>
+                <span className="text-xl">🔍</span>
                 {activeFiltersCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-4 h-4 flex items-center justify-center">
                     {activeFiltersCount}
                   </span>
                 )}
               </button>
               <button
                 onClick={onToggleStats}
-                className="p-3 bg-white bg-opacity-20 rounded-xl hover:bg-opacity-30 transition-all"
+                className="p-2.5 bg-white bg-opacity-20 rounded-xl hover:bg-opacity-30 transition-all"
               >
-                <span className="text-2xl">📊</span>
+                <span className="text-xl">📊</span>
+              </button>
+              <button
+                onClick={onOpenPrintSettings}
+                className="p-2.5 bg-white bg-opacity-20 rounded-xl hover:bg-opacity-30 transition-all"
+                title="Configurar impresión"
+              >
+                <span className="text-xl">🖨️</span>
               </button>
               <button
                 onClick={onExportReport}
-                className="p-3 bg-white bg-opacity-20 rounded-xl hover:bg-opacity-30 transition-all"
+                className="p-2.5 bg-white bg-opacity-20 rounded-xl hover:bg-opacity-30 transition-all"
               >
-                <span className="text-2xl">📥</span>
+                <span className="text-xl">📥</span>
               </button>
+            </div>
+          </div>
+
+          {/* Botón de cerrar sesión - Nueva fila para mejor responsividad */}
+          <div className="flex justify-end">
+            <div className="bg-white bg-opacity-20 rounded-xl p-1">
+              <LogoutButton />
             </div>
           </div>
 
@@ -361,6 +380,7 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
         onConfirmPayment={onConfirmPayment}
         onRejectPayment={onRejectPayment}
         onViewDetail={(orderId) => setSelectedOrderIdForDetail(orderId)}
+        onPrintCommand={onPrintCommand}
       />
 
       {/* Modal de Detalle de Orden */}

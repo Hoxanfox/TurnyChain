@@ -11,6 +11,7 @@ interface OrdersPanelProps {
   onRejectPayment: (orderId: string) => void;
   onViewProof: (order: Order) => void;
   onViewDetail: (orderId: string) => void;
+  onPrintCommand: (orderId: string) => void;
 }
 
 export const OrdersPanel: React.FC<OrdersPanelProps> = ({
@@ -22,6 +23,7 @@ export const OrdersPanel: React.FC<OrdersPanelProps> = ({
   onRejectPayment,
   onViewProof,
   onViewDetail,
+  onPrintCommand,
 }) => {
   if (isLoading) {
     return (
@@ -75,18 +77,27 @@ export const OrdersPanel: React.FC<OrdersPanelProps> = ({
                 </div>
               </>
             ) : order.status === 'pagado' ? (
-              // Órdenes pagadas: Solo mostrar estado y botón de detalle
+              // Órdenes pagadas: Mostrar estado, botón de detalle y re-imprimir
               <>
                 <div className="w-full px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg text-center font-bold shadow-md">
                   ✓ Pagado Completamente
                 </div>
-                <button
-                  onClick={() => onViewDetail(order.id)}
-                  className="w-full text-center px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
-                >
-                  <span className="text-xl">📋</span>
-                  <span>Ver Detalle Completo</span>
-                </button>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => onViewDetail(order.id)}
+                    className="px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                  >
+                    <span className="text-xl">📋</span>
+                    <span>Detalle</span>
+                  </button>
+                  <button
+                    onClick={() => onPrintCommand(order.id)}
+                    className="px-4 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                  >
+                    <span className="text-xl">🖨️</span>
+                    <span>Imprimir</span>
+                  </button>
+                </div>
               </>
             ) : (
               // Acciones normales para otras órdenes

@@ -6,6 +6,7 @@ interface CashierHeaderProps {
   showStats: boolean;
   onToggleStats: () => void;
   onExportReport: () => void;
+  onOpenPrintSettings: () => void;
   activeFiltersCount?: number;
 }
 
@@ -14,6 +15,7 @@ export const CashierHeader: React.FC<CashierHeaderProps> = ({
   showStats,
   onToggleStats,
   onExportReport,
+  onOpenPrintSettings,
   activeFiltersCount = 0,
 }) => {
   return (
@@ -53,6 +55,13 @@ export const CashierHeader: React.FC<CashierHeaderProps> = ({
             title={showStats ? 'Ocultar estadísticas' : 'Mostrar estadísticas'}
           >
             📊 {showStats ? 'Ocultar' : 'Mostrar'} Stats
+          </button>
+          <button
+            onClick={onOpenPrintSettings}
+            className="px-4 py-2 bg-white text-indigo-600 rounded-lg hover:bg-indigo-50 transition-all font-semibold shadow-lg hover:shadow-xl transform hover:scale-105"
+            title="Configurar impresión de comandas"
+          >
+            🖨️ Impresión
           </button>
           <button
             onClick={onExportReport}

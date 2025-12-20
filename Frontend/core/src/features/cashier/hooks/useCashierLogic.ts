@@ -33,7 +33,7 @@ export const useCashierLogic = (activeOrders: Order[]) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortBy>('time');
 
-  // Estadísticas calculadas
+  // Estadísticas calculadas - SOLO DEL DÍA ACTUAL
   const statistics = useMemo((): CashierStatistics => {
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -45,7 +45,7 @@ export const useCashierLogic = (activeOrders: Order[]) => {
       totalDelivered: 0,
       cashTotal: 0,
       transferTotal: 0,
-      ordersCount: activeOrders.length,
+      ordersCount: 0,
       averageOrderValue: 0,
       // Estadísticas diarias
       dailyRevenue: 0,
@@ -55,14 +55,20 @@ export const useCashierLogic = (activeOrders: Order[]) => {
       dailyAverageTicket: 0,
     };
 
-    activeOrders.forEach((order) => {
+    // FILTRAR SOLO ÓRDENES DEL DÍA ACTUAL
+    const todayOrders = activeOrders.filter((order) => {
       const orderDate = new Date(order.created_at);
-      const isToday = orderDate >= todayStart;
+      return orderDate >= todayStart;
+    });
 
-      // Estadísticas generales
+    stats.ordersCount = todayOrders.length;
+
+    todayOrders.forEach((order) => {
+      // Estadísticas por estado
       switch (order.status) {
         case 'pagado':
           stats.totalPaid += order.total;
+          stats.dailyRevenue += order.total;
           break;
         case 'por_verificar':
           stats.totalVerification += order.total;
@@ -74,25 +80,17 @@ export const useCashierLogic = (activeOrders: Order[]) => {
           stats.totalPending += order.total;
       }
 
-      if (order.payment_method === 'efectivo') {
-        stats.cashTotal += order.total;
-      } else if (order.payment_method === 'transferencia') {
-        stats.transferTotal += order.total;
-      }
+      // Contador de órdenes del día
+      stats.dailyOrdersCount++;
 
-      // Estadísticas diarias (solo órdenes del día actual)
-      if (isToday) {
-        stats.dailyOrdersCount++;
-
-        // Solo contar en ingresos las órdenes pagadas (verificadas)
-        if (order.status === 'pagado') {
-          stats.dailyRevenue += order.total;
-
-          if (order.payment_method === 'efectivo') {
-            stats.dailyCash += order.total;
-          } else if (order.payment_method === 'transferencia') {
-            stats.dailyTransfer += order.total;
-          }
+      // Estadísticas por método de pago (solo para órdenes pagadas)
+      if (order.status === 'pagado') {
+        if (order.payment_method === 'efectivo') {
+          stats.cashTotal += order.total;
+          stats.dailyCash += order.total;
+        } else if (order.payment_method === 'transferencia') {
+          stats.transferTotal += order.total;
+          stats.dailyTransfer += order.total;
         }
       }
     });
@@ -108,14 +106,29 @@ export const useCashierLogic = (activeOrders: Order[]) => {
     return stats;
   }, [activeOrders]);
 
-  // Conteo de órdenes por verificar
+  // Conteo de órdenes por verificar (solo del día actual)
   const pendingVerificationCount = useMemo(() => {
-    return activeOrders.filter((order) => order.status === 'por_verificar').length;
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    return activeOrders.filter((order) => {
+      const orderDate = new Date(order.created_at);
+      const isToday = orderDate >= todayStart;
+      return isToday && order.status === 'por_verificar';
+    }).length;
   }, [activeOrders]);
 
-  // Filtrado y búsqueda de órdenes
+  // Filtrado y búsqueda de órdenes - SOLO DEL DÍA ACTUAL
   const filteredOrders = useMemo(() => {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
     return activeOrders.filter((order) => {
+      // FILTRO PRINCIPAL: Solo órdenes del día actual
+      const orderDate = new Date(order.created_at);
+      const isToday = orderDate >= todayStart;
+      if (!isToday) return false;
+
       // Filtro por estado
       if (filterStatus !== 'all' && order.status !== filterStatus) {
         return false;

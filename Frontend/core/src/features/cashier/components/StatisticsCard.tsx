@@ -45,14 +45,14 @@ export const StatisticsCard: React.FC<StatisticsCardProps> = ({ stats }) => {
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-4">
           <span className="text-2xl">💰</span>
-          <h3 className="text-lg font-bold text-gray-700">Resumen del Día (Solo Pagos Verificados)</h3>
+          <h3 className="text-lg font-bold text-gray-700">Ingresos del Día</h3>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Ingresos Totales del Día */}
           <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 p-6 rounded-xl border-2 border-emerald-300 shadow-lg hover:shadow-xl transition-all">
             <div className="flex items-center justify-between mb-2">
-              <p className="text-sm text-emerald-700 font-bold uppercase tracking-wide">Ingresos del Día</p>
+              <p className="text-sm text-emerald-700 font-bold uppercase tracking-wide">Total del Día</p>
               <span className="text-4xl">💵</span>
             </div>
             <p className="text-4xl font-extrabold text-emerald-900">${stats.dailyRevenue.toFixed(2)}</p>
@@ -103,7 +103,7 @@ export const StatisticsCard: React.FC<StatisticsCardProps> = ({ stats }) => {
       <div className="border-t-2 border-gray-100 pt-6">
         <div className="flex items-center gap-2 mb-4">
           <span className="text-2xl">📋</span>
-          <h3 className="text-lg font-bold text-gray-700">Estado Actual de Órdenes</h3>
+          <h3 className="text-lg font-bold text-gray-700">Estado Actual de Órdenes (Hoy)</h3>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
@@ -113,7 +113,7 @@ export const StatisticsCard: React.FC<StatisticsCardProps> = ({ stats }) => {
               <span className="text-2xl">📝</span>
             </div>
             <p className="text-2xl font-bold text-slate-900">{stats.totalOrders}</p>
-            <p className="text-xs text-slate-500 mt-1">Activas en sistema</p>
+            <p className="text-xs text-slate-500 mt-1">Órdenes del día</p>
           </div>
 
           <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 p-4 rounded-xl border-2 border-yellow-200 shadow-sm">
@@ -136,11 +136,11 @@ export const StatisticsCard: React.FC<StatisticsCardProps> = ({ stats }) => {
 
           <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 p-4 rounded-xl border-2 border-indigo-200 shadow-sm">
             <div className="flex items-center justify-between mb-2">
-              <p className="text-xs text-indigo-600 font-semibold">Total Recaudado</p>
-              <span className="text-2xl">💎</span>
+              <p className="text-xs text-indigo-600 font-semibold">En Proceso</p>
+              <span className="text-2xl">🔄</span>
             </div>
-            <p className="text-2xl font-bold text-indigo-900">${stats.totalRevenue.toFixed(2)}</p>
-            <p className="text-xs text-indigo-500 mt-1">Desde el inicio</p>
+            <p className="text-2xl font-bold text-indigo-900">${(stats.totalRevenue - stats.dailyRevenue).toFixed(2)}</p>
+            <p className="text-xs text-indigo-500 mt-1">Pendiente de pago</p>
           </div>
         </div>
 
