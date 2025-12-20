@@ -9,6 +9,7 @@ interface CurrentOrderProps {
   cart: CartItem[];
   tableId: string;
   tables: Table[];
+  orderType: string; // "mesa" | "llevar" | "domicilio"
   onTableChange: (value: string) => void;
   onCartAction: (item: CartItem, action: 'delete') => void;
   onSendOrder: () => void;
@@ -16,19 +17,22 @@ interface CurrentOrderProps {
   onUpdateItemPrice?: (cartItemId: string, newPrice: number) => void;
   onIncrementQuantity?: (cartItemId: string) => void; // Nueva función
   onDecrementQuantity?: (cartItemId: string) => void; // Nueva función
+  onToggleTakeout?: (cartItemId: string) => void; // Nueva función para toggle is_takeout
 }
 
 const CurrentOrder: React.FC<CurrentOrderProps> = ({
   cart,
   tableId,
   tables,
+  orderType,
   onTableChange,
   onCartAction,
   onSendOrder,
   onEditItem,
   onUpdateItemPrice,
   onIncrementQuantity,
-  onDecrementQuantity
+  onDecrementQuantity,
+  onToggleTakeout
 }) => {
   const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
   const [tempPrice, setTempPrice] = useState<number>(0);
@@ -100,6 +104,35 @@ const CurrentOrder: React.FC<CurrentOrderProps> = ({
                           +
                         </button>
                       </div>
+                    </div>
+                  )}
+
+                  {/* Toggle Para Llevar/Mesa (solo si orderType es "mesa") */}
+                  {orderType === 'mesa' && onToggleTakeout && (
+                    <div className="mt-2">
+                      <button
+                        onClick={() => onToggleTakeout(item.cartItemId)}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border-2 transition-all ${
+                          item.is_takeout
+                            ? 'bg-green-100 border-green-400 text-green-800 hover:bg-green-200'
+                            : 'bg-indigo-100 border-indigo-400 text-indigo-800 hover:bg-indigo-200'
+                        }`}
+                      >
+                        <span className="text-lg">{item.is_takeout ? '🥡' : '🍽️'}</span>
+                        <span className="text-xs font-semibold">
+                          {item.is_takeout ? 'Para Llevar' : 'Comer Aquí'}
+                        </span>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Mostrar badge si es llevar o domicilio */}
+                  {(orderType === 'llevar' || orderType === 'domicilio') && (
+                    <div className="mt-2">
+                      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-green-100 border border-green-300 text-green-800 text-xs font-semibold">
+                        <span className="text-base">🥡</span>
+                        Para Llevar (automático)
+                      </span>
                     </div>
                   )}
 

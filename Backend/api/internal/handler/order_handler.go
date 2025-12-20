@@ -26,8 +26,12 @@ func NewOrderHandler(s service.OrderService) *OrderHandler {
 }
 
 type CreateOrderPayload struct {
-	TableNumber int                `json:"table_number"`
-	Items       []domain.OrderItem `json:"items"`
+	TableNumber     int                `json:"table_number"`
+	OrderType       string             `json:"order_type"`       // "mesa", "llevar", "domicilio"
+	DeliveryAddress *string            `json:"delivery_address"` // Requerido si order_type = "domicilio"
+	DeliveryPhone   *string            `json:"delivery_phone"`   // Requerido si order_type = "domicilio"
+	DeliveryNotes   *string            `json:"delivery_notes"`   // Opcional
+	Items           []domain.OrderItem `json:"items"`
 }
 
 func (h *OrderHandler) CreateOrder(c *fiber.Ctx) error {
@@ -36,7 +40,7 @@ func (h *OrderHandler) CreateOrder(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse JSON"})
 	}
 	waiterID, _ := uuid.Parse(c.Locals("user_id").(string))
-	order, err := h.orderService.CreateOrder(waiterID, payload.TableNumber, payload.Items)
+	order, err := h.orderService.CreateOrder(waiterID, payload.TableNumber, payload.OrderType, payload.DeliveryAddress, payload.DeliveryPhone, payload.DeliveryNotes, payload.Items)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -223,7 +227,7 @@ func (h *OrderHandler) CreateOrderWithPayment(c *fiber.Ctx) error {
 	}
 
 	// 4. Crear la orden primero
-	order, err := h.orderService.CreateOrder(waiterID, payload.TableNumber, payload.Items)
+	order, err := h.orderService.CreateOrder(waiterID, payload.TableNumber, payload.OrderType, payload.DeliveryAddress, payload.DeliveryPhone, payload.DeliveryNotes, payload.Items)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}

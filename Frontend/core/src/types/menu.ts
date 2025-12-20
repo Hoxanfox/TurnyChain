@@ -23,4 +23,5 @@ export interface CartItem extends MenuItem {
     selectedAccompaniments: Accompaniment[];
     removedIngredients: Ingredient[];
     notes?: string;
+    is_takeout?: boolean; // Nuevo: indica si el item es para llevar
 }

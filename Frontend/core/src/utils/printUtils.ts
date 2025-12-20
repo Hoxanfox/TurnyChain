@@ -67,6 +67,13 @@ export const generateCommandHTML = (order: Order, settings: PrintSettings): stri
     minute: '2-digit',
   });
 
+  // Determinar icono y etiqueta según tipo de orden
+  const orderTypeInfo = order.order_type === 'llevar'
+    ? { icon: '🥡', label: 'PARA LLEVAR', color: '#10b981' }
+    : order.order_type === 'domicilio'
+    ? { icon: '🏍️', label: 'DOMICILIO', color: '#8b5cf6' }
+    : { icon: '🍽️', label: 'EN MESA', color: '#6366f1' };
+
   // Calcular subtotales
   const itemsHTML = order.items
     .map((item) => {
@@ -109,6 +116,15 @@ export const generateCommandHTML = (order: Order, settings: PrintSettings): stri
         }
       }
 
+      // Badge de Para Llevar / Comer Aquí
+      const takeoutBadge = item.is_takeout !== undefined
+        ? `
+        <div class="takeout-badge ${item.is_takeout ? 'takeout' : 'dine-in'}">
+          ${item.is_takeout ? '🥡 PARA LLEVAR' : '🍽️ COMER AQUÍ'}
+        </div>
+      `
+        : '';
+
       // Notas especiales
       const notesHTML = item.notes
         ? `
@@ -126,6 +142,7 @@ export const generateCommandHTML = (order: Order, settings: PrintSettings): stri
             <div class="item-name">${item.menu_item_name}</div>
             <div class="item-price">$${subtotal.toFixed(2)}</div>
           </div>
+          ${takeoutBadge}
           <div class="item-details">
             ${customizationsHTML}
             ${notesHTML}
@@ -141,6 +158,31 @@ export const generateCommandHTML = (order: Order, settings: PrintSettings): stri
     <div class="logo-section">
       <div class="logo">🍽️</div>
       <div class="restaurant-name">TURNY CHAIN</div>
+    </div>
+  `
+    : '';
+
+  // Sección de datos de domicilio (si aplica)
+  const deliveryInfoHTML = order.order_type === 'domicilio' && order.delivery_address
+    ? `
+    <div class="delivery-info">
+      <div class="delivery-header">
+        🏍️ DATOS DE ENTREGA 🏍️
+      </div>
+      <div class="delivery-item">
+        <span class="delivery-label">📍 Dirección:</span>
+        <span class="delivery-value">${order.delivery_address}</span>
+      </div>
+      <div class="delivery-item">
+        <span class="delivery-label">📞 Teléfono:</span>
+        <span class="delivery-value">${order.delivery_phone}</span>
+      </div>
+      ${order.delivery_notes ? `
+      <div class="delivery-item">
+        <span class="delivery-label">💬 Notas:</span>
+        <span class="delivery-value">${order.delivery_notes}</span>
+      </div>
+      ` : ''}
     </div>
   `
     : '';
@@ -235,6 +277,50 @@ export const generateCommandHTML = (order: Order, settings: PrintSettings): stri
           border: 1px solid #000;
         }
 
+        /* Tipo de Orden */
+        .order-type-badge {
+          text-align: center;
+          font-weight: bold;
+          font-size: 14px;
+          margin: 10px 0;
+          padding: 8px;
+          border: 2px solid #000;
+          border-radius: 5px;
+        }
+
+        /* Datos de Entrega */
+        .delivery-info {
+          margin: 15px 0;
+          padding: 10px;
+          border: 2px solid #8b5cf6;
+          border-radius: 5px;
+          background: #f3f0ff;
+        }
+
+        .delivery-header {
+          text-align: center;
+          font-weight: bold;
+          font-size: 14px;
+          margin-bottom: 8px;
+          padding-bottom: 5px;
+          border-bottom: 1px dashed #8b5cf6;
+        }
+
+        .delivery-item {
+          margin: 5px 0;
+          font-size: 11px;
+        }
+
+        .delivery-label {
+          font-weight: bold;
+          display: inline-block;
+          min-width: 80px;
+        }
+
+        .delivery-value {
+          word-wrap: break-word;
+        }
+
         /* Items de la orden */
         .order-items {
           margin: 15px 0;
@@ -301,6 +387,29 @@ export const generateCommandHTML = (order: Order, settings: PrintSettings): stri
           margin-left: 10px;
           padding: 2px 0;
           font-size: 11px;
+        }
+
+        /* Badge de Para Llevar / Comer Aquí */
+        .takeout-badge {
+          margin: 8px 0 8px 35px;
+          padding: 4px 8px;
+          border-radius: 4px;
+          font-size: 10px;
+          font-weight: bold;
+          text-align: center;
+          display: inline-block;
+        }
+
+        .takeout-badge.takeout {
+          background: #10b981;
+          color: white;
+          border: 2px solid #059669;
+        }
+
+        .takeout-badge.dine-in {
+          background: #6366f1;
+          color: white;
+          border: 2px solid #4f46e5;
         }
 
         /* Notas */
@@ -394,6 +503,11 @@ export const generateCommandHTML = (order: Order, settings: PrintSettings): stri
         ⚡ COMANDA DE COCINA ⚡
       </div>
 
+      <!-- Badge de Tipo de Orden -->
+      <div class="order-type-badge" style="background-color: ${orderTypeInfo.color}; color: white;">
+        ${orderTypeInfo.icon} ${orderTypeInfo.label} ${orderTypeInfo.icon}
+      </div>
+
       <div class="order-info">
         <div class="info-row">
           <span class="info-label">📅 Fecha:</span>
@@ -405,7 +519,7 @@ export const generateCommandHTML = (order: Order, settings: PrintSettings): stri
         </div>
         <div class="info-row">
           <span class="info-label">🪑 Mesa:</span>
-          <span>${order.table_number}</span>
+          <span>${order.table_number}${order.table_number >= 9998 ? ' (Virtual)' : ''}</span>
         </div>
         <div class="info-row">
           <span class="info-label">👤 Mesero:</span>
@@ -416,6 +530,8 @@ export const generateCommandHTML = (order: Order, settings: PrintSettings): stri
       <div class="order-id">
         Pedido: #${order.id.slice(0, 8).toUpperCase()}
       </div>
+
+      ${deliveryInfoHTML}
 
       <div class="order-items">
         ${itemsHTML}

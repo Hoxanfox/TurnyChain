@@ -34,11 +34,15 @@ import {
   updateCartItemPrice,
   incrementItemQuantity,
   decrementItemQuantity,
+  toggleItemTakeout,
   buildOrderPayload,
   canSendOrder,
   findTableById,
   type CustomizationData
 } from './utils/waiterUtils.ts';
+
+// Importar el modal de delivery
+import DeliveryInfoModal from './components/DeliveryInfoModal';
 
 const WaiterDashboard: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -48,6 +52,13 @@ const WaiterDashboard: React.FC = () => {
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [tableId, setTableId] = useState('');
+  const [orderType, setOrderType] = useState<string>('mesa'); // "mesa" | "llevar" | "domicilio"
+  const [deliveryData, setDeliveryData] = useState<{
+    address: string;
+    phone: string;
+    notes?: string;
+  } | null>(null);
+  const [showDeliveryModal, setShowDeliveryModal] = useState(false);
   const [customizingItem, setCustomizingItem] = useState<MenuItem | null>(null);
   const [editingCartItem, setEditingCartItem] = useState<CartItem | null>(null);
   const [viewingOrderId, setViewingOrderId] = useState<string | null>(null);
@@ -104,6 +115,18 @@ const WaiterDashboard: React.FC = () => {
     setTableId(selectedTableId);
   };
 
+  const handleOrderTypeChange = (newOrderType: string) => {
+    setOrderType(newOrderType);
+    // Limpiar datos de delivery si cambia de tipo
+    if (newOrderType !== 'domicilio') {
+      setDeliveryData(null);
+    }
+  };
+
+  const handleToggleTakeout = (cartItemId: string) => {
+    setCart(currentCart => toggleItemTakeout(currentCart, cartItemId));
+  };
+
   const handleTableSelectedAndNavigate = () => {
     // Navegar automáticamente al menú cuando se selecciona una mesa
     swiperRef.current?.slideNext();
@@ -146,6 +169,12 @@ const WaiterDashboard: React.FC = () => {
   const handleSendOrder = () => {
     if (!canSendOrder(cart, tableId)) return;
 
+    // Si es domicilio y no hay datos de entrega, mostrar modal
+    if (orderType === 'domicilio' && !deliveryData) {
+      setShowDeliveryModal(true);
+      return;
+    }
+
     // Calcular el total del carrito
     const total = cart.reduce((sum, item) => sum + item.finalPrice, 0);
     const selectedTable = findTableById(tables, tableId);
@@ -156,6 +185,18 @@ const WaiterDashboard: React.FC = () => {
     setCheckoutOrderTotal(total);
     setCheckoutTableNumber(selectedTable.table_number);
     setIsCheckoutBeforeSend(true);
+  };
+
+  const handleDeliveryInfoConfirm = (data: {
+    address: string;
+    phone: string;
+    notes?: string;
+  }) => {
+    setDeliveryData(data);
+    setShowDeliveryModal(false);
+
+    // Continuar con el proceso de envío
+    handleSendOrder();
   };
 
   const handleSelectOrder = (orderId: string) => {
@@ -184,7 +225,7 @@ const WaiterDashboard: React.FC = () => {
     setIsCheckoutBeforeSend(false);
 
     // Ahora sí enviar la orden con los datos de pago
-    const payload = buildOrderPayload(cart, tableId, tables);
+    const payload = buildOrderPayload(cart, tableId, tables, orderType, deliveryData || undefined);
     if (!payload) return;
 
     console.log("Enviando payload de la orden al backend con datos de pago:", {
@@ -201,6 +242,8 @@ const WaiterDashboard: React.FC = () => {
 
     setCart([]);
     setTableId('');
+    setOrderType('mesa');
+    setDeliveryData(null);
   };
 
   const selectedTable = findTableById(tables, tableId);
@@ -244,7 +287,9 @@ const WaiterDashboard: React.FC = () => {
             <SwiperSlide>
               <TablesSlide
                 selectedTableId={tableId}
+                orderType={orderType}
                 onSelectTable={handleSelectTable}
+                onOrderTypeChange={handleOrderTypeChange}
                 onRequestChangeSlide={handleTableSelectedAndNavigate}
               />
             </SwiperSlide>
@@ -254,6 +299,7 @@ const WaiterDashboard: React.FC = () => {
               <MenuSlide
                 selectedTableId={tableId}
                 tableNumber={selectedTable?.table_number}
+                orderType={orderType}
                 onAddToCart={handleAddToCart}
                 onNavigateBack={handleNavigateToTables}
               />
@@ -265,6 +311,7 @@ const WaiterDashboard: React.FC = () => {
                 cart={cart}
                 tableId={tableId}
                 tables={tables}
+                orderType={orderType}
                 onTableChange={setTableId}
                 onCartAction={handleCartAction}
                 onSendOrder={handleSendOrder}
@@ -272,6 +319,7 @@ const WaiterDashboard: React.FC = () => {
                 onUpdateItemPrice={handleUpdateItemPrice}
                 onIncrementQuantity={handleIncrementQuantity}
                 onDecrementQuantity={handleDecrementQuantity}
+                onToggleTakeout={handleToggleTakeout}
                 onNavigateToMenu={handleNavigateToMenu}
                 onNavigateBack={handleNavigateToMenu}
               />
@@ -379,6 +427,12 @@ const WaiterDashboard: React.FC = () => {
           tableNumber={checkoutTableNumber}
           onClose={() => setIsCheckoutBeforeSend(false)}
           onConfirm={handleConfirmPaymentBeforeSend}
+        />
+      )}
+      {showDeliveryModal && (
+        <DeliveryInfoModal
+          onClose={() => setShowDeliveryModal(false)}
+          onConfirm={handleDeliveryInfoConfirm}
         />
       )}
     </>

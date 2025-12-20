@@ -54,6 +54,12 @@ type Order struct {
 	Items       []OrderItem `json:"items"`
 	CreatedAt   time.Time   `json:"created_at" db:"created_at"`
 	UpdatedAt   time.Time   `json:"updated_at" db:"updated_at"`
+	// Tipo de orden: "mesa" (permite híbridos), "llevar" (todo empacado), "domicilio" (todo empacado + dirección)
+	OrderType string `json:"order_type" db:"order_type"`
+	// Campos para órdenes a domicilio (solo cuando order_type = "domicilio")
+	DeliveryAddress *string `json:"delivery_address,omitempty" db:"delivery_address"`
+	DeliveryPhone   *string `json:"delivery_phone,omitempty" db:"delivery_phone"`
+	DeliveryNotes   *string `json:"delivery_notes,omitempty" db:"delivery_notes"`
 	// Nuevos campos para el flujo de pago con evidencia
 	PaymentMethod    *string `json:"payment_method,omitempty" db:"payment_method"`
 	PaymentProofPath *string `json:"payment_proof_path,omitempty" db:"payment_proof_path"`
@@ -67,4 +73,5 @@ type OrderItem struct {
 	Notes               *string              `json:"notes,omitempty" db:"notes"`
 	Customizations      Customizations       `json:"customizations" db:"customizations"`
 	CustomizationsInput *CustomizationsInput `json:"customizations_input,omitempty" db:"-"` // Solo para input, no se guarda en BD
+	IsTakeout           bool                 `json:"is_takeout" db:"is_takeout"`            // Indica si este item específico es para llevar
 }

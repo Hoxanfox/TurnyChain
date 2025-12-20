@@ -7,6 +7,7 @@ interface CartSlideProps {
   cart: CartItem[];
   tableId: string;
   tables: Table[];
+  orderType: string; // "mesa" | "llevar" | "domicilio"
   onTableChange: (value: string) => void;
   onCartAction: (item: CartItem, action: 'delete') => void;
   onSendOrder: () => void;
@@ -14,6 +15,7 @@ interface CartSlideProps {
   onUpdateItemPrice?: (cartItemId: string, newPrice: number) => void;
   onIncrementQuantity?: (cartItemId: string) => void;
   onDecrementQuantity?: (cartItemId: string) => void;
+  onToggleTakeout?: (cartItemId: string) => void;
   onNavigateToMenu?: () => void;
   onNavigateBack?: () => void;
 }
@@ -22,6 +24,7 @@ const CartSlide: React.FC<CartSlideProps> = ({
   cart,
   tableId,
   tables,
+  orderType,
   onTableChange,
   onCartAction,
   onSendOrder,
@@ -29,6 +32,7 @@ const CartSlide: React.FC<CartSlideProps> = ({
   onUpdateItemPrice,
   onIncrementQuantity,
   onDecrementQuantity,
+  onToggleTakeout,
   onNavigateToMenu,
   onNavigateBack
 }) => {
@@ -67,6 +71,7 @@ const CartSlide: React.FC<CartSlideProps> = ({
         cart={cart}
         tableId={tableId}
         tables={tables}
+        orderType={orderType}
         onTableChange={onTableChange}
         onCartAction={onCartAction}
         onSendOrder={onSendOrder}
@@ -74,6 +79,7 @@ const CartSlide: React.FC<CartSlideProps> = ({
         onUpdateItemPrice={onUpdateItemPrice}
         onIncrementQuantity={onIncrementQuantity}
         onDecrementQuantity={onDecrementQuantity}
+        onToggleTakeout={onToggleTakeout}
       />
     </div>
   );

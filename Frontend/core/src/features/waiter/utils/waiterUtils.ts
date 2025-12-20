@@ -112,13 +112,34 @@ export const decrementItemQuantity = (
 };
 
 /**
+ * Alterna el estado is_takeout de un item en el carrito
+ */
+export const toggleItemTakeout = (
+  cart: CartItem[],
+  cartItemId: string
+): CartItem[] => {
+  return cart.map(item =>
+    item.cartItemId === cartItemId
+      ? { ...item, is_takeout: !item.is_takeout }
+      : item
+  );
+};
+
+/**
  * Construye el payload para enviar una orden al backend
  * NUEVO FORMATO: Envía solo los IDs de lo que NO quiere el cliente
+ * Incluye order_type y campos de domicilio
  */
 export const buildOrderPayload = (
   cart: CartItem[],
   tableId: string,
-  tables: Table[]
+  tables: Table[],
+  orderType: string = 'mesa',
+  deliveryData?: {
+    address: string;
+    phone: string;
+    notes?: string;
+  }
 ) => {
   const selectedTable = tables.find(t => t.id === tableId);
   if (!selectedTable) return null;
@@ -138,11 +159,17 @@ export const buildOrderPayload = (
     // Calcular el precio unitario
     const pricePerUnit = item.finalPrice / item.quantity;
 
+    // Para llevar y domicilio, forzar is_takeout = true
+    const isTakeout = orderType === 'llevar' || orderType === 'domicilio'
+      ? true
+      : (item.is_takeout || false);
+
     return {
       menu_item_id: item.id,
       quantity: item.quantity, // Usar la cantidad del carrito
       price_at_order: pricePerUnit, // Precio unitario
       notes: item.notes,
+      is_takeout: isTakeout,
       customizations_input: {
         removed_ingredient_ids: removedIngredientIds,
         unselected_accompaniment_ids: unselectedAccompanimentIds,
@@ -150,11 +177,23 @@ export const buildOrderPayload = (
     };
   });
 
-  return {
+  const payload: any = {
     table_id: tableId,
     table_number: selectedTable.table_number,
+    order_type: orderType,
     items: orderItems
   };
+
+  // Agregar campos de domicilio si es necesario
+  if (orderType === 'domicilio' && deliveryData) {
+    payload.delivery_address = deliveryData.address;
+    payload.delivery_phone = deliveryData.phone;
+    if (deliveryData.notes) {
+      payload.delivery_notes = deliveryData.notes;
+    }
+  }
+
+  return payload;
 };
 
 /**

@@ -14,7 +14,7 @@ import (
 )
 
 type OrderService interface {
-	CreateOrder(waiterID uuid.UUID, tableNumber int, items []domain.OrderItem) (*domain.Order, error)
+	CreateOrder(waiterID uuid.UUID, tableNumber int, orderType string, deliveryAddress, deliveryPhone, deliveryNotes *string, items []domain.OrderItem) (*domain.Order, error)
 	GetOrders(userRole string, userID uuid.UUID, status string, myOrders string) ([]domain.Order, error)
 	GetOrderByID(orderID uuid.UUID) (*domain.Order, error)
 	UpdateOrderStatus(orderID, userID uuid.UUID, newStatus string) (*domain.Order, error)
@@ -53,14 +53,59 @@ func NewOrderService(
 	}
 }
 
-func (s *orderService) CreateOrder(waiterID uuid.UUID, tableNumber int, items []domain.OrderItem) (*domain.Order, error) {
+func (s *orderService) CreateOrder(waiterID uuid.UUID, tableNumber int, orderType string, deliveryAddress, deliveryPhone, deliveryNotes *string, items []domain.OrderItem) (*domain.Order, error) {
 	if len(items) == 0 {
 		return nil, errors.New("la orden no puede estar vacía")
 	}
 
-	table, err := s.tableRepo.GetByNumber(tableNumber)
-	if err != nil {
-		return nil, errors.New("la mesa seleccionada no es válida o no está activa")
+	// 1. Validar order_type
+	if orderType == "" {
+		orderType = "mesa" // Default
+	}
+	if orderType != "mesa" && orderType != "llevar" && orderType != "domicilio" {
+		return nil, errors.New("order_type inválido. Debe ser: mesa, llevar o domicilio")
+	}
+
+	// 2. Validar campos obligatorios para domicilio
+	if orderType == "domicilio" {
+		if deliveryAddress == nil || *deliveryAddress == "" {
+			return nil, errors.New("delivery_address es obligatorio para órdenes a domicilio")
+		}
+		if deliveryPhone == nil || *deliveryPhone == "" {
+			return nil, errors.New("delivery_phone es obligatorio para órdenes a domicilio")
+		}
+	}
+
+	// 3. Determinar mesa según tipo de orden
+	var table *domain.Table
+	var err error
+
+	if orderType == "domicilio" {
+		// Usar mesa virtual 9998 para domicilios
+		table, err = s.tableRepo.GetByNumber(9998)
+		if err != nil {
+			return nil, errors.New("mesa virtual para domicilios no está configurada")
+		}
+	} else if orderType == "llevar" {
+		// Usar mesa virtual 9999 para llevar
+		table, err = s.tableRepo.GetByNumber(9999)
+		if err != nil {
+			return nil, errors.New("mesa virtual para llevar no está configurada")
+		}
+	} else {
+		// Para "mesa", usar el número de mesa proporcionado
+		table, err = s.tableRepo.GetByNumber(tableNumber)
+		if err != nil {
+			return nil, errors.New("la mesa seleccionada no es válida o no está activa")
+		}
+	}
+
+	// 4. Forzar is_takeout según el tipo de orden
+	for i := range items {
+		if orderType == "llevar" || orderType == "domicilio" {
+			items[i].IsTakeout = true // FORZAR A TRUE
+		}
+		// Si es "mesa", respetar el valor que viene del frontend
 	}
 
 	// Procesar customizaciones para cada item
@@ -121,12 +166,16 @@ func (s *orderService) CreateOrder(waiterID uuid.UUID, tableNumber int, items []
 	}
 
 	order := &domain.Order{
-		WaiterID:    waiterID,
-		TableID:     table.ID,
-		TableNumber: tableNumber,
-		Status:      "pendiente_aprobacion",
-		Total:       total,
-		Items:       items,
+		WaiterID:        waiterID,
+		TableID:         table.ID,
+		TableNumber:     table.TableNumber,
+		Status:          "pendiente_aprobacion",
+		Total:           total,
+		Items:           items,
+		OrderType:       orderType,
+		DeliveryAddress: deliveryAddress,
+		DeliveryPhone:   deliveryPhone,
+		DeliveryNotes:   deliveryNotes,
 	}
 
 	createdOrder, err := s.orderRepo.CreateOrder(order)

@@ -188,8 +188,74 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ orderId, onClose, e
         {detailsStatus === 'loading' && <p>Cargando detalles...</p>}
         {detailsStatus === 'succeeded' && selectedOrderDetails && (
           <div>
+            {/* Información del Tipo de Orden */}
+            {selectedOrderDetails.order_type && (
+              <div className={`mb-4 p-4 rounded-lg border-2 ${
+                selectedOrderDetails.order_type === 'mesa' 
+                  ? 'bg-indigo-50 border-indigo-300'
+                  : selectedOrderDetails.order_type === 'llevar'
+                  ? 'bg-green-50 border-green-300'
+                  : 'bg-purple-50 border-purple-300'
+              }`}>
+                <div className="flex items-center gap-3">
+                  <span className="text-3xl">
+                    {selectedOrderDetails.order_type === 'mesa' ? '🍽️' :
+                     selectedOrderDetails.order_type === 'llevar' ? '🥡' : '🏍️'}
+                  </span>
+                  <div>
+                    <p className={`font-bold text-lg ${
+                      selectedOrderDetails.order_type === 'mesa' ? 'text-indigo-800' :
+                      selectedOrderDetails.order_type === 'llevar' ? 'text-green-800' : 'text-purple-800'
+                    }`}>
+                      {selectedOrderDetails.order_type === 'mesa' ? 'Orden en Mesa' :
+                       selectedOrderDetails.order_type === 'llevar' ? 'Orden Para Llevar' : 'Orden a Domicilio'}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      Mesa {selectedOrderDetails.table_number}
+                      {selectedOrderDetails.order_type === 'llevar' && ' (Virtual 9999)'}
+                      {selectedOrderDetails.order_type === 'domicilio' && ' (Virtual 9998)'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Datos de Domicilio */}
+            {selectedOrderDetails.order_type === 'domicilio' && (
+              <div className="mb-4 p-4 bg-purple-50 border-2 border-purple-300 rounded-lg">
+                <h3 className="font-bold text-purple-800 mb-3 flex items-center gap-2">
+                  <span className="text-xl">🏍️</span>
+                  Datos de Entrega
+                </h3>
+                <div className="space-y-2">
+                  <div className="flex items-start gap-2">
+                    <span className="text-purple-600 mt-0.5">📍</span>
+                    <div>
+                      <p className="text-xs font-semibold text-purple-700">Dirección:</p>
+                      <p className="text-sm text-gray-800">{selectedOrderDetails.delivery_address}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="text-purple-600 mt-0.5">📞</span>
+                    <div>
+                      <p className="text-xs font-semibold text-purple-700">Teléfono:</p>
+                      <p className="text-sm text-gray-800">{selectedOrderDetails.delivery_phone}</p>
+                    </div>
+                  </div>
+                  {selectedOrderDetails.delivery_notes && (
+                    <div className="flex items-start gap-2">
+                      <span className="text-purple-600 mt-0.5">💬</span>
+                      <div>
+                        <p className="text-xs font-semibold text-purple-700">Notas:</p>
+                        <p className="text-sm text-gray-800 italic">{selectedOrderDetails.delivery_notes}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-4 mb-4">
-              <p><strong>Mesa:</strong> {selectedOrderDetails.table_number}</p>
               <p><strong>Estado:</strong> <span className="font-semibold text-blue-600">{selectedOrderDetails.status}</span></p>
               <p><strong>Total:</strong> <span className="font-bold">${selectedOrderDetails.total.toFixed(2)}</span></p>
               <p><strong>Mesero:</strong> {selectedOrderDetails.waiter_name || <span className="text-gray-400 text-sm">(ID: {selectedOrderDetails.waiter_id.substring(0, 8)}...)</span>}</p>
@@ -303,6 +369,21 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ orderId, onClose, e
                               <p className="font-semibold text-lg">{item.quantity}x {item.menu_item_name}</p>
                               <span className="text-sm text-gray-600">@ ${item.price_at_order.toFixed(2)}</span>
                             </div>
+
+                            {/* Indicador de Para Llevar / Comer Aquí */}
+                            {item.is_takeout !== undefined && (
+                              <div className="mt-1">
+                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
+                                  item.is_takeout
+                                    ? 'bg-green-100 text-green-800 border border-green-300'
+                                    : 'bg-indigo-100 text-indigo-800 border border-indigo-300'
+                                }`}>
+                                  <span className="text-sm">{item.is_takeout ? '🥡' : '🍽️'}</span>
+                                  {item.is_takeout ? 'Para Llevar' : 'Comer Aquí'}
+                                </span>
+                              </div>
+                            )}
+
                             <p className="text-base font-bold text-green-700 mt-1">
                               Subtotal: ${(item.quantity * item.price_at_order).toFixed(2)}
                             </p>

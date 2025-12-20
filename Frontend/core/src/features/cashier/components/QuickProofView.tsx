@@ -16,13 +16,14 @@ export const QuickProofView: React.FC<QuickProofViewProps> = ({
   onClose
 }) => {
   const [imageError, setImageError] = useState(false);
+  const [showFullImage, setShowFullImage] = useState(false);
   const imageUrl = order.payment_proof_path ? getPaymentProofUrl(order.payment_proof_path) : null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
+        <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center z-10">
           <div>
             <h3 className="text-xl font-bold">Verificar Comprobante</h3>
             <p className="text-sm text-gray-600">
@@ -46,9 +47,76 @@ export const QuickProofView: React.FC<QuickProofViewProps> = ({
           </button>
         </div>
 
-        {/* Información de pago */}
         <div className="p-4">
-          <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+          {/* Tipo de Orden */}
+          {order.order_type && (
+            <div className={`mb-4 p-4 rounded-lg border-2 ${
+              order.order_type === 'mesa' 
+                ? 'bg-indigo-50 border-indigo-300'
+                : order.order_type === 'llevar'
+                ? 'bg-green-50 border-green-300'
+                : 'bg-purple-50 border-purple-300'
+            }`}>
+              <div className="flex items-center gap-3">
+                <span className="text-3xl">
+                  {order.order_type === 'mesa' ? '🍽️' :
+                   order.order_type === 'llevar' ? '🥡' : '🏍️'}
+                </span>
+                <div>
+                  <p className={`font-bold text-lg ${
+                    order.order_type === 'mesa' ? 'text-indigo-800' :
+                    order.order_type === 'llevar' ? 'text-green-800' : 'text-purple-800'
+                  }`}>
+                    {order.order_type === 'mesa' ? 'Orden en Mesa' :
+                     order.order_type === 'llevar' ? 'Orden Para Llevar' : 'Orden a Domicilio'}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    Mesa {order.table_number}
+                    {order.order_type === 'llevar' && ' (Virtual 9999)'}
+                    {order.order_type === 'domicilio' && ' (Virtual 9998)'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Datos de Domicilio */}
+          {order.order_type === 'domicilio' && order.delivery_address && (
+            <div className="mb-4 p-4 bg-purple-50 border-2 border-purple-300 rounded-lg">
+              <h3 className="font-bold text-purple-800 mb-3 flex items-center gap-2">
+                <span className="text-xl">🏍️</span>
+                Datos de Entrega
+              </h3>
+              <div className="space-y-2">
+                <div className="flex items-start gap-2">
+                  <span className="text-purple-600 mt-0.5">📍</span>
+                  <div>
+                    <p className="text-xs font-semibold text-purple-700">Dirección:</p>
+                    <p className="text-sm text-gray-800">{order.delivery_address}</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="text-purple-600 mt-0.5">📞</span>
+                  <div>
+                    <p className="text-xs font-semibold text-purple-700">Teléfono:</p>
+                    <p className="text-sm text-gray-800">{order.delivery_phone}</p>
+                  </div>
+                </div>
+                {order.delivery_notes && (
+                  <div className="flex items-start gap-2">
+                    <span className="text-purple-600 mt-0.5">💬</span>
+                    <div>
+                      <p className="text-xs font-semibold text-purple-700">Notas:</p>
+                      <p className="text-sm text-gray-800 italic">{order.delivery_notes}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Información de pago */}
+          <div className="mb-4 p-3 bg-blue-50 rounded-lg border-2 border-blue-200">
             <p className="text-sm">
               <strong>Método de pago:</strong>{' '}
               <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-semibold ml-2">
@@ -64,7 +132,8 @@ export const QuickProofView: React.FC<QuickProofViewProps> = ({
               <img
                 src={imageUrl}
                 alt="Comprobante de pago"
-                className="w-full rounded-lg border-2 border-gray-300 shadow-lg"
+                className="w-full rounded-lg border-2 border-gray-300 shadow-lg cursor-pointer hover:border-blue-500 transition-all"
+                onClick={() => setShowFullImage(true)}
                 onError={() => {
                   console.error('❌ Error cargando comprobante:', imageUrl);
                   setImageError(true);
@@ -73,6 +142,12 @@ export const QuickProofView: React.FC<QuickProofViewProps> = ({
                   console.log('✅ Comprobante cargado:', imageUrl);
                 }}
               />
+              <button
+                onClick={() => setShowFullImage(true)}
+                className="mt-2 text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
+              >
+                🔍 Ver en tamaño completo
+              </button>
               <p className="text-xs text-gray-500 mt-2">
                 {order.payment_proof_path}
               </p>
@@ -91,45 +166,157 @@ export const QuickProofView: React.FC<QuickProofViewProps> = ({
           )}
 
           {/* Botones de acción */}
-          <div className="grid grid-cols-2 gap-3 mt-6">
+          <div className="grid grid-cols-2 gap-3 mb-6">
             <button
               onClick={onReject}
-              className="px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold transition-colors flex items-center justify-center gap-2"
+              className="px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold transition-colors flex items-center justify-center gap-2 shadow-md hover:shadow-lg"
             >
               <span className="text-xl">✕</span>
               <span>Rechazar</span>
             </button>
             <button
               onClick={onConfirm}
-              className="px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold transition-colors flex items-center justify-center gap-2"
+              className="px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold transition-colors flex items-center justify-center gap-2 shadow-md hover:shadow-lg"
             >
               <span className="text-xl">✓</span>
               <span>Confirmar</span>
             </button>
           </div>
 
-          {/* Items de la orden */}
-          <div className="mt-6 pt-4 border-t">
-            <h4 className="font-semibold mb-2">Items de la orden:</h4>
-            <ul className="space-y-2">
-              {(order.items || []).map((item, idx) => (
-                <li key={idx} className="text-sm flex justify-between">
-                  <span>
-                    {item.quantity}x {item.menu_item_name}
-                  </span>
-                  <span className="font-semibold">
-                    ${(item.price_at_order * item.quantity).toFixed(2)}
-                  </span>
-                </li>
-              ))}
+          {/* Items de la orden - Vista Detallada */}
+          <div className="pt-4 border-t">
+            <h4 className="font-bold text-lg mb-3">Items de la orden:</h4>
+            <ul className="space-y-3">
+              {(order.items || []).map((item, idx) => {
+                const subtotal = item.price_at_order * item.quantity;
+                const activeIngredients = item.customizations?.active_ingredients || [];
+                const selectedAccompaniments = item.customizations?.selected_accompaniments || [];
+                const hasCustomizations = activeIngredients.length > 0 || selectedAccompaniments.length > 0;
+
+                return (
+                  <li key={idx} className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="flex-1">
+                        <div className="flex items-baseline gap-2">
+                          <p className="font-semibold text-lg">
+                            {item.quantity}x {item.menu_item_name}
+                          </p>
+                          <span className="text-sm text-gray-600">
+                            @ ${item.price_at_order.toFixed(2)}
+                          </span>
+                        </div>
+
+                        {/* Badge Para Llevar / Comer Aquí */}
+                        {item.is_takeout !== undefined && (
+                          <div className="mt-1">
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
+                              item.is_takeout
+                                ? 'bg-green-100 text-green-800 border border-green-300'
+                                : 'bg-indigo-100 text-indigo-800 border border-indigo-300'
+                            }`}>
+                              <span className="text-sm">{item.is_takeout ? '🥡' : '🍽️'}</span>
+                              {item.is_takeout ? 'Para Llevar' : 'Comer Aquí'}
+                            </span>
+                          </div>
+                        )}
+
+                        <p className="text-base font-bold text-green-700 mt-1">
+                          Subtotal: ${subtotal.toFixed(2)}
+                        </p>
+
+                        {/* Notas del item */}
+                        {item.notes && (
+                          <div className="mt-2 p-2 bg-yellow-50 rounded border border-yellow-200">
+                            <p className="text-sm italic text-gray-700">
+                              📝 <span className="font-medium">Nota:</span> {item.notes}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Customizaciones */}
+                        {hasCustomizations && (
+                          <div className="mt-2 space-y-2">
+                            <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
+                              📋 Personalización:
+                            </p>
+
+                            {/* Ingredientes */}
+                            {activeIngredients.length > 0 && (
+                              <div className="p-2 bg-gradient-to-br from-green-50 to-green-100 rounded-lg border border-green-300">
+                                <p className="text-xs font-bold text-green-800 mb-1 flex items-center gap-1">
+                                  🥬 Ingredientes:
+                                </p>
+                                <div className="flex flex-wrap gap-1">
+                                  {activeIngredients.map(ing => (
+                                    <span
+                                      key={ing.id}
+                                      className="px-2 py-0.5 rounded-full text-xs bg-white text-green-700 font-medium"
+                                    >
+                                      ✓ {ing.name}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Acompañantes */}
+                            {selectedAccompaniments.length > 0 && (
+                              <div className="p-2 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg border border-blue-300">
+                                <p className="text-xs font-bold text-blue-800 mb-1 flex items-center gap-1">
+                                  🍽️ Acompañantes:
+                                </p>
+                                <div className="flex flex-wrap gap-1">
+                                  {selectedAccompaniments.map(acc => (
+                                    <span
+                                      key={acc.id}
+                                      className="px-2 py-0.5 rounded-full text-xs bg-white text-blue-700 font-medium"
+                                    >
+                                      ✓ {acc.name}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
-            <div className="mt-3 pt-3 border-t flex justify-between font-bold">
-              <span>Total:</span>
-              <span>${order.total.toFixed(2)}</span>
+
+            {/* Total */}
+            <div className="mt-4 pt-4 border-t flex justify-between items-center">
+              <span className="font-bold text-lg">Total:</span>
+              <span className="font-bold text-2xl text-green-700">${order.total.toFixed(2)}</span>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Modal para imagen completa */}
+      {showFullImage && imageUrl && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-[60] cursor-pointer"
+          onClick={() => setShowFullImage(false)}
+        >
+          <div className="relative max-w-[95vw] max-h-[95vh]">
+            <button
+              onClick={() => setShowFullImage(false)}
+              className="absolute top-4 right-4 bg-white rounded-full w-10 h-10 flex items-center justify-center text-2xl font-bold hover:bg-gray-200 z-10"
+            >
+              ×
+            </button>
+            <img
+              src={imageUrl}
+              alt="Comprobante completo"
+              className="max-w-full max-h-[95vh] object-contain rounded-lg"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
