@@ -13,8 +13,8 @@ import type { MenuItem } from '../types/menu';
 export const useWebSockets = () => {
   const dispatch = useDispatch<AppDispatch>();
   const ws = useRef<WebSocket | null>(null);
-  // CORRECCIÓN: En el navegador, el tipo devuelto por setInterval es un número.
-  const heartbeatInterval = useRef<number | null>(null);
+  // CORRECCIÓN: Usar ReturnType para compatibilidad con Node.js y navegador
+  const heartbeatInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (!ws.current) {

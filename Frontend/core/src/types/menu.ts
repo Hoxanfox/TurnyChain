@@ -11,6 +11,8 @@ export interface MenuItem {
   price: number;
   category_id: string;
   is_available: boolean;
+  is_active?: boolean;
+  image_url?: string;
   ingredients: Ingredient[];
   accompaniments: Accompaniment[];
 }

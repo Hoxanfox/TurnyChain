@@ -24,7 +24,7 @@ export const useCashierWebSocket = (
 ) => {
   const dispatch = useDispatch<AppDispatch>();
   const ws = useRef<WebSocket | null>(null);
-  const heartbeatInterval = useRef<number | null>(null);
+  const heartbeatInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     // Solo conectar si es cajero

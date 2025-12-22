@@ -68,12 +68,40 @@ export const menuSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
+      // Fetch menu
       .addCase(fetchMenu.pending, (state) => { state.status = 'loading'; })
       .addCase(fetchMenu.fulfilled, (state, action: PayloadAction<MenuItem[]>) => {
         state.status = 'succeeded';
         state.items = action.payload || [];
       })
-      .addCase(fetchMenu.rejected, (state, action) => { state.status = 'failed'; state.error = action.payload as string; });
+      .addCase(fetchMenu.rejected, (state, action) => { state.status = 'failed'; state.error = action.payload as string; })
+
+      // Add new menu item
+      .addCase(addNewMenuItem.pending, (state) => { state.status = 'loading'; })
+      .addCase(addNewMenuItem.fulfilled, (state, action: PayloadAction<MenuItem>) => {
+        state.status = 'succeeded';
+        state.items.push(action.payload);
+      })
+      .addCase(addNewMenuItem.rejected, (state, action) => { state.status = 'failed'; state.error = action.payload as string; })
+
+      // Update existing menu item
+      .addCase(updateExistingMenuItem.pending, (state) => { state.status = 'loading'; })
+      .addCase(updateExistingMenuItem.fulfilled, (state, action: PayloadAction<MenuItem>) => {
+        state.status = 'succeeded';
+        const index = state.items.findIndex(item => item.id === action.payload.id);
+        if (index !== -1) {
+          state.items[index] = action.payload;
+        }
+      })
+      .addCase(updateExistingMenuItem.rejected, (state, action) => { state.status = 'failed'; state.error = action.payload as string; })
+
+      // Soft delete menu item
+      .addCase(softDeleteMenuItem.pending, (state) => { state.status = 'loading'; })
+      .addCase(softDeleteMenuItem.fulfilled, (state, action: PayloadAction<{ id: string }>) => {
+        state.status = 'succeeded';
+        state.items = state.items.filter(item => item.id !== action.payload.id);
+      })
+      .addCase(softDeleteMenuItem.rejected, (state, action) => { state.status = 'failed'; state.error = action.payload as string; });
   },
 });
 
