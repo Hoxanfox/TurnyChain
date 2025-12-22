@@ -81,6 +81,9 @@ const MyOrdersList: React.FC<MyOrdersListProps> = ({ onSelectOrder, onCheckout, 
               <div className="text-xs text-gray-500 mt-1">
                 {new Date(order.created_at).toLocaleString('es-ES')}
               </div>
+              <div className="text-xs text-gray-400 font-mono mt-1">
+                ID: {order.id.substring(0, 8)}...
+              </div>
             </button>
 
             {/* Botón de Checkout para órdenes entregadas o por verificar */}

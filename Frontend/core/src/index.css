@@ -1,5 +1,25 @@
 @import "tailwindcss";
 
+/* ===================================================================
+   FIX PARA 100VH EN MÓVILES - EVITA PROBLEMA DE BARRA DE NAVEGACIÓN
+   =================================================================== */
+:root {
+  /* Altura real de la ventana sin barra de navegación */
+  --vh: 1vh;
+  --real-vh: calc(var(--vh, 1vh) * 100);
+}
+
+/* Clase personalizada para altura completa en móviles */
+.h-screen-mobile {
+  height: 100vh; /* Fallback para navegadores antiguos */
+  height: var(--real-vh);
+}
+
+.min-h-screen-mobile {
+  min-height: 100vh; /* Fallback */
+  min-height: var(--real-vh);
+}
+
 /* Animaciones personalizadas para el Modal de Cobro */
 @keyframes fadeIn {
   from {

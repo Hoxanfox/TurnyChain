@@ -53,14 +53,16 @@ const TablesSlide: React.FC<TablesSlideProps> = ({
   const realTables = tables.filter(t => t.table_number < 9998);
 
   return (
-    <div className="h-full flex flex-col bg-white p-4">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-2xl font-bold text-gray-800">Tipo de Orden</h2>
-      </div>
+    <div className="h-full flex flex-col bg-white overflow-hidden">
+      {/* Header del Slide */}
+      <div className="flex-shrink-0 p-4 pb-2">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-2xl font-bold text-gray-800">Tipo de Orden</h2>
+        </div>
 
-      {/* Selector de Tipo de Orden */}
-      <div className="mb-6">
-        <div className="grid grid-cols-3 gap-3">
+        {/* Selector de Tipo de Orden */}
+        <div className="mb-4">
+          <div className="grid grid-cols-3 gap-3">
           <button
             onClick={() => handleOrderTypeChange('mesa')}
             className={`p-4 rounded-xl shadow-lg transition-all transform hover:scale-105 ${
@@ -105,18 +107,20 @@ const TablesSlide: React.FC<TablesSlideProps> = ({
               <p className="text-xs mt-1 opacity-80">Entrega a casa</p>
             </div>
           </button>
+          </div>
         </div>
       </div>
 
-      {/* Mostrar selector de mesas solo si es tipo "mesa" */}
-      {orderType === 'mesa' && (
-        <>
-          <div className="mb-3">
-            <h3 className="text-lg font-semibold text-gray-700">Seleccionar Mesa</h3>
-          </div>
-          {status === 'loading' && <p className="text-gray-600">Cargando mesas...</p>}
-          <div className="flex-grow overflow-y-auto">
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+      {/* Contenedor con scroll - OPTIMIZADO PARA MÓVILES */}
+      <div className="flex-1 overflow-y-auto overscroll-contain px-4">
+        {/* Mostrar selector de mesas solo si es tipo "mesa" */}
+        {orderType === 'mesa' && (
+          <>
+            <div className="mb-3">
+              <h3 className="text-lg font-semibold text-gray-700">Seleccionar Mesa</h3>
+            </div>
+            {status === 'loading' && <p className="text-gray-600">Cargando mesas...</p>}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pb-4">
               {realTables.map(table => (
                 <button
                   key={table.id}
@@ -136,43 +140,44 @@ const TablesSlide: React.FC<TablesSlideProps> = ({
                 </button>
               ))}
             </div>
-          </div>
-        </>
-      )}
+          </>
+        )}
 
-      {/* Mostrar mensaje confirmación para llevar */}
-      {orderType === 'llevar' && (
-        <div className="flex-grow flex items-center justify-center">
-          <div className="bg-green-50 border-2 border-green-300 rounded-xl p-8 text-center max-w-md">
-            <span className="text-6xl mb-4 block">🥡</span>
-            <h3 className="text-xl font-bold text-green-800 mb-2">Orden Para Llevar</h3>
-            <p className="text-sm text-green-700">
-              Todos los items serán empacados automáticamente.
-            </p>
-            <p className="text-xs text-green-600 mt-2">
-              Mesa virtual: 9999
-            </p>
+        {/* Mostrar mensaje confirmación para llevar */}
+        {orderType === 'llevar' && (
+          <div className="flex items-center justify-center py-8">
+            <div className="bg-green-50 border-2 border-green-300 rounded-xl p-8 text-center max-w-md">
+              <span className="text-6xl mb-4 block">🥡</span>
+              <h3 className="text-xl font-bold text-green-800 mb-2">Orden Para Llevar</h3>
+              <p className="text-sm text-green-700">
+                Todos los items serán empacados automáticamente.
+              </p>
+              <p className="text-xs text-green-600 mt-2">
+                Mesa virtual: 9999
+              </p>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Mostrar mensaje confirmación para domicilio */}
-      {orderType === 'domicilio' && (
-        <div className="flex-grow flex items-center justify-center">
-          <div className="bg-purple-50 border-2 border-purple-300 rounded-xl p-8 text-center max-w-md">
-            <span className="text-6xl mb-4 block">🏍️</span>
-            <h3 className="text-xl font-bold text-purple-800 mb-2">Orden a Domicilio</h3>
-            <p className="text-sm text-purple-700">
-              Se solicitarán los datos de entrega antes de enviar la orden.
-            </p>
-            <p className="text-xs text-purple-600 mt-2">
-              Mesa virtual: 9998
-            </p>
+        {/* Mostrar mensaje confirmación para domicilio */}
+        {orderType === 'domicilio' && (
+          <div className="flex items-center justify-center py-8">
+            <div className="bg-purple-50 border-2 border-purple-300 rounded-xl p-8 text-center max-w-md">
+              <span className="text-6xl mb-4 block">🏍️</span>
+              <h3 className="text-xl font-bold text-purple-800 mb-2">Orden a Domicilio</h3>
+              <p className="text-sm text-purple-700">
+                Se solicitarán los datos de entrega antes de enviar la orden.
+              </p>
+              <p className="text-xs text-purple-600 mt-2">
+                Mesa virtual: 9998
+              </p>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
-      <div className="mt-4 text-center text-sm text-gray-500">
+      {/* Footer hint - Fijo */}
+      <div className="flex-shrink-0 p-4 pt-2 text-center text-sm text-gray-500">
         <p>Selecciona una opción para continuar →</p>
       </div>
     </div>

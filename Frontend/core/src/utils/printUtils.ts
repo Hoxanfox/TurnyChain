@@ -566,11 +566,99 @@ export const generateCommandHTML = (order: Order, settings: PrintSettings): stri
 };
 
 /**
+ * Detectar si el dispositivo es móvil
+ */
+const isMobileDevice = (): boolean => {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+};
+
+/**
+ * Imprimir usando iframe (mejor para móviles)
+ */
+const printWithIframe = async (commandHTML: string, settings: PrintSettings): Promise<void> => {
+  // Crear iframe oculto
+  const iframe = document.createElement('iframe');
+  iframe.style.position = 'fixed';
+  iframe.style.top = '-10000px';
+  iframe.style.left = '-10000px';
+  iframe.style.width = '80mm';
+  iframe.style.height = 'auto';
+  document.body.appendChild(iframe);
+
+  // Escribir contenido en el iframe
+  const iframeDoc = iframe.contentWindow?.document;
+  if (!iframeDoc) {
+    throw new Error('No se pudo acceder al documento del iframe');
+  }
+
+  iframeDoc.open();
+  iframeDoc.write(commandHTML);
+  iframeDoc.close();
+
+  // Esperar a que cargue el contenido
+  await new Promise((resolve) => {
+    iframe.onload = resolve;
+    setTimeout(resolve, 500); // Timeout de seguridad
+  });
+
+  // Imprimir desde el iframe
+  try {
+    for (let i = 0; i < settings.copies; i++) {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+      if (i < settings.copies - 1) {
+        await new Promise((resolve) => setTimeout(resolve, 1000)); // Esperar entre copias
+      }
+    }
+  } finally {
+    // Limpiar iframe después de imprimir
+    setTimeout(() => {
+      document.body.removeChild(iframe);
+    }, 1000);
+  }
+};
+
+/**
+ * Imprimir usando window.open (método tradicional para desktop)
+ */
+const printWithWindow = async (commandHTML: string, settings: PrintSettings): Promise<void> => {
+  // Crear ventana de impresión
+  const printWindow = window.open('', '_blank', 'width=800,height=600');
+
+  if (!printWindow) {
+    throw new Error('No se pudo abrir la ventana de impresión. Verifica que los pop-ups estén permitidos.');
+  }
+
+  printWindow.document.write(commandHTML);
+  printWindow.document.close();
+
+  // Esperar a que cargue el contenido
+  await new Promise((resolve) => {
+    printWindow.onload = resolve;
+    setTimeout(resolve, 500); // Timeout de seguridad
+  });
+
+  // Imprimir múltiples copias si es necesario
+  for (let i = 0; i < settings.copies; i++) {
+    printWindow.print();
+    if (i < settings.copies - 1) {
+      await new Promise((resolve) => setTimeout(resolve, 1000)); // Esperar entre copias
+    }
+  }
+
+  // Cerrar ventana después de un delay
+  setTimeout(() => {
+    printWindow.close();
+  }, 1000);
+};
+
+/**
  * Imprimir comanda de cocina
  */
 export const printKitchenCommand = async (order: Order): Promise<boolean> => {
   try {
     const settings = getPrintSettings();
+    const isMobile = isMobileDevice();
 
     // Si está configurado para pedir confirmación
     if (!settings.autoPrint) {
@@ -589,40 +677,27 @@ export const printKitchenCommand = async (order: Order): Promise<boolean> => {
     // Generar HTML de la comanda
     const commandHTML = generateCommandHTML(order, settings);
 
-    // Crear ventana de impresión
-    const printWindow = window.open('', '_blank', 'width=800,height=600');
-
-    if (!printWindow) {
-      throw new Error('No se pudo abrir la ventana de impresión. Verifica que los pop-ups estén permitidos.');
+    // Usar método apropiado según el dispositivo
+    if (isMobile) {
+      console.log('📱 Imprimiendo desde dispositivo móvil usando iframe...');
+      await printWithIframe(commandHTML, settings);
+    } else {
+      console.log('🖥️ Imprimiendo desde desktop usando window.open...');
+      await printWithWindow(commandHTML, settings);
     }
-
-    printWindow.document.write(commandHTML);
-    printWindow.document.close();
-
-    // Esperar a que cargue el contenido
-    await new Promise((resolve) => {
-      printWindow.onload = resolve;
-      setTimeout(resolve, 500); // Timeout de seguridad
-    });
-
-    // Imprimir múltiples copias si es necesario
-    for (let i = 0; i < settings.copies; i++) {
-      printWindow.print();
-      if (i < settings.copies - 1) {
-        await new Promise((resolve) => setTimeout(resolve, 1000)); // Esperar entre copias
-      }
-    }
-
-    // Cerrar ventana después de un delay
-    setTimeout(() => {
-      printWindow.close();
-    }, 1000);
 
     console.log(`✅ Comanda impresa exitosamente (${settings.copies} copia(s))`);
     return true;
   } catch (error) {
     console.error('❌ Error al imprimir comanda:', error);
-    alert(`Error al imprimir comanda: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+
+    // Mensaje de error más específico para móviles
+    const isMobile = isMobileDevice();
+    const errorMsg = isMobile
+      ? `Error al imprimir desde móvil: ${error instanceof Error ? error.message : 'Error desconocido'}\n\nConsejo: Asegúrate de permitir el acceso a la impresión en tu navegador.`
+      : `Error al imprimir comanda: ${error instanceof Error ? error.message : 'Error desconocido'}`;
+
+    alert(errorMsg);
     return false;
   }
 };

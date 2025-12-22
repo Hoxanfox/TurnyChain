@@ -250,7 +250,7 @@ const WaiterDashboard: React.FC = () => {
 
   return (
     <>
-      <div className="flex flex-col h-screen bg-gray-100">
+      <div className="flex flex-col h-screen-mobile bg-gray-100">
         {/* Header */}
         <header className="bg-white shadow-md px-4 py-3 flex justify-between items-center">
           <h1 className="text-xl font-bold text-gray-800">Panel Mesero</h1>
@@ -282,6 +282,12 @@ const WaiterDashboard: React.FC = () => {
             speed={400}
             resistanceRatio={0.85}
             allowTouchMove={true}
+            touchStartPreventDefault={false}
+            touchStartForcePreventDefault={false}
+            preventInteractionOnTransition={false}
+            touchReleaseOnEdges={true}
+            threshold={10}
+            nested={false}
           >
             {/* Slide 1: Selector de Mesas */}
             <SwiperSlide>

@@ -182,7 +182,14 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ orderId, onClose, e
     <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
       <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center border-b pb-3 mb-4">
-          <h2 className="text-xl font-bold">Detalle de la Orden</h2>
+          <div className="flex-1">
+            <h2 className="text-xl font-bold">Detalle de la Orden</h2>
+            {selectedOrderDetails && (
+              <p className="text-xs text-gray-500 font-mono mt-1">
+                ID: {selectedOrderDetails.id}
+              </p>
+            )}
+          </div>
           <button onClick={onClose} className="text-2xl font-bold text-gray-600 hover:text-gray-900">&times;</button>
         </div>
         {detailsStatus === 'loading' && <p>Cargando detalles...</p>}

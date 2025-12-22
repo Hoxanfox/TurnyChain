@@ -34,8 +34,9 @@ const MenuSlide: React.FC<MenuSlideProps> = ({
   const orderTypeInfo = getOrderTypeLabel();
 
   return (
-    <div className="h-full flex flex-col bg-gray-50 p-4">
-      <div className="mb-4">
+    <div className="h-full flex flex-col bg-gray-50 overflow-hidden">
+      {/* Header del Slide */}
+      <div className="flex-shrink-0 p-4 pb-2">
         <div className="flex items-center gap-3 mb-2">
           {onNavigateBack && (
             <button
@@ -77,10 +78,14 @@ const MenuSlide: React.FC<MenuSlideProps> = ({
           </p>
         )}
       </div>
-      <div className="flex-grow overflow-y-auto">
+
+      {/* Contenedor con scroll - OPTIMIZADO PARA MÓVILES */}
+      <div className="flex-1 overflow-y-auto overscroll-contain px-4 pb-4">
         <MenuDisplay onAddToCart={onAddToCart} />
       </div>
-      <div className="mt-4 text-center text-sm text-gray-500">
+
+      {/* Footer hint - Fijo */}
+      <div className="flex-shrink-0 p-4 pt-2 text-center text-sm text-gray-500">
         <p>Desliza para ver la comanda →</p>
       </div>
     </div>

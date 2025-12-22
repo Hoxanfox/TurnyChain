@@ -22,14 +22,21 @@ const MenuDisplay: React.FC<MenuDisplayProps> = ({ onAddToCart }) => {
   }, [menuStatus, dispatch]);
 
   return (
-    <div>
-      <h2 className="text-2xl font-bold text-gray-800 mb-4">Menú</h2>
-      {menuStatus === 'loading' && <p>Cargando menú...</p>}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+    <div className="pb-4">
+      {menuStatus === 'loading' && (
+        <div className="flex justify-center items-center py-8">
+          <p className="text-gray-500">Cargando menú...</p>
+        </div>
+      )}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         {menuItems.map(item => (
-          <button key={item.id} onClick={() => onAddToCart(item)} className="p-4 bg-white rounded-lg shadow text-center hover:bg-indigo-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500">
-            <p className="font-semibold text-gray-700">{item.name}</p>
-            <p className="text-sm text-gray-600">${item.price.toFixed(2)}</p>
+          <button
+            key={item.id}
+            onClick={() => onAddToCart(item)}
+            className="p-4 bg-white rounded-lg shadow-sm text-center hover:bg-indigo-50 hover:shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 active:scale-95"
+          >
+            <p className="font-semibold text-gray-800 text-sm mb-1 line-clamp-2">{item.name}</p>
+            <p className="text-lg font-bold text-indigo-600">${item.price.toFixed(2)}</p>
           </button>
         ))}
       </div>
