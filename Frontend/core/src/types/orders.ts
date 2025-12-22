@@ -28,6 +28,7 @@ export interface OrderItem {
   price_at_order: number;
   notes?: string;
   customizations?: Customizations; // Puede ser null/undefined si no hay customizaciones
+  is_takeout?: boolean; // Nuevo: indica si el item es para llevar
 }
 
 // Orden completa que RECIBIMOS del backend
@@ -40,6 +41,14 @@ export interface Order {
   total: number;
   created_at: string;
   items: OrderItem[];
+  payment_method?: string; // "transferencia" | "efectivo"
+  payment_proof_path?: string; // Ruta de la imagen del comprobante
+  // Nuevo: Tipo de orden
+  order_type?: string; // "mesa" | "llevar" | "domicilio"
+  // Nuevo: Campos para domicilio
+  delivery_address?: string;
+  delivery_phone?: string;
+  delivery_notes?: string;
 }
 
 // ============================================
@@ -51,10 +60,17 @@ export interface OrderItemPayload {
   price_at_order: number;
   notes?: string;
   customizations_input?: CustomizationsInput; // Nuevo formato
+  is_takeout?: boolean; // Nuevo: indica si el item es para llevar
 }
 
 export interface NewOrderPayload {
   table_id: string;
   table_number: number;
   items: OrderItemPayload[];
+  // Nuevo: Tipo de orden
+  order_type?: string; // "mesa" | "llevar" | "domicilio"
+  // Nuevo: Campos para domicilio
+  delivery_address?: string;
+  delivery_phone?: string;
+  delivery_notes?: string;
 }

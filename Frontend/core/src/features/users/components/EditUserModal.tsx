@@ -5,7 +5,7 @@
 import React, { useState, type FormEvent } from 'react';
 import { useDispatch } from 'react-redux';
 import type { AppDispatch } from '../../../app/store';
-import { editUser } from '../usersSlice';
+import { editUser } from '../api/usersSlice.ts';
 import type { User } from '../../../types/users';
 
 interface EditUserModalProps {

@@ -17,6 +17,7 @@ export interface CustomizationData {
   selectedAccompaniments: Accompaniment[];
   removedIngredients: Ingredient[];
   notes: string;
+  quantity: number; // NUEVO: cantidad seleccionada en el modal
 }
 
 /**
@@ -30,6 +31,7 @@ export const createCartItemFromCustomization = (
     ...item,
     ...customizationData,
     cartItemId: `${item.id}-${Date.now()}`,
+    quantity: customizationData.quantity, // Usar la cantidad del modal
   };
 };
 
@@ -59,13 +61,85 @@ export const updateCartItemPrice = (
 };
 
 /**
+ * Incrementa la cantidad de un item en el carrito
+ */
+export const incrementItemQuantity = (
+  cart: CartItem[],
+  cartItemId: string
+): CartItem[] => {
+  return cart.map(item => {
+    if (item.cartItemId === cartItemId) {
+      const newQuantity = item.quantity + 1;
+      // Recalcular el precio total basado en la nueva cantidad
+      const pricePerUnit = item.finalPrice / item.quantity;
+      return {
+        ...item,
+        quantity: newQuantity,
+        finalPrice: pricePerUnit * newQuantity
+      };
+    }
+    return item;
+  });
+};
+
+/**
+ * Decrementa la cantidad de un item en el carrito
+ * Si la cantidad llega a 0, elimina el item
+ */
+export const decrementItemQuantity = (
+  cart: CartItem[],
+  cartItemId: string
+): CartItem[] => {
+  return cart.map(item => {
+    if (item.cartItemId === cartItemId) {
+      const newQuantity = item.quantity - 1;
+
+      // Si la cantidad es 0 o menor, no modificar (el botón debe estar deshabilitado)
+      if (newQuantity < 1) {
+        return item;
+      }
+
+      // Recalcular el precio total basado en la nueva cantidad
+      const pricePerUnit = item.finalPrice / item.quantity;
+      return {
+        ...item,
+        quantity: newQuantity,
+        finalPrice: pricePerUnit * newQuantity
+      };
+    }
+    return item;
+  });
+};
+
+/**
+ * Alterna el estado is_takeout de un item en el carrito
+ */
+export const toggleItemTakeout = (
+  cart: CartItem[],
+  cartItemId: string
+): CartItem[] => {
+  return cart.map(item =>
+    item.cartItemId === cartItemId
+      ? { ...item, is_takeout: !item.is_takeout }
+      : item
+  );
+};
+
+/**
  * Construye el payload para enviar una orden al backend
  * NUEVO FORMATO: Envía solo los IDs de lo que NO quiere el cliente
+ * Incluye order_type y campos de domicilio
  */
 export const buildOrderPayload = (
   cart: CartItem[],
   tableId: string,
-  tables: Table[]
+  tables: Table[],
+  orderType: string = 'mesa',
+  deliveryData?: {
+    address: string;
+    phone: string;
+    notes?: string;
+  }
 ) => {
   const selectedTable = tables.find(t => t.id === tableId);
   if (!selectedTable) return null;
@@ -82,11 +156,20 @@ export const buildOrderPayload = (
       id => !selectedAccompanimentIds.includes(id)
     );
 
+    // Calcular el precio unitario
+    const pricePerUnit = item.finalPrice / item.quantity;
+
+    // Para llevar y domicilio, forzar is_takeout = true
+    const isTakeout = orderType === 'llevar' || orderType === 'domicilio'
+      ? true
+      : (item.is_takeout || false);
+
     return {
       menu_item_id: item.id,
-      quantity: 1,
-      price_at_order: item.finalPrice,
+      quantity: item.quantity, // Usar la cantidad del carrito
+      price_at_order: pricePerUnit, // Precio unitario
       notes: item.notes,
+      is_takeout: isTakeout,
       customizations_input: {
         removed_ingredient_ids: removedIngredientIds,
         unselected_accompaniment_ids: unselectedAccompanimentIds,
@@ -94,11 +177,23 @@ export const buildOrderPayload = (
     };
   });
 
-  return {
+  const payload: any = {
     table_id: tableId,
     table_number: selectedTable.table_number,
+    order_type: orderType,
     items: orderItems
   };
+
+  // Agregar campos de domicilio si es necesario
+  if (orderType === 'domicilio' && deliveryData) {
+    payload.delivery_address = deliveryData.address;
+    payload.delivery_phone = deliveryData.phone;
+    if (deliveryData.notes) {
+      payload.delivery_notes = deliveryData.notes;
+    }
+  }
+
+  return payload;
 };
 
 /**

@@ -5,7 +5,7 @@
 import React, { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import type { AppDispatch, RootState } from '../../../app/store';
-import { fetchUsers, removeUser } from '../usersSlice';
+import { fetchUsers, removeUser } from '../api/usersSlice.ts';
 
 interface UserListProps {
   onEdit: (user: RootState['users']['users'][0]) => void;

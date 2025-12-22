@@ -71,6 +71,15 @@ CREATE TABLE "orders" (
   "table_number" integer NOT NULL,
   "status" varchar(30) NOT NULL DEFAULT 'pendiente_aprobacion',
   "total" numeric(10, 2) NOT NULL,
+  -- Tipo de orden: mesa (permite híbridos), llevar (todo empacado), domicilio (todo empacado + dirección)
+  "order_type" varchar(20) NOT NULL DEFAULT 'mesa' CHECK (order_type IN ('mesa', 'llevar', 'domicilio')),
+  -- Campos opcionales para domicilio (solo cuando order_type = 'domicilio')
+  "delivery_address" text NULL,
+  "delivery_phone" varchar(20) NULL,
+  "delivery_notes" text NULL,
+  -- Nuevos campos para el flujo de pagos con evidencia
+  "payment_method" varchar(20) NULL,
+  "payment_proof_path" text NULL,
   "created_at" timestamptz NOT NULL DEFAULT (now()),
   "updated_at" timestamptz NOT NULL DEFAULT (now())
 );
@@ -83,7 +92,8 @@ CREATE TABLE "order_items" (
   "quantity" integer NOT NULL CHECK (quantity > 0),
   "price_at_order" numeric(10, 2) NOT NULL,
   "notes" text,
-  "customizations" jsonb
+  "customizations" jsonb,
+  "is_takeout" boolean NOT NULL DEFAULT false
 );
 
 -- =================================================================
@@ -124,7 +134,10 @@ INSERT INTO users (id, username, password_hash, role) VALUES
 -- Insertar mesas
 INSERT INTO tables (id, table_number) VALUES
 ('b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b11', 1),
-('b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b12', 2);
+('b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b12', 2),
+-- Mesas virtuales para órdenes especiales
+('b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b99', 9999),  -- Mesa virtual para LLEVAR
+('b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b98', 9998);  -- Mesa virtual para DOMICILIOS
 
 -- Insertar categorías, ingredientes y acompañantes con UUIDs válidos
 INSERT INTO categories (id, name) VALUES ('c01e6f2b-2250-4630-8a2e-8a3d2a1f9c34', 'Platos Fuertes'), ('c02e6f2b-2250-4630-8a2e-8a3d2a1f9c35', 'Bebidas');

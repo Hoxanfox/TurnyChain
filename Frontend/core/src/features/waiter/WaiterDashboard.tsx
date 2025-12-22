@@ -3,12 +3,14 @@
 // =================================================================
 import React, { useState, useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { addNewOrder } from '../orders/ordersSlice';
-import { fetchTables } from '../tables/tablesSlice';
+import { addNewOrder, fetchMyOrders } from '../shared/orders/api/ordersSlice.ts';
+import { fetchTables } from '../admin/components/tables/api/tablesSlice.ts';
 import type { AppDispatch, RootState } from '../../app/store';
 import type { MenuItem, CartItem } from '../../types/menu';
-import OrderDetailModal from '../shared/OrderDetailModal';
+import OrderDetailModal from '../shared/orders/components/OrderDetailModal.tsx';
 import MyOrdersModal from './components/MyOrdersModal';
+import CheckoutModal from './components/CheckoutModal';
+import CheckoutBeforeSendModal from './components/CheckoutBeforeSendModal';
 import LogoutButton from '../../components/LogoutButton';
 import CustomizeOrderItemModal from './components/CustomizeOrderItemModal';
 import { Swiper, SwiperSlide } from 'swiper/react';
@@ -19,6 +21,7 @@ import 'swiper/swiper-bundle.css';
 import TablesSlide from './slides/TablesSlide';
 import MenuSlide from './slides/MenuSlide';
 import CartSlide from './slides/CartSlide';
+import PaymentsSlide from './slides/PaymentsSlide';
 
 // Importar hook de media query y vista desktop
 import { useIsDesktop } from '../../hooks/useMediaQuery';
@@ -29,11 +32,17 @@ import {
   createCartItemFromCustomization,
   removeItemFromCart,
   updateCartItemPrice,
+  incrementItemQuantity,
+  decrementItemQuantity,
+  toggleItemTakeout,
   buildOrderPayload,
   canSendOrder,
   findTableById,
   type CustomizationData
 } from './utils/waiterUtils.ts';
+
+// Importar el modal de delivery
+import DeliveryInfoModal from './components/DeliveryInfoModal';
 
 const WaiterDashboard: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -43,12 +52,23 @@ const WaiterDashboard: React.FC = () => {
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [tableId, setTableId] = useState('');
+  const [orderType, setOrderType] = useState<string>('mesa'); // "mesa" | "llevar" | "domicilio"
+  const [deliveryData, setDeliveryData] = useState<{
+    address: string;
+    phone: string;
+    notes?: string;
+  } | null>(null);
+  const [showDeliveryModal, setShowDeliveryModal] = useState(false);
   const [customizingItem, setCustomizingItem] = useState<MenuItem | null>(null);
   const [editingCartItem, setEditingCartItem] = useState<CartItem | null>(null);
   const [viewingOrderId, setViewingOrderId] = useState<string | null>(null);
   const [isMyOrdersModalOpen, setIsMyOrdersModalOpen] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [activeSlide, setActiveSlide] = useState(0);
+  const [checkoutOrderId, setCheckoutOrderId] = useState<string | null>(null);
+  const [checkoutOrderTotal, setCheckoutOrderTotal] = useState<number>(0);
+  const [checkoutTableNumber, setCheckoutTableNumber] = useState<number>(0);
+  const [isCheckoutBeforeSend, setIsCheckoutBeforeSend] = useState(false);
 
   useEffect(() => {
     dispatch(fetchTables());
@@ -95,6 +115,18 @@ const WaiterDashboard: React.FC = () => {
     setTableId(selectedTableId);
   };
 
+  const handleOrderTypeChange = (newOrderType: string) => {
+    setOrderType(newOrderType);
+    // Limpiar datos de delivery si cambia de tipo
+    if (newOrderType !== 'domicilio') {
+      setDeliveryData(null);
+    }
+  };
+
+  const handleToggleTakeout = (cartItemId: string) => {
+    setCart(currentCart => toggleItemTakeout(currentCart, cartItemId));
+  };
+
   const handleTableSelectedAndNavigate = () => {
     // Navegar automáticamente al menú cuando se selecciona una mesa
     swiperRef.current?.slideNext();
@@ -126,17 +158,45 @@ const WaiterDashboard: React.FC = () => {
     setCart(currentCart => updateCartItemPrice(currentCart, cartItemId, newPrice));
   };
 
+  const handleIncrementQuantity = (cartItemId: string) => {
+    setCart(currentCart => incrementItemQuantity(currentCart, cartItemId));
+  };
+
+  const handleDecrementQuantity = (cartItemId: string) => {
+    setCart(currentCart => decrementItemQuantity(currentCart, cartItemId));
+  };
+
   const handleSendOrder = () => {
     if (!canSendOrder(cart, tableId)) return;
 
-    const payload = buildOrderPayload(cart, tableId, tables);
-    if (!payload) return;
+    // Si es domicilio y no hay datos de entrega, mostrar modal
+    if (orderType === 'domicilio' && !deliveryData) {
+      setShowDeliveryModal(true);
+      return;
+    }
 
-    console.log("Enviando payload de la orden al backend:", JSON.stringify(payload, null, 2));
+    // Calcular el total del carrito
+    const total = cart.reduce((sum, item) => sum + item.finalPrice, 0);
+    const selectedTable = findTableById(tables, tableId);
 
-    dispatch(addNewOrder(payload));
-    setCart([]);
-    setTableId('');
+    if (!selectedTable) return;
+
+    // Abrir modal de checkout antes de enviar
+    setCheckoutOrderTotal(total);
+    setCheckoutTableNumber(selectedTable.table_number);
+    setIsCheckoutBeforeSend(true);
+  };
+
+  const handleDeliveryInfoConfirm = (data: {
+    address: string;
+    phone: string;
+    notes?: string;
+  }) => {
+    setDeliveryData(data);
+    setShowDeliveryModal(false);
+
+    // Continuar con el proceso de envío
+    handleSendOrder();
   };
 
   const handleSelectOrder = (orderId: string) => {
@@ -145,11 +205,52 @@ const WaiterDashboard: React.FC = () => {
     setViewingOrderId(orderId);
   };
 
+  const handleCheckout = (orderId: string, total: number, tableNumber: number) => {
+    setIsMyOrdersModalOpen(false);
+    setIsHistoryModalOpen(false);
+    setCheckoutOrderId(orderId);
+    setCheckoutOrderTotal(total);
+    setCheckoutTableNumber(tableNumber);
+  };
+
+  const handleCheckoutSuccess = () => {
+    setCheckoutOrderId(null);
+    setCheckoutOrderTotal(0);
+    setCheckoutTableNumber(0);
+    dispatch(fetchMyOrders()); // Recargar órdenes después del pago
+  };
+
+  const handleConfirmPaymentBeforeSend = (paymentMethod: 'efectivo' | 'transferencia', proofFile: File | null) => {
+    // Cerrar el modal de checkout
+    setIsCheckoutBeforeSend(false);
+
+    // Ahora sí enviar la orden con los datos de pago
+    const payload = buildOrderPayload(cart, tableId, tables, orderType, deliveryData || undefined);
+    if (!payload) return;
+
+    console.log("Enviando payload de la orden al backend con datos de pago:", {
+      orderData: payload,
+      paymentMethod,
+      hasProofFile: !!proofFile
+    });
+
+    dispatch(addNewOrder({
+      orderData: payload,
+      paymentMethod,
+      paymentProofFile: proofFile
+    }));
+
+    setCart([]);
+    setTableId('');
+    setOrderType('mesa');
+    setDeliveryData(null);
+  };
+
   const selectedTable = findTableById(tables, tableId);
 
   return (
     <>
-      <div className="flex flex-col h-screen bg-gray-100">
+      <div className="flex flex-col h-screen-mobile bg-gray-100">
         {/* Header */}
         <header className="bg-white shadow-md px-4 py-3 flex justify-between items-center">
           <h1 className="text-xl font-bold text-gray-800">Panel Mesero</h1>
@@ -181,12 +282,20 @@ const WaiterDashboard: React.FC = () => {
             speed={400}
             resistanceRatio={0.85}
             allowTouchMove={true}
+            touchStartPreventDefault={false}
+            touchStartForcePreventDefault={false}
+            preventInteractionOnTransition={false}
+            touchReleaseOnEdges={true}
+            threshold={10}
+            nested={false}
           >
             {/* Slide 1: Selector de Mesas */}
             <SwiperSlide>
               <TablesSlide
                 selectedTableId={tableId}
+                orderType={orderType}
                 onSelectTable={handleSelectTable}
+                onOrderTypeChange={handleOrderTypeChange}
                 onRequestChangeSlide={handleTableSelectedAndNavigate}
               />
             </SwiperSlide>
@@ -196,6 +305,7 @@ const WaiterDashboard: React.FC = () => {
               <MenuSlide
                 selectedTableId={tableId}
                 tableNumber={selectedTable?.table_number}
+                orderType={orderType}
                 onAddToCart={handleAddToCart}
                 onNavigateBack={handleNavigateToTables}
               />
@@ -207,13 +317,24 @@ const WaiterDashboard: React.FC = () => {
                 cart={cart}
                 tableId={tableId}
                 tables={tables}
+                orderType={orderType}
                 onTableChange={setTableId}
                 onCartAction={handleCartAction}
                 onSendOrder={handleSendOrder}
                 onEditItem={handleEditCartItem}
                 onUpdateItemPrice={handleUpdateItemPrice}
+                onIncrementQuantity={handleIncrementQuantity}
+                onDecrementQuantity={handleDecrementQuantity}
+                onToggleTakeout={handleToggleTakeout}
                 onNavigateToMenu={handleNavigateToMenu}
                 onNavigateBack={handleNavigateToMenu}
+              />
+            </SwiperSlide>
+
+            {/* Slide 4: Pagos */}
+            <SwiperSlide>
+              <PaymentsSlide
+                onViewOrderDetails={(orderId) => setViewingOrderId(orderId)}
               />
             </SwiperSlide>
           </Swiper>
@@ -243,11 +364,19 @@ const WaiterDashboard: React.FC = () => {
               }`}
               aria-label="Ir a Comanda"
             />
+            <button
+              onClick={() => swiperRef.current?.slideTo(3)}
+              className={`w-2 h-2 rounded-full transition-all ${
+                activeSlide === 3 ? 'bg-indigo-600 w-8' : 'bg-gray-300'
+              }`}
+              aria-label="Ir a Pagos"
+            />
           </div>
           <p className="text-center text-xs text-gray-500">
             {activeSlide === 0 && 'Paso 1: Selecciona una mesa'}
             {activeSlide === 1 && 'Paso 2: Elige del menú'}
             {activeSlide === 2 && 'Paso 3: Revisa y envía la comanda'}
+            {activeSlide === 3 && '💳 Gestión de Pagos'}
           </p>
         </footer>
       </div>
@@ -257,6 +386,7 @@ const WaiterDashboard: React.FC = () => {
         <MyOrdersModal
           onClose={() => setIsMyOrdersModalOpen(false)}
           onSelectOrder={handleSelectOrder}
+          onCheckout={handleCheckout}
           filterByToday={true}
         />
       )}
@@ -264,6 +394,7 @@ const WaiterDashboard: React.FC = () => {
         <MyOrdersModal
           onClose={() => setIsHistoryModalOpen(false)}
           onSelectOrder={handleSelectOrder}
+          onCheckout={handleCheckout}
           filterByToday={false}
         />
       )}
@@ -285,6 +416,29 @@ const WaiterDashboard: React.FC = () => {
           item={editingCartItem}
           onClose={() => setEditingCartItem(null)}
           onConfirm={handleConfirmEditCartItem}
+        />
+      )}
+      {checkoutOrderId && (
+        <CheckoutModal
+          orderId={checkoutOrderId}
+          orderTotal={checkoutOrderTotal}
+          tableNumber={checkoutTableNumber}
+          onClose={() => setCheckoutOrderId(null)}
+          onSuccess={handleCheckoutSuccess}
+        />
+      )}
+      {isCheckoutBeforeSend && (
+        <CheckoutBeforeSendModal
+          orderTotal={checkoutOrderTotal}
+          tableNumber={checkoutTableNumber}
+          onClose={() => setIsCheckoutBeforeSend(false)}
+          onConfirm={handleConfirmPaymentBeforeSend}
+        />
+      )}
+      {showDeliveryModal && (
+        <DeliveryInfoModal
+          onClose={() => setShowDeliveryModal(false)}
+          onConfirm={handleDeliveryInfoConfirm}
         />
       )}
     </>

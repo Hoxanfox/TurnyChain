@@ -3,13 +3,13 @@
 // =================================================================
 import { configureStore } from '@reduxjs/toolkit';
 import authReducer from '../features/auth/authSlice';
-import usersReducer from '../features/users/usersSlice';
-import menuReducer from '../features/menu/menuSlice';
-import ordersReducer from '../features/orders/ordersSlice';
-import tablesReducer from '../features/tables/tablesSlice';
-import categoriesReducer from '../features/categories/categoriesSlice';
-import ingredientsReducer from '../features/ingredients/ingredientsSlice';
-import accompanimentsReducer from '../features/accompaniments/accompanimentsSlice';
+import usersReducer from '../features/users/api/usersSlice.ts';
+import menuReducer from '../features/admin/components/menu/api/menuSlice.ts';
+import ordersReducer from '../features/shared/orders/api/ordersSlice.ts';
+import tablesReducer from '../features/admin/components/tables/api/tablesSlice.ts';
+import categoriesReducer from '../features/admin/components/categories/api/categoriesSlice.ts';
+import ingredientsReducer from '../features/admin/components/ingredients/api/ingredientsSlice.ts';
+import accompanimentsReducer from '../features/admin/components/accompaniments/api/accompanimentsSlice.ts';
 
 export const store = configureStore({
   reducer: {

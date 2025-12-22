@@ -11,6 +11,8 @@ export interface MenuItem {
   price: number;
   category_id: string;
   is_available: boolean;
+  is_active?: boolean;
+  image_url?: string;
   ingredients: Ingredient[];
   accompaniments: Accompaniment[];
 }
@@ -18,8 +20,10 @@ export interface MenuItem {
 // Nuevo tipo para los ítems en el carrito, que pueden tener personalizaciones
 export interface CartItem extends MenuItem {
     cartItemId: string; // ID único para este ítem en el carrito
+    quantity: number; // Cantidad de este ítem
     finalPrice: number;
     selectedAccompaniments: Accompaniment[];
     removedIngredients: Ingredient[];
     notes?: string;
+    is_takeout?: boolean; // Nuevo: indica si el item es para llevar
 }

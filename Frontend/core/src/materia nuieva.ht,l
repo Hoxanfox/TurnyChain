@@ -1,0 +1,191 @@
+<div class="panel pruebaFondo" id="pruebaFondo1594">
+    						<div class="panel-heading nombreMateria">
+    							<label class="panel-title">
+    								<a data-toggle="collapse" href="#collapse1594" class="" aria-expanded="true">SIMULACIÓN COMPUTACIONAL - 603803</a>
+    							</label>
+    						</div>
+	    					<div id="collapse1594" class="panel-collapse collapse in" aria-expanded="true" style="">
+		    					<div class="panel-body pruebaFondo2">
+			    					<div class="row">
+				    					<div class="col-lg-6 col-md-6 col-sm-12">
+				    						<select class="show-tick form-control" onchange="seleccionoGrupo(this,1594)" name="materia1594" id="materia1594">
+				    							<option value="0" selected="">Seleccionar grupo</option>
+
+
+
+
+
+
+
+
+				    									<option value="96809">Grupo 1</option>
+
+
+
+
+
+
+
+
+
+
+
+
+				    						</select>
+				    					</div>
+
+
+
+
+
+
+
+
+			   									<div class="col-lg-6 col-md-6 col-sm-12 materia1594" style="display:none;" id="lab96809">
+							    					<select class="show-tick form-control selLab" id="selectLab96809" onchange="seleccionoLab(this,1594,96809)">
+							    						<option value="0">Seleccionar</option>
+
+
+
+
+
+
+
+
+							    								<option value="98222">PRÁCTICA 1</option>
+
+
+
+
+
+
+
+
+
+
+							    					</select>
+						    					</div>
+
+
+
+
+
+
+
+
+
+
+
+
+			    					</div>
+			    					<div class="row prueba">
+			    						<div class="divCupos">
+			    						<div class="col-lg-4 semestre">
+			    							<label class="labelSemestre">Semestre: 8</label>
+			    						</div>
+			    						<div class="col-lg-4 cupos">
+			    						<label>Cupos: </label>
+
+
+
+
+
+
+
+
+			    								<label class="cupoMateria1594" style="display:none;" id="cupo96809">25</label>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+			    								<label class="cupoMateriaLab1594" style="display:none;" id="cupoLab98222">0</label>
+
+
+
+
+
+
+
+
+
+
+			    						</div>
+			    						<div class="col-lg-4 creditos">
+			    							<label>  Créditos: </label><label style="margin-left:3%;" id="credito1594"> 3</label>
+			    						</div>
+
+			    						</div>
+
+
+
+
+				    									<label style="color:teal;font-size: 90%; margin:10px;">Descripción: </label>
+
+
+
+
+				    					</div>
+				    				<div class="row">
+				    					<div class="col-lg-12 semestre">
+
+
+
+
+
+
+
+
+				    								<label style="color:teal;font-size: 90%; display:none;" class="labelDescrip1594" id="labelDescrip96809"></label>
+
+
+
+
+
+
+
+
+
+
+
+
+										</div>
+				    				</div>
+		    					</div>
+		    					<div class="panel-footer">
+				    				<div class="row botones">
+				    					<div class="divBtnInscribir ">
+				    						<form name="formMateria1594" id="formMateria1594" method="POST" action="" class="form-inline">
+				    							<input type="hidden" name="grupoAInscribir" id="grupoInscribir1594" value="0">
+				    							<input type="hidden" name="persona" id="persona" value="100062595">
+				    							<input type="hidden" name="periodo" id="periodo" value="1035">
+				    							<input type="hidden" name="materia2" id="materiaCod1594" value="603803">
+				    						</form>
+
+
+
+				    							<button class="btn btn-success btmInscribir" onclick="return inscribirMat(this,1594)" id="inscribir1594">Inscribir </button>
+
+				    					</div>
+
+
+
+			    					</div>
+		    					</div>
+	    					</div>
+    					</div>

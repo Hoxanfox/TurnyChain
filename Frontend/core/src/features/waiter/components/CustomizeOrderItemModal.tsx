@@ -13,6 +13,7 @@ interface CustomizationData {
     selectedAccompaniments: Accompaniment[];
     removedIngredients: Ingredient[];
     notes: string;
+    quantity: number; // NUEVO: cantidad del item
 }
 
 interface CustomizeOrderItemModalProps {
@@ -26,6 +27,7 @@ const CustomizeOrderItemModal: React.FC<CustomizeOrderItemModalProps> = ({ item,
   const [selectedAccompaniments, setSelectedAccompaniments] = useState<Accompaniment[]>(item.accompaniments || []);
   const [removedIngredients, setRemovedIngredients] = useState<Ingredient[]>([]);
   const [notes, setNotes] = useState('');
+  const [quantity, setQuantity] = useState(1); // NUEVO: estado para cantidad
 
   const handleAccompanimentToggle = (accompaniment: Accompaniment) => {
     setSelectedAccompaniments(prev => 
@@ -48,8 +50,8 @@ const CustomizeOrderItemModal: React.FC<CustomizeOrderItemModalProps> = ({ item,
     const extraCost = selectedAccompaniments
       .filter(a => !includedAccompanimentIds.includes(a.id))
       .reduce((sum, acc) => sum + acc.price, 0);
-    return price + extraCost;
-  }, [item, selectedAccompaniments, price]);
+    return (price + extraCost) * quantity; // Multiplicar por cantidad
+  }, [item, selectedAccompaniments, price, quantity]);
 
   const handleConfirmClick = () => {
     onConfirm({
@@ -57,7 +59,8 @@ const CustomizeOrderItemModal: React.FC<CustomizeOrderItemModalProps> = ({ item,
         finalPrice,
         selectedAccompaniments,
         removedIngredients,
-        notes
+        notes,
+        quantity // NUEVO: incluir cantidad
     });
     onClose();
   };
@@ -68,6 +71,32 @@ const CustomizeOrderItemModal: React.FC<CustomizeOrderItemModalProps> = ({ item,
         <h2 className="text-xl font-bold mb-4">Personalizar: {item.name}</h2>
         
         <div className="space-y-4">
+            {/* NUEVO: Selector de Cantidad */}
+            <div className="bg-indigo-50 p-4 rounded-lg border-2 border-indigo-200">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Cantidad</label>
+                <div className="flex items-center justify-center gap-4">
+                    <button
+                        type="button"
+                        onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                        className="w-12 h-12 flex items-center justify-center bg-red-500 text-white rounded-full hover:bg-red-600 active:scale-95 transition-all font-bold text-xl shadow-lg disabled:bg-gray-300 disabled:cursor-not-allowed"
+                        disabled={quantity <= 1}
+                    >
+                        −
+                    </button>
+                    <div className="flex-1 text-center">
+                        <span className="text-4xl font-black text-gray-800">{quantity}</span>
+                        <p className="text-xs text-gray-500 mt-1">unidades</p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setQuantity(quantity + 1)}
+                        className="w-12 h-12 flex items-center justify-center bg-green-500 text-white rounded-full hover:bg-green-600 active:scale-95 transition-all font-bold text-xl shadow-lg"
+                    >
+                        +
+                    </button>
+                </div>
+            </div>
+
             <div>
                 <label htmlFor="price" className="block text-sm font-medium text-gray-700">Precio Base del Ítem</label>
                 <input type="number" id="price" step="0.01" value={price} onChange={(e) => setPrice(parseFloat(e.target.value))} className="mt-1 block w-full px-3 py-2 border rounded-md"/>
@@ -101,9 +130,14 @@ const CustomizeOrderItemModal: React.FC<CustomizeOrderItemModalProps> = ({ item,
         </div>
 
         <div className="mt-6 flex justify-between items-center">
-          <span className="text-xl font-bold">Total del Ítem: ${finalPrice.toFixed(2)}</span>
-          <div>
-            <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300 mr-2">Cancelar</button>
+          <div className="text-left">
+            <p className="text-sm text-gray-600">
+              ${(finalPrice / quantity).toFixed(2)} × {quantity} {quantity === 1 ? 'unidad' : 'unidades'}
+            </p>
+            <span className="text-xl font-bold text-indigo-600">Total: ${finalPrice.toFixed(2)}</span>
+          </div>
+          <div className="flex gap-2">
+            <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">Cancelar</button>
             <button type="button" onClick={handleConfirmClick} className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Añadir a la Orden</button>
           </div>
         </div>
