@@ -11,6 +11,8 @@ export interface MenuItem {
   price: number;
   category_id: string;
   category_name?: string; // Nombre de la categoría para display
+  station_id?: string; // ID de la estación de preparación
+  station_name?: string; // Nombre de la estación para display
   is_available: boolean;
   is_active?: boolean;
   image_url?: string;

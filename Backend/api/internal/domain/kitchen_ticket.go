@@ -46,11 +46,11 @@ type PrintRequest struct {
 
 // PrintResponse es la respuesta después de imprimir
 type PrintResponse struct {
-	Success      bool                   `json:"success"`
-	Message      string                 `json:"message"`
-	TicketsSent  int                    `json:"tickets_sent"`
-	FailedPrints []FailedPrintInfo      `json:"failed_prints,omitempty"`
-	Tickets      []KitchenTicket        `json:"tickets"` // Para debugging
+	Success      bool              `json:"success"`
+	Message      string            `json:"message"`
+	TicketsSent  int               `json:"tickets_sent"`
+	FailedPrints []FailedPrintInfo `json:"failed_prints,omitempty"`
+	Tickets      []KitchenTicket   `json:"tickets"` // Para debugging
 }
 
 // FailedPrintInfo contiene info de impresiones fallidas
@@ -59,4 +59,3 @@ type FailedPrintInfo struct {
 	PrinterName string `json:"printer_name"`
 	Error       string `json:"error"`
 }
-

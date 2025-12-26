@@ -11,19 +11,40 @@ const initialState: CategoriesState = { items: [], status: 'idle', error: null }
 
 export const fetchCategories = createAsyncThunk('categories/fetchAll', async (_, { getState, rejectWithValue }) => {
     const token = (getState() as RootState).auth.token; if (!token) return rejectWithValue('No token'); 
-    try { return await getCategories(token); } catch (e: any) { return rejectWithValue(e.response.data.error); }
+    try {
+        return await getCategories(token);
+    } catch (e: unknown) {
+        const error = e as { response?: { data?: { error?: string } } };
+        return rejectWithValue(error.response?.data?.error || 'Error desconocido');
+    }
 });
-export const addNewCategory = createAsyncThunk('categories/addNew', async (name: string, { getState, rejectWithValue }) => {
+export const addNewCategory = createAsyncThunk('categories/addNew', async (data: string | { name: string; station_id?: string }, { getState, rejectWithValue }) => {
     const token = (getState() as RootState).auth.token; if (!token) return rejectWithValue('No token');
-    try { return await createCategory(name, token); } catch (e: any) { return rejectWithValue(e.response.data.error); }
+    const categoryData = typeof data === 'string' ? { name: data } : data;
+    try {
+        return await createCategory(categoryData.name, token, categoryData.station_id);
+    } catch (e: unknown) {
+        const error = e as { response?: { data?: { error?: string } }; message?: string };
+        return rejectWithValue(error.response?.data?.error || error.message || 'Error desconocido');
+    }
 });
 export const updateExistingCategory = createAsyncThunk('categories/update', async (category: Category, { getState, rejectWithValue }) => {
     const token = (getState() as RootState).auth.token; if (!token) return rejectWithValue('No token');
-    try { return await updateCategory(category, token); } catch (e: any) { return rejectWithValue(e.response.data.error); }
+    try {
+        return await updateCategory(category, token);
+    } catch (e: unknown) {
+        const error = e as { response?: { data?: { error?: string } }; message?: string };
+        return rejectWithValue(error.response?.data?.error || error.message || 'Error desconocido');
+    }
 });
 export const removeCategory = createAsyncThunk('categories/delete', async (id: string, { getState, rejectWithValue }) => {
     const token = (getState() as RootState).auth.token; if (!token) return rejectWithValue('No token');
-    try { return await deleteCategory(id, token); } catch (e: any) { return rejectWithValue(e.response.data.error); }
+    try {
+        return await deleteCategory(id, token);
+    } catch (e: unknown) {
+        const error = e as { response?: { data?: { error?: string } }; message?: string };
+        return rejectWithValue(error.response?.data?.error || error.message || 'Error desconocido');
+    }
 });
 
 export const categoriesSlice = createSlice({

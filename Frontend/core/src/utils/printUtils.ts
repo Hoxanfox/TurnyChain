@@ -13,6 +13,8 @@ export interface PrintSettings {
   includeLogo: boolean;
   copies: number;
   fontSize: 'small' | 'medium' | 'large';
+  paperSize: '58mm' | '80mm' | 'A4'; // Nuevo: tamaño de papel
+  ticketPrintMethod: 'backend' | 'frontend'; // Nuevo: dónde imprimir tickets de cocina
 }
 
 const DEFAULT_SETTINGS: PrintSettings = {
@@ -20,6 +22,8 @@ const DEFAULT_SETTINGS: PrintSettings = {
   includeLogo: true,
   copies: 1,
   fontSize: 'medium',
+  paperSize: '80mm', // Por defecto papel térmico 80mm
+  ticketPrintMethod: 'backend', // Por defecto usar backend
 };
 
 const STORAGE_KEY = 'turnychain_print_settings';
@@ -54,6 +58,9 @@ export const savePrintSettings = (settings: Partial<PrintSettings>): void => {
 
 /**
  * Generar HTML de la comanda para impresión
+ */
+/**
+ * Generar HTML de la comanda completa para impresión local (LEGACY)
  */
 export const generateCommandHTML = (order: Order, settings: PrintSettings): string => {
   const date = new Date(order.created_at);
@@ -187,6 +194,9 @@ export const generateCommandHTML = (order: Order, settings: PrintSettings): stri
   `
     : '';
 
+  // Determinar tamaño de papel dinámicamente
+  const paperWidth = settings.paperSize === '58mm' ? '58mm' : settings.paperSize === 'A4' ? '210mm' : '80mm';
+
   return `
     <!DOCTYPE html>
     <html lang="es">
@@ -196,14 +206,19 @@ export const generateCommandHTML = (order: Order, settings: PrintSettings): stri
       <title>Comanda - Mesa ${order.table_number}</title>
       <style>
         @page {
-          size: 80mm auto;
-          margin: 5mm;
+          size: ${paperWidth} auto;
+          margin: ${settings.paperSize === 'A4' ? '10mm' : '5mm'};
         }
 
-        * {
+        * { 
           margin: 0;
           padding: 0;
           box-sizing: border-box;
+        }
+
+        html, body {
+          width: 100%;
+          height: auto;
         }
 
         body {
@@ -212,9 +227,10 @@ export const generateCommandHTML = (order: Order, settings: PrintSettings): stri
           line-height: 1.4;
           color: #000;
           background: #fff;
-          width: 80mm;
+          width: ${paperWidth};
+          max-width: ${paperWidth};
           margin: 0 auto;
-          padding: 5mm;
+          padding: ${settings.paperSize === 'A4' ? '10mm' : '5mm'};
         }
 
         /* Logo y encabezado */
@@ -481,17 +497,35 @@ export const generateCommandHTML = (order: Order, settings: PrintSettings): stri
           color: #999;
         }
 
+        /* Prevenir saltos de página */
+        .logo-section, .command-header, .order-type-badge, 
+        .delivery-info, .order-item, .total-section, .footer {
+          page-break-inside: avoid;
+          break-inside: avoid;
+        }
+
         @media print {
           body {
-            width: 80mm;
+            width: ${paperWidth};
+            max-width: ${paperWidth};
+            height: auto;
           }
 
-          .order-item {
+          /* Asegurar que todo se imprima en una sola página continua */
+          html, body {
+            height: auto;
+            overflow: visible;
+          }
+
+          .logo-section, .command-header, .order-info, 
+          .order-type-badge, .delivery-info, .order-item, 
+          .total-section, .footer, .cut-line {
             page-break-inside: avoid;
+            break-inside: avoid;
           }
 
           @page {
-            margin: 5mm;
+            margin: ${settings.paperSize === 'A4' ? '10mm' : '5mm'};
           }
         }
       </style>
@@ -701,4 +735,396 @@ export const printKitchenCommand = async (order: Order): Promise<boolean> => {
     return false;
   }
 };
+
+/**
+ * Generar HTML de un ticket de cocina por estación (formato compacto)
+ */
+const generateKitchenTicketHTML = (
+  ticket: {
+    station_name: string;
+    table_number?: number;
+    waiter_name: string;
+    order_id: string;
+    order_type: string;
+    created_at: string;
+    items: Array<{
+      menu_item_name: string;
+      quantity: number;
+      notes?: string;
+      customizations?: {
+        active_ingredients?: Array<{ name: string }>;
+        selected_accompaniments?: Array<{ name: string }>;
+      };
+      is_takeout: boolean;
+    }>;
+  },
+  settings: PrintSettings
+): string => {
+  const date = new Date(ticket.created_at);
+  const timeStr = date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+
+  // Determinar tamaño de papel dinámicamente
+  const paperWidth = settings.paperSize === '58mm' ? '58mm' : settings.paperSize === 'A4' ? '210mm' : '80mm';
+
+  const itemsHTML = ticket.items.map((item) => {
+    let customizationsHTML = '';
+
+    if (item.customizations) {
+      const { active_ingredients, selected_accompaniments } = item.customizations;
+
+      if (active_ingredients && active_ingredients.length > 0) {
+        customizationsHTML += `
+          <div class="customization">
+            <strong>🥗 Ingredientes:</strong> ${active_ingredients.map(ing => ing.name).join(', ')}
+          </div>
+        `;
+      }
+
+      if (selected_accompaniments && selected_accompaniments.length > 0) {
+        customizationsHTML += `
+          <div class="customization">
+            <strong>🍟 Acompañamientos:</strong> ${selected_accompaniments.map(acc => acc.name).join(', ')}
+          </div>
+        `;
+      }
+    }
+
+    const takeoutBadge = item.is_takeout ? '<div class="takeout-badge">🥡 PARA LLEVAR</div>' : '';
+    const notesHTML = item.notes ? `<div class="notes">📝 ${item.notes}</div>` : '';
+
+    return `
+      <div class="item">
+        <div class="item-header">
+          <span class="qty">${item.quantity}x</span>
+          <span class="name">${item.menu_item_name}</span>
+        </div>
+        ${takeoutBadge}
+        ${customizationsHTML}
+        ${notesHTML}
+      </div>
+    `;
+  }).join('');
+
+  const orderTypeInfo = ticket.order_type === 'llevar'
+    ? { icon: '🥡', label: 'PARA LLEVAR' }
+    : ticket.order_type === 'domicilio'
+    ? { icon: '🏍️', label: 'DOMICILIO' }
+    : { icon: '🍽️', label: 'EN MESA' };
+
+  return `
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+      <meta charset="UTF-8">
+      <title>Ticket - ${ticket.station_name}</title>
+      <style>
+        @page {
+          size: ${paperWidth} auto;
+          margin: 3mm;
+        }
+
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+        }
+
+        html, body {
+          width: 100%;
+          height: auto;
+        }
+
+        body {
+          font-family: 'Courier New', monospace;
+          font-size: ${settings.fontSize === 'small' ? '9px' : settings.fontSize === 'large' ? '13px' : '11px'};
+          line-height: 1.3;
+          color: #000;
+          background: #fff;
+          width: ${paperWidth};
+          max-width: ${paperWidth};
+          margin: 0 auto;
+          padding: 3mm;
+        }
+
+        .header {
+          text-align: center;
+          border-bottom: 2px dashed #000;
+          padding-bottom: 5px;
+          margin-bottom: 8px;
+        }
+
+        .station-name {
+          font-size: 18px;
+          font-weight: bold;
+          text-transform: uppercase;
+          margin: 3px 0;
+        }
+
+        .info-line {
+          font-size: 10px;
+          margin: 2px 0;
+        }
+
+        .order-type {
+          text-align: center;
+          font-weight: bold;
+          padding: 4px;
+          margin: 5px 0;
+          border: 2px solid #000;
+          font-size: 11px;
+        }
+
+        .item {
+          border-bottom: 1px solid #ddd;
+          padding: 5px 0;
+          margin: 5px 0;
+        }
+
+        .item:last-child {
+          border-bottom: none;
+        }
+
+        .item-header {
+          font-weight: bold;
+          margin-bottom: 3px;
+        }
+
+        .qty {
+          display: inline-block;
+          background: #000;
+          color: #fff;
+          padding: 2px 5px;
+          border-radius: 2px;
+          font-size: 12px;
+          margin-right: 5px;
+        }
+
+        .name {
+          text-transform: uppercase;
+          font-size: 12px;
+        }
+
+        .takeout-badge {
+          background: #10b981;
+          color: white;
+          padding: 2px 5px;
+          margin: 3px 0;
+          font-size: 9px;
+          font-weight: bold;
+          display: inline-block;
+          border-radius: 2px;
+        }
+
+        .customization {
+          font-size: 9px;
+          margin: 2px 0;
+          padding-left: 5px;
+        }
+
+        .notes {
+          background: #fff3cd;
+          border: 1px dashed #856404;
+          padding: 3px;
+          margin: 3px 0;
+          font-size: 9px;
+          font-style: italic;
+        }
+
+        .footer {
+          text-align: center;
+          margin-top: 10px;
+          padding-top: 5px;
+          border-top: 2px dashed #000;
+          font-size: 9px;
+        }
+
+        .cut-line {
+          text-align: center;
+          margin: 10px 0 5px 0;
+          font-size: 12px;
+          letter-spacing: 2px;
+          color: #999;
+        }
+
+        /* Prevenir saltos de página */
+        .header, .order-type, .item, .footer {
+          page-break-inside: avoid;
+          break-inside: avoid;
+        }
+
+        @media print {
+          body {
+            width: ${paperWidth};
+            max-width: ${paperWidth};
+            height: auto;
+          }
+
+          /* Asegurar que todo se imprima en una sola página continua */
+          html, body {
+            height: auto;
+            overflow: visible;
+          }
+
+          .header, .order-type, .item, .footer, .cut-line {
+            page-break-inside: avoid;
+            break-inside: avoid;
+          }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <div class="station-name">🍳 ${ticket.station_name}</div>
+        <div class="info-line">⏰ ${timeStr} | 🪑 Mesa ${ticket.table_number || 'N/A'}</div>
+        <div class="info-line">👤 ${ticket.waiter_name || 'N/A'}</div>
+        <div class="info-line">📋 ${ticket.order_id.slice(0, 8).toUpperCase()}</div>
+      </div>
+
+      <div class="order-type">${orderTypeInfo.icon} ${orderTypeInfo.label}</div>
+
+      ${itemsHTML}
+
+      <div class="footer">
+        <div>Impreso: ${new Date().toLocaleTimeString('es-ES')}</div>
+      </div>
+
+      <div class="cut-line">- - - - - - - - - - - - - -</div>
+    </body>
+    </html>
+  `;
+};
+
+/**
+ * Imprimir tickets de cocina por estación desde el frontend
+ * Usa la API de preview para obtener la agrupación correcta por estación
+ */
+export const printKitchenTicketsFrontend = async (order: Order): Promise<boolean> => {
+  try {
+    const settings = getPrintSettings();
+
+    // Si está configurado para pedir confirmación
+    if (!settings.autoPrint) {
+      const confirmed = window.confirm(
+        `¿Imprimir tickets de cocina para Mesa ${order.table_number}?\n\n` +
+          `Pedido: ${order.items.length} item(s)\n` +
+          `Se generarán tickets por estación`
+      );
+
+      if (!confirmed) {
+        console.log('❌ Impresión cancelada por el usuario');
+        return false;
+      }
+    }
+
+    // Importar la API de tickets
+    const { kitchenTicketsAPI } = await import('../features/shared/orders/api/kitchenTicketsAPI');
+
+    // Obtener preview de tickets del backend para saber cómo agrupar
+    console.log('🔍 Obteniendo agrupación de tickets del backend...');
+    const ticketsPreview = await kitchenTicketsAPI.preview(order.id);
+
+    if (!ticketsPreview.tickets || ticketsPreview.tickets.length === 0) {
+      console.warn('⚠️ No hay tickets para imprimir');
+      alert('No hay tickets para imprimir. Los items no tienen estaciones asignadas.');
+      return false;
+    }
+
+    console.log(`🖨️ Generando ${ticketsPreview.tickets.length} ticket(s) para estaciones`);
+
+    // Imprimir cada ticket
+    const isMobile = isMobileDevice();
+    let successCount = 0;
+
+    for (const ticket of ticketsPreview.tickets) {
+      try {
+        const ticketHTML = generateKitchenTicketHTML(ticket, settings);
+
+        if (isMobile) {
+          await printWithIframe(ticketHTML, settings);
+        } else {
+          await printWithWindow(ticketHTML, settings);
+        }
+
+        successCount++;
+
+        // Pequeña pausa entre tickets
+        if (successCount < ticketsPreview.tickets.length) {
+          await new Promise(resolve => setTimeout(resolve, 1500));
+        }
+      } catch (error) {
+        console.error(`❌ Error al imprimir ticket de ${ticket.station_name}:`, error);
+      }
+    }
+
+    if (successCount === ticketsPreview.tickets.length) {
+      console.log(`✅ Todos los tickets impresos exitosamente (${successCount}/${ticketsPreview.tickets.length})`);
+      return true;
+    } else if (successCount > 0) {
+      console.warn(`⚠️ Algunos tickets fallaron (${successCount}/${ticketsPreview.tickets.length})`);
+      return true;
+    } else {
+      throw new Error('No se pudo imprimir ningún ticket');
+    }
+  } catch (error) {
+    console.error('❌ Error al imprimir tickets de cocina:', error);
+    alert(`Error al imprimir tickets: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+    return false;
+  }
+};
+
+/**
+ * Función auxiliar para imprimir localmente usando el navegador (LEGACY - para emergencias o sin backend)
+ * Esta función imprime la comanda completa sin separar por estaciones
+ * NOTA: Comentada por no estar en uso. Descomentar si se necesita para fallback.
+ */
+/*
+export const printKitchenCommandLocal = async (order: Order): Promise<boolean> => {
+  try {
+    const settings = getPrintSettings();
+    const isMobile = isMobileDevice();
+
+    // Si está configurado para pedir confirmación
+    if (!settings.autoPrint) {
+      const confirmed = window.confirm(
+        `¿Imprimir comanda completa (local) para Mesa ${order.table_number}?\n\n` +
+          `Pedido: ${order.items.length} item(s)\n` +
+          `Total: $${order.total.toFixed(2)}\n\n` +
+          `⚠️ Esto imprimirá la comanda completa, sin separar por estaciones.`
+      );
+
+      if (!confirmed) {
+        console.log('❌ Impresión cancelada por el usuario');
+        return false;
+      }
+    }
+
+    // Generar HTML de la comanda
+    const commandHTML = generateCommandHTML(order, settings);
+
+    // Usar método apropiado según el dispositivo
+    if (isMobile) {
+      console.log('📱 Imprimiendo desde dispositivo móvil usando iframe...');
+      await printWithIframe(commandHTML, settings);
+    } else {
+      console.log('🖥️ Imprimiendo desde desktop usando window.open...');
+      await printWithWindow(commandHTML, settings);
+    }
+
+    console.log(`✅ Comanda impresa exitosamente localmente (${settings.copies} copia(s))`);
+    return true;
+  } catch (error) {
+    console.error('❌ Error al imprimir comanda localmente:', error);
+
+    const isMobile = isMobileDevice();
+    const errorMsg = isMobile
+      ? `Error al imprimir desde móvil: ${error instanceof Error ? error.message : 'Error desconocido'}\n\nConsejo: Asegúrate de permitir el acceso a la impresión en tu navegador.`
+      : `Error al imprimir comanda: ${error instanceof Error ? error.message : 'Error desconocido'}`;
+
+    alert(errorMsg);
+    return false;
+  }
+};
+*/
+
+
 

@@ -1,24 +1,21 @@
-// =================================================================
-}
-  is_active?: boolean;
-  description?: string;
-  name?: string;
-export interface UpdateStationRequest {
-
-}
-  description?: string;
-  name: string;
-export interface CreateStationRequest {
-
-}
-  created_at: string;
-  is_active: boolean;
-  description: string;
-  name: string;
-  id: string;
-export interface Station {
-
-// =================================================================
 // Tipos para el sistema de estaciones de preparación
-// ARCHIVO: /src/types/stations.ts
+
+export interface Station {
+  id: string;
+  name: string;
+  description: string;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface CreateStationRequest {
+  name: string;
+  description?: string;
+}
+
+export interface UpdateStationRequest {
+  name?: string;
+  description?: string;
+  is_active?: boolean;
+}
 

@@ -5,23 +5,23 @@
 package service
 
 import (
-	"backend/internal/domain"
-	"backend/internal/repository"
 	"fmt"
 	"log"
 	"time"
 
+	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/domain"
+	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/repository"
 	"github.com/google/uuid"
 )
 
 type KitchenTicketService struct {
-	orderRepo   *repository.OrderRepository
+	orderRepo   repository.OrderRepository
 	printerRepo *repository.PrinterRepository
 	stationRepo *repository.StationRepository
 }
 
 func NewKitchenTicketService(
-	orderRepo *repository.OrderRepository,
+	orderRepo repository.OrderRepository,
 	printerRepo *repository.PrinterRepository,
 	stationRepo *repository.StationRepository,
 ) *KitchenTicketService {
@@ -36,7 +36,7 @@ func NewKitchenTicketService(
 // Agrupa los items por estación según su categoría
 func (s *KitchenTicketService) GenerateKitchenTickets(orderID uuid.UUID) ([]domain.KitchenTicket, error) {
 	// 1. Obtener la orden completa con todos sus items
-	order, err := s.orderRepo.GetByID(orderID)
+	order, err := s.orderRepo.GetOrderByID(orderID)
 	if err != nil {
 		return nil, fmt.Errorf("error al obtener orden: %w", err)
 	}
@@ -69,13 +69,19 @@ func (s *KitchenTicketService) GenerateKitchenTickets(orderID uuid.UUID) ([]doma
 			}
 
 			// Agregar el item a la estación
-			stationItems[stationID] = append(stationItems[stationID], domain.KitchenTicketItem{
+			kitchenItem := domain.KitchenTicketItem{
 				MenuItemName:   item.MenuItemName,
 				Quantity:       item.Quantity,
-				Notes:          item.Notes,
-				Customizations: item.Customizations,
+				Customizations: &item.Customizations,
 				IsTakeout:      item.IsTakeout,
-			})
+			}
+
+			// Manejar Notes que puede ser nil
+			if item.Notes != nil {
+				kitchenItem.Notes = *item.Notes
+			}
+
+			stationItems[stationID] = append(stationItems[stationID], kitchenItem)
 		}
 	}
 
@@ -234,4 +240,3 @@ func (s *KitchenTicketService) GetTicketsPreview(orderID uuid.UUID) (*domain.Sta
 		Tickets: tickets,
 	}, nil
 }
-

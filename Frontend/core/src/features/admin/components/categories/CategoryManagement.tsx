@@ -6,6 +6,8 @@ import { useDispatch, useSelector } from 'react-redux';
 import { fetchCategories, addNewCategory, removeCategory, updateExistingCategory } from './api/categoriesSlice.ts';
 import type { AppDispatch, RootState } from '../../../../app/store.ts';
 import type { Category } from '../../../../types/categories.ts';
+import type { Station } from '../../../../types/stations.ts';
+import { stationsAPI } from '../stations/api/stationsAPI';
 import ExcelImportExportButtons from '../shared/ExcelImportExportButtons.tsx';
 import {
   exportCategoriesToExcel,
@@ -20,11 +22,23 @@ const CategoryManagement: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { items = [], status = 'idle' } = useSelector((state: RootState) => state.categories) || {};
   const [name, setName] = useState('');
+  const [stationId, setStationId] = useState('');
+  const [stations, setStations] = useState<Station[]>([]);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
 
   useEffect(() => {
     if (status === 'idle') dispatch(fetchCategories());
+    loadStations();
   }, [status, dispatch]);
+
+  const loadStations = async () => {
+    try {
+      const data = await stationsAPI.getActive();
+      setStations(data);
+    } catch (error) {
+      console.error('Error al cargar estaciones:', error);
+    }
+  };
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -32,11 +46,17 @@ const CategoryManagement: React.FC = () => {
       if (editingCategory.name.trim()) {
         dispatch(updateExistingCategory(editingCategory));
         setEditingCategory(null);
+        setStationId('');
       }
     } else {
       if (name.trim()) {
-        dispatch(addNewCategory(name.trim()));
+        const categoryData: any = { name: name.trim() };
+        if (stationId) {
+          categoryData.station_id = stationId;
+        }
+        dispatch(addNewCategory(categoryData));
         setName('');
+        setStationId('');
       }
     }
   };
@@ -50,10 +70,12 @@ const CategoryManagement: React.FC = () => {
   const handleEdit = (category: Category) => {
     setEditingCategory(category);
     setName('');
+    setStationId(category.station_id || '');
   };
 
   const handleCancelEdit = () => {
     setEditingCategory(null);
+    setStationId('');
   };
 
   // Funciones de Excel
@@ -139,6 +161,25 @@ const CategoryManagement: React.FC = () => {
               required
             />
           </div>
+          <div className="flex-grow">
+            <label htmlFor="stationSelect" className="text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
+              🍳 Estación de Preparación (Opcional)
+            </label>
+            <select
+              id="stationSelect"
+              value={editingCategory ? editingCategory.station_id || '' : stationId}
+              onChange={(e) => editingCategory ? setEditingCategory({...editingCategory, station_id: e.target.value || undefined}) : setStationId(e.target.value)}
+              className="w-full px-3 sm:px-4 py-2 sm:py-3 border-2 border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all text-sm sm:text-base"
+            >
+              <option value="">Sin estación asignada</option>
+              {stations.map((station) => (
+                <option key={station.id} value={station.id}>
+                  {station.name}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500 mt-1">Los items de esta categoría se prepararán en la estación seleccionada</p>
+          </div>
           <div className="flex gap-2">
             <button
               type="submit"
@@ -178,7 +219,7 @@ const CategoryManagement: React.FC = () => {
               key={cat.id}
               className="bg-white p-4 sm:p-5 rounded-xl border-2 border-gray-200 shadow-md hover:shadow-lg transition-all duration-200 transform hover:-translate-y-1"
             >
-              <div className="flex items-start justify-between gap-2 sm:gap-3">
+              <div className="flex items-start justify-between gap-2 sm:gap-3 mb-3">
                 <div className="flex items-center gap-2 sm:gap-3 flex-grow min-w-0">
                   <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-orange-400 to-orange-600 rounded-lg flex items-center justify-center flex-shrink-0">
                     <FaTags className="text-white text-lg sm:text-xl" />
@@ -205,6 +246,13 @@ const CategoryManagement: React.FC = () => {
                   </button>
                 </div>
               </div>
+              {cat.station_name && (
+                <div className="mt-2 pt-2 border-t border-gray-200">
+                  <span className="text-xs text-gray-600 flex items-center gap-1">
+                    🍳 <span className="font-semibold">Estación:</span> {cat.station_name}
+                  </span>
+                </div>
+              )}
             </div>
           ))
         ) : (

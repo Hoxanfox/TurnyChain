@@ -8,40 +8,46 @@ import type { Station, CreateStationRequest, UpdateStationRequest } from '../../
 
 const API_URL = '/api/stations';
 
+// Función helper para obtener el token del localStorage
+const getAuthConfig = () => {
+  const token = localStorage.getItem('token');
+  return { headers: { Authorization: `Bearer ${token}` } };
+};
+
 export const stationsAPI = {
   // Obtener todas las estaciones
   getAll: async (): Promise<Station[]> => {
-    const response = await axios.get(API_URL);
+    const response = await axios.get(API_URL, getAuthConfig());
     return response.data;
   },
 
   // Obtener solo estaciones activas
   getActive: async (): Promise<Station[]> => {
-    const response = await axios.get(`${API_URL}/active`);
+    const response = await axios.get(`${API_URL}/active`, getAuthConfig());
     return response.data;
   },
 
   // Obtener una estación por ID
   getById: async (id: string): Promise<Station> => {
-    const response = await axios.get(`${API_URL}/${id}`);
+    const response = await axios.get(`${API_URL}/${id}`, getAuthConfig());
     return response.data;
   },
 
   // Crear estación
   create: async (data: CreateStationRequest): Promise<Station> => {
-    const response = await axios.post(API_URL, data);
+    const response = await axios.post(API_URL, data, getAuthConfig());
     return response.data;
   },
 
   // Actualizar estación
   update: async (id: string, data: UpdateStationRequest): Promise<Station> => {
-    const response = await axios.put(`${API_URL}/${id}`, data);
+    const response = await axios.put(`${API_URL}/${id}`, data, getAuthConfig());
     return response.data;
   },
 
   // Desactivar estación (soft delete)
   delete: async (id: string): Promise<void> => {
-    await axios.delete(`${API_URL}/${id}`);
+    await axios.delete(`${API_URL}/${id}`, getAuthConfig());
   },
 };
 

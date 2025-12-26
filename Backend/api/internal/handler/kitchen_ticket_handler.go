@@ -4,9 +4,8 @@
 package handler
 
 import (
-	"backend/internal/domain"
-	"backend/internal/service"
-
+	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/domain"
+	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/service"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 )
@@ -75,4 +74,3 @@ func (h *KitchenTicketHandler) PrintKitchenTickets(c *fiber.Ctx) error {
 
 	return c.JSON(response)
 }
-

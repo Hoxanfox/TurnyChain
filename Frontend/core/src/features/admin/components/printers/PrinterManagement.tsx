@@ -4,7 +4,7 @@
 // =================================================================
 
 import React, { useState, useEffect } from 'react';
-import { FaPlus, FaEdit, FaTrash, FaCheck, FaTimes, FaPrint } from 'react-icons/fa';
+import { FaPlus, FaEdit, FaCheck, FaTimes, FaPrint } from 'react-icons/fa';
 import { printersAPI } from './api/printersAPI';
 import { stationsAPI } from '../stations/api/stationsAPI';
 import type { Printer, CreatePrinterRequest, PrinterType } from '../../../../types/printers';
@@ -89,6 +89,9 @@ const PrinterManagement: React.FC = () => {
     }
   };
 
+  // NOTA: Función handleDelete comentada por no estar en uso actualmente.
+  // Descomentar si se necesita funcionalidad de eliminación permanente.
+  /*
   const handleDelete = async (id: string) => {
     if (!confirm('¿Estás seguro de desactivar esta impresora?')) return;
 
@@ -100,6 +103,7 @@ const PrinterManagement: React.FC = () => {
       alert('Error al eliminar impresora');
     }
   };
+  */
 
   const openEditModal = (printer: Printer) => {
     setEditingPrinter(printer);

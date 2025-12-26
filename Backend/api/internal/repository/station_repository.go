@@ -4,47 +4,85 @@
 package repository
 
 import (
-	"backend/internal/domain"
 	"database/sql"
 	"fmt"
 
+	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/domain"
 	"github.com/google/uuid"
-	"github.com/jmoiron/sqlx"
 )
 
 type StationRepository struct {
-	db *sqlx.DB
+	db *sql.DB
 }
 
-func NewStationRepository(db *sqlx.DB) *StationRepository {
+func NewStationRepository(db *sql.DB) *StationRepository {
 	return &StationRepository{db: db}
 }
 
 // GetAll obtiene todas las estaciones
 func (r *StationRepository) GetAll() ([]domain.Station, error) {
-	var stations []domain.Station
 	query := `SELECT id, name, description, is_active, created_at FROM stations ORDER BY name`
-	err := r.db.Select(&stations, query)
-	return stations, err
+	rows, err := r.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	stations := make([]domain.Station, 0)
+	for rows.Next() {
+		var station domain.Station
+		var description sql.NullString
+		if err := rows.Scan(&station.ID, &station.Name, &description, &station.IsActive, &station.CreatedAt); err != nil {
+			return nil, err
+		}
+		if description.Valid {
+			station.Description = description.String
+		}
+		stations = append(stations, station)
+	}
+	return stations, nil
 }
 
 // GetAllActive obtiene solo las estaciones activas
 func (r *StationRepository) GetAllActive() ([]domain.Station, error) {
-	var stations []domain.Station
 	query := `SELECT id, name, description, is_active, created_at FROM stations WHERE is_active = true ORDER BY name`
-	err := r.db.Select(&stations, query)
-	return stations, err
+	rows, err := r.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	stations := make([]domain.Station, 0)
+	for rows.Next() {
+		var station domain.Station
+		var description sql.NullString
+		if err := rows.Scan(&station.ID, &station.Name, &description, &station.IsActive, &station.CreatedAt); err != nil {
+			return nil, err
+		}
+		if description.Valid {
+			station.Description = description.String
+		}
+		stations = append(stations, station)
+	}
+	return stations, nil
 }
 
 // GetByID obtiene una estación por ID
 func (r *StationRepository) GetByID(id uuid.UUID) (*domain.Station, error) {
 	var station domain.Station
+	var description sql.NullString
 	query := `SELECT id, name, description, is_active, created_at FROM stations WHERE id = $1`
-	err := r.db.Get(&station, query, id)
+	err := r.db.QueryRow(query, id).Scan(&station.ID, &station.Name, &description, &station.IsActive, &station.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
-	return &station, err
+	if err != nil {
+		return nil, err
+	}
+	if description.Valid {
+		station.Description = description.String
+	}
+	return &station, nil
 }
 
 // Create crea una nueva estación
@@ -55,8 +93,15 @@ func (r *StationRepository) Create(req domain.CreateStationRequest) (*domain.Sta
 		VALUES ($1, $2)
 		RETURNING id, name, description, is_active, created_at
 	`
-	err := r.db.Get(&station, query, req.Name, req.Description)
-	return &station, err
+	var description sql.NullString
+	err := r.db.QueryRow(query, req.Name, req.Description).Scan(&station.ID, &station.Name, &description, &station.IsActive, &station.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	if description.Valid {
+		station.Description = description.String
+	}
+	return &station, nil
 }
 
 // Update actualiza una estación existente
@@ -109,16 +154,40 @@ func (r *StationRepository) GetStationsByCategoryIDs(categoryIDs []uuid.UUID) ([
 		return []domain.Station{}, nil
 	}
 
+	// Construir query con placeholders dinámicos
 	query := `
 		SELECT DISTINCT s.id, s.name, s.description, s.is_active, s.created_at
 		FROM stations s
 		INNER JOIN categories c ON c.station_id = s.id
-		WHERE c.id = ANY($1) AND s.is_active = true
-		ORDER BY s.name
-	`
+		WHERE s.is_active = true AND c.id IN (`
 
-	var stations []domain.Station
-	err := r.db.Select(&stations, query, categoryIDs)
-	return stations, err
+	params := make([]interface{}, len(categoryIDs))
+	for i, id := range categoryIDs {
+		if i > 0 {
+			query += ", "
+		}
+		query += fmt.Sprintf("$%d", i+1)
+		params[i] = id
+	}
+	query += `) ORDER BY s.name`
+
+	rows, err := r.db.Query(query, params...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	stations := make([]domain.Station, 0)
+	for rows.Next() {
+		var station domain.Station
+		var description sql.NullString
+		if err := rows.Scan(&station.ID, &station.Name, &description, &station.IsActive, &station.CreatedAt); err != nil {
+			return nil, err
+		}
+		if description.Valid {
+			station.Description = description.String
+		}
+		stations = append(stations, station)
+	}
+	return stations, nil
 }
-

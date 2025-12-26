@@ -30,4 +30,3 @@ type UpdateStationRequest struct {
 	Description string `json:"description"`
 	IsActive    *bool  `json:"is_active"`
 }
-

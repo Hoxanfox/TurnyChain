@@ -24,6 +24,23 @@ export const KitchenTicketsPreviewModal: React.FC<KitchenTicketsPreviewModalProp
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    const loadPreview = async () => {
+      if (!orderId) return;
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        const data = await kitchenTicketsAPI.preview(orderId);
+        setPreview(data);
+      } catch (err) {
+        console.error('Error al cargar preview de tickets:', err);
+        setError('No se pudo cargar la vista previa de los tickets');
+      } finally {
+        setLoading(false);
+      }
+    };
+
     if (isOpen && orderId) {
       loadPreview();
     } else {
@@ -31,23 +48,6 @@ export const KitchenTicketsPreviewModal: React.FC<KitchenTicketsPreviewModalProp
       setError(null);
     }
   }, [isOpen, orderId]);
-
-  const loadPreview = async () => {
-    if (!orderId) return;
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const data = await kitchenTicketsAPI.preview(orderId);
-      setPreview(data);
-    } catch (err) {
-      console.error('Error al cargar preview de tickets:', err);
-      setError('No se pudo cargar la vista previa de los tickets');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handlePrint = () => {
     if (orderId) {

@@ -144,9 +144,12 @@ func (r *orderRepository) GetOrders(filters map[string]interface{}) ([]domain.Or
 	}
 
 	itemsQuery := `
-		SELECT oi.order_id, oi.menu_item_id, mi.name, oi.quantity, oi.price_at_order, oi.notes, oi.customizations, oi.is_takeout
+		SELECT oi.order_id, oi.menu_item_id, mi.name, oi.quantity, oi.price_at_order, oi.notes, oi.customizations, oi.is_takeout,
+		       mi.category_id, c.station_id as category_station_id, s.name as category_station_name
 		FROM order_items oi
 		JOIN menu_items mi ON oi.menu_item_id = mi.id
+		LEFT JOIN categories c ON mi.category_id = c.id
+		LEFT JOIN stations s ON c.station_id = s.id
 		WHERE oi.order_id = ANY($1)`
 
 	// 3. CORRECCIÓN: Usamos pq.Array para pasar la lista de IDs a la consulta.
@@ -159,9 +162,27 @@ func (r *orderRepository) GetOrders(filters map[string]interface{}) ([]domain.Or
 	for itemRows.Next() {
 		var item domain.OrderItem
 		var orderID uuid.UUID
-		if err := itemRows.Scan(&orderID, &item.MenuItemID, &item.MenuItemName, &item.Quantity, &item.PriceAtOrder, &item.Notes, &item.Customizations, &item.IsTakeout); err != nil {
+		var categoryID sql.NullString
+		var categoryStationID sql.NullString
+		var categoryStationName sql.NullString
+
+		if err := itemRows.Scan(&orderID, &item.MenuItemID, &item.MenuItemName, &item.Quantity, &item.PriceAtOrder, &item.Notes, &item.Customizations, &item.IsTakeout, &categoryID, &categoryStationID, &categoryStationName); err != nil {
 			return nil, err
 		}
+
+		// Convertir los campos nullable a punteros UUID
+		if categoryID.Valid {
+			cid, _ := uuid.Parse(categoryID.String)
+			item.CategoryID = &cid
+		}
+		if categoryStationID.Valid {
+			csid, _ := uuid.Parse(categoryStationID.String)
+			item.CategoryStationID = &csid
+		}
+		if categoryStationName.Valid {
+			item.CategoryStationName = categoryStationName.String
+		}
+
 		if order, ok := ordersMap[orderID]; ok {
 			order.Items = append(order.Items, item)
 		}
@@ -179,9 +200,12 @@ func (r *orderRepository) GetOrders(filters map[string]interface{}) ([]domain.Or
 // IMPORTANTE: Este método asegura que SIEMPRE se carguen los items antes de enviar por WebSocket
 func (r *orderRepository) loadOrderItems(orderID uuid.UUID) ([]domain.OrderItem, error) {
 	itemsQuery := `
-		SELECT oi.menu_item_id, mi.name, oi.quantity, oi.price_at_order, oi.notes, oi.customizations, oi.is_takeout
+		SELECT oi.menu_item_id, mi.name, oi.quantity, oi.price_at_order, oi.notes, oi.customizations, oi.is_takeout,
+		       mi.category_id, c.station_id as category_station_id, s.name as category_station_name
 		FROM order_items oi
 		JOIN menu_items mi ON oi.menu_item_id = mi.id
+		LEFT JOIN categories c ON mi.category_id = c.id
+		LEFT JOIN stations s ON c.station_id = s.id
 		WHERE oi.order_id = $1`
 
 	rows, err := r.db.Query(itemsQuery, orderID)
@@ -193,9 +217,27 @@ func (r *orderRepository) loadOrderItems(orderID uuid.UUID) ([]domain.OrderItem,
 	items := make([]domain.OrderItem, 0)
 	for rows.Next() {
 		var item domain.OrderItem
-		if err := rows.Scan(&item.MenuItemID, &item.MenuItemName, &item.Quantity, &item.PriceAtOrder, &item.Notes, &item.Customizations, &item.IsTakeout); err != nil {
+		var categoryID sql.NullString
+		var categoryStationID sql.NullString
+		var categoryStationName sql.NullString
+
+		if err := rows.Scan(&item.MenuItemID, &item.MenuItemName, &item.Quantity, &item.PriceAtOrder, &item.Notes, &item.Customizations, &item.IsTakeout, &categoryID, &categoryStationID, &categoryStationName); err != nil {
 			return nil, err
 		}
+
+		// Convertir los campos nullable a punteros UUID
+		if categoryID.Valid {
+			cid, _ := uuid.Parse(categoryID.String)
+			item.CategoryID = &cid
+		}
+		if categoryStationID.Valid {
+			csid, _ := uuid.Parse(categoryStationID.String)
+			item.CategoryStationID = &csid
+		}
+		if categoryStationName.Valid {
+			item.CategoryStationName = categoryStationName.String
+		}
+
 		items = append(items, item)
 	}
 

@@ -49,4 +49,3 @@ type UpdatePrinterRequest struct {
 	StationID   *uuid.UUID   `json:"station_id"`
 	IsActive    *bool        `json:"is_active"`
 }
-

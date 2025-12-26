@@ -3,7 +3,7 @@
 // =================================================================
 import React, { useState } from 'react';
 import { useSelector } from 'react-redux';
-import { FaUsers, FaClipboardList, FaTable, FaUtensils, FaTags, FaLeaf, FaBreadSlice, FaChevronDown, FaChevronUp } from 'react-icons/fa';
+import { FaUsers, FaClipboardList, FaTable, FaUtensils, FaTags, FaLeaf, FaBreadSlice, FaChevronDown, FaChevronUp, FaPrint } from 'react-icons/fa';
 import { useIsDesktop } from '../../hooks/useMediaQuery';
 import LogoutButton from '../../components/LogoutButton';
 import StatisticsCards from './components/StatisticsCards';
@@ -14,10 +14,12 @@ import MenuManagement from './components/menu/MenuManagement.tsx';
 import CategoryManagement from './components/categories/CategoryManagement.tsx';
 import IngredientManagement from './components/ingredients/IngredientManagement.tsx';
 import AccompanimentManagement from './components/accompaniments/AccompanimentManagement.tsx';
+import StationManagement from './components/stations/StationManagement.tsx';
+import PrinterManagement from './components/printers/PrinterManagement.tsx';
 import DataExchangeButton from './components/shared/DataExchangeButton';
 import type { RootState } from '../../app/store';
 
-type AdminTab = 'users' | 'orders' | 'tables' | 'menu' | 'categories' | 'ingredients' | 'accompaniments';
+type AdminTab = 'users' | 'orders' | 'tables' | 'menu' | 'categories' | 'ingredients' | 'accompaniments' | 'stations' | 'printers';
 
 interface TabConfig {
   id: AdminTab;
@@ -45,6 +47,8 @@ const AdminDashboard: React.FC = () => {
     { id: 'categories', label: 'Categorías', icon: FaTags, color: 'orange' },
     { id: 'ingredients', label: 'Ingredientes', icon: FaLeaf, color: 'lime' },
     { id: 'accompaniments', label: 'Acompañantes', icon: FaBreadSlice, color: 'amber' },
+    { id: 'stations', label: 'Estaciones', icon: FaUtensils, color: 'indigo' },
+    { id: 'printers', label: 'Impresoras', icon: FaPrint, color: 'teal' },
   ];
 
   const getTabClasses = (tab: TabConfig) => {
@@ -192,6 +196,8 @@ const AdminDashboard: React.FC = () => {
             {activeTab === 'categories' && <CategoryManagement />}
             {activeTab === 'ingredients' && <IngredientManagement />}
             {activeTab === 'accompaniments' && <AccompanimentManagement />}
+            {activeTab === 'stations' && <StationManagement />}
+            {activeTab === 'printers' && <PrinterManagement />}
           </div>
         </main>
       </div>

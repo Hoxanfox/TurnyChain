@@ -168,6 +168,94 @@ export const PrintSettingsModal: React.FC<PrintSettingsModalProps> = ({ isOpen, 
             </div>
           </div>
 
+          {/* Tamaño de papel */}
+          <div className="space-y-3">
+            <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+              <span className="text-xl">📏</span>
+              Tamaño de Papel
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                onClick={() => handleChange('paperSize', '58mm')}
+                className={`p-3 rounded-lg border-2 font-semibold transition-all ${
+                  settings.paperSize === '58mm'
+                    ? 'bg-indigo-600 text-white border-indigo-600'
+                    : 'bg-white text-gray-700 border-gray-300 hover:border-indigo-400'
+                }`}
+              >
+                <div className="text-xs">58mm</div>
+                <div className="text-xs mt-1">Térmico</div>
+              </button>
+              <button
+                onClick={() => handleChange('paperSize', '80mm')}
+                className={`p-3 rounded-lg border-2 font-semibold transition-all ${
+                  settings.paperSize === '80mm'
+                    ? 'bg-indigo-600 text-white border-indigo-600'
+                    : 'bg-white text-gray-700 border-gray-300 hover:border-indigo-400'
+                }`}
+              >
+                <div className="text-sm">80mm</div>
+                <div className="text-xs mt-1">Térmico</div>
+              </button>
+              <button
+                onClick={() => handleChange('paperSize', 'A4')}
+                className={`p-3 rounded-lg border-2 font-semibold transition-all ${
+                  settings.paperSize === 'A4'
+                    ? 'bg-indigo-600 text-white border-indigo-600'
+                    : 'bg-white text-gray-700 border-gray-300 hover:border-indigo-400'
+                }`}
+              >
+                <div className="text-base">A4</div>
+                <div className="text-xs mt-1">Carta</div>
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 text-center">
+              Ajusta según tu tipo de impresora
+            </p>
+          </div>
+
+          {/* Método de impresión de tickets */}
+          <div className="space-y-3">
+            <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+              <span className="text-xl">🏪</span>
+              Impresión de Tickets de Cocina
+            </label>
+            <div className="space-y-2">
+              <label className="flex items-center gap-3 p-4 border-2 rounded-lg cursor-pointer hover:bg-gray-50 transition-all">
+                <input
+                  type="radio"
+                  name="ticketPrintMethod"
+                  checked={settings.ticketPrintMethod === 'backend'}
+                  onChange={() => handleChange('ticketPrintMethod', 'backend')}
+                  className="w-5 h-5 text-indigo-600"
+                />
+                <div className="flex-1">
+                  <div className="font-semibold text-gray-800">Backend (Impresoras Térmicas)</div>
+                  <div className="text-sm text-gray-600">Impresión automática en impresoras configuradas</div>
+                </div>
+                <span className="text-2xl">🖨️</span>
+              </label>
+
+              <label className="flex items-center gap-3 p-4 border-2 rounded-lg cursor-pointer hover:bg-gray-50 transition-all">
+                <input
+                  type="radio"
+                  name="ticketPrintMethod"
+                  checked={settings.ticketPrintMethod === 'frontend'}
+                  onChange={() => handleChange('ticketPrintMethod', 'frontend')}
+                  className="w-5 h-5 text-indigo-600"
+                />
+                <div className="flex-1">
+                  <div className="font-semibold text-gray-800">Frontend (Navegador)</div>
+                  <div className="text-sm text-gray-600">Imprime desde el navegador, elige tu impresora</div>
+                </div>
+                <span className="text-2xl">🌐</span>
+              </label>
+            </div>
+            <p className="text-xs text-gray-500 bg-blue-50 p-3 rounded-lg border border-blue-200">
+              💡 <strong>Backend:</strong> Requiere impresoras configuradas. <strong>Frontend:</strong> Funciona siempre, sin configuración.
+            </p>
+          </div>
+
           {/* Número de copias */}
           <div className="space-y-3">
             <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
@@ -221,8 +309,18 @@ export const PrintSettingsModal: React.FC<PrintSettingsModalProps> = ({ isOpen, 
                 <span className="font-semibold capitalize">{settings.fontSize}</span>
               </div>
               <div className="flex justify-between">
+                <span>Papel:</span>
+                <span className="font-semibold">{settings.paperSize}</span>
+              </div>
+              <div className="flex justify-between">
                 <span>Copias:</span>
                 <span className="font-semibold">{settings.copies}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Tickets Cocina:</span>
+                <span className="font-semibold capitalize">
+                  {settings.ticketPrintMethod === 'backend' ? '🖨️ Backend' : '🌐 Frontend'}
+                </span>
               </div>
             </div>
           </div>

@@ -4,7 +4,7 @@
 // =================================================================
 
 import React, { useState, useEffect } from 'react';
-import { FaPlus, FaEdit, FaTrash, FaCheck, FaTimes, FaUtensils } from 'react-icons/fa';
+import { FaPlus, FaEdit, FaCheck, FaTimes, FaUtensils } from 'react-icons/fa';
 import { stationsAPI } from './api/stationsAPI';
 import type { Station, CreateStationRequest } from '../../../../types/stations';
 
@@ -81,6 +81,9 @@ const StationManagement: React.FC = () => {
     }
   };
 
+  // NOTA: Función handleDelete comentada por no estar en uso actualmente.
+  // Descomentar si se necesita funcionalidad de eliminación permanente.
+  /*
   const handleDelete = async (id: string) => {
     if (!confirm('¿Estás seguro de desactivar esta estación?')) return;
 
@@ -92,6 +95,7 @@ const StationManagement: React.FC = () => {
       alert('Error al eliminar estación');
     }
   };
+  */
 
   const openEditModal = (station: Station) => {
     setEditingStation(station);
