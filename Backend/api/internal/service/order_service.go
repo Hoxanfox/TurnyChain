@@ -217,6 +217,28 @@ func (s *orderService) UpdateOrderStatus(orderID, userID uuid.UUID, newStatus st
 		return nil, err
 	}
 
+	// --- INCREMENTAR ORDER_COUNT CUANDO SE APRUEBA LA ORDEN ---
+	if newStatus == "aprobado" {
+		// Obtener la orden completa con sus items
+		fullOrder, err := s.orderRepo.GetOrderByID(orderID)
+		if err != nil {
+			log.Printf("⚠️ No se pudo obtener la orden completa para incrementar contadores: %v", err)
+		} else {
+			// Incrementar el contador de cada item en la orden
+			go func(ord *domain.Order) {
+				for _, item := range ord.Items {
+					for i := 0; i < item.Quantity; i++ {
+						if err := s.menuRepo.IncrementOrderCount(item.MenuItemID); err != nil {
+							log.Printf("⚠️ Error incrementando contador para item %s: %v", item.MenuItemID, err)
+						}
+					}
+				}
+				log.Printf("✅ Contadores de popularidad actualizados para orden %s", ord.ID)
+			}(fullOrder)
+		}
+	}
+	// ----------------------------------------------------------
+
 	// --- LÓGICA BLOCKCHAIN ---
 	if newStatus == "pagado" && s.blockchain != nil {
 		// IMPORTANTE: Obtener la orden COMPLETA con Items para la blockchain

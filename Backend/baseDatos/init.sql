@@ -46,7 +46,8 @@ CREATE TABLE "menu_items" (
   "description" text,
   "price" numeric(10, 2) NOT NULL,
   "category_id" uuid NOT NULL REFERENCES "categories"("id"),
-  "is_available" boolean NOT NULL DEFAULT true
+  "is_available" boolean NOT NULL DEFAULT true,
+  "order_count" integer NOT NULL DEFAULT 0
 );
 
 -- Tablas de pivote para las relaciones
@@ -123,6 +124,8 @@ EXECUTE PROCEDURE trigger_set_timestamp();
 -- Crear índices para mejorar el rendimiento de las búsquedas
 CREATE INDEX ON "orders" ("status");
 CREATE INDEX ON "orders" ("waiter_id");
+CREATE INDEX ON "menu_items" ("order_count");
+CREATE INDEX ON "menu_items" ("category_id");
 
 -- Insertar usuarios (Contraseña para todos: 1234)
 -- Hash generado con Costo 10 (Go Default)

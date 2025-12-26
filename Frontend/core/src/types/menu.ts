@@ -10,11 +10,13 @@ export interface MenuItem {
   description: string;
   price: number;
   category_id: string;
+  category_name?: string; // Nombre de la categoría para display
   is_available: boolean;
   is_active?: boolean;
   image_url?: string;
   ingredients: Ingredient[];
   accompaniments: Accompaniment[];
+  order_count?: number; // Contador de veces que se ha pedido (para popularidad)
 }
 
 // Nuevo tipo para los ítems en el carrito, que pueden tener personalizaciones

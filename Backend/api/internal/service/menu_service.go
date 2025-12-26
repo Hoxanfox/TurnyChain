@@ -15,6 +15,7 @@ type MenuService interface {
 	GetMenuItems() ([]domain.MenuItem, error)
 	UpdateMenuItem(id uuid.UUID, payload UpdateMenuItemPayload) (*domain.MenuItem, error)
 	DeleteMenuItem(id uuid.UUID) error
+	IncrementOrderCount(itemID uuid.UUID) error
 }
 
 // Structs para los payloads que vienen del handler
@@ -46,7 +47,9 @@ func (s *menuService) CreateMenuItem(payload CreateMenuItemPayload) (*domain.Men
 		IsAvailable: true,
 	}
 	createdItem, err := s.menuRepo.CreateMenuItem(item, payload.IngredientIDs, payload.AccompanimentIDs)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	s.wsHub.BroadcastMessage("MENU_ITEM_ADDED", createdItem)
 	return createdItem, nil
 }
@@ -64,14 +67,22 @@ func (s *menuService) UpdateMenuItem(id uuid.UUID, payload UpdateMenuItemPayload
 		CategoryID:  payload.CategoryID,
 	}
 	updatedItem, err := s.menuRepo.UpdateMenuItem(item, payload.IngredientIDs, payload.AccompanimentIDs)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	s.wsHub.BroadcastMessage("MENU_ITEM_UPDATED", updatedItem)
 	return updatedItem, nil
 }
 
 func (s *menuService) DeleteMenuItem(id uuid.UUID) error {
 	err := s.menuRepo.DeleteMenuItem(id)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	s.wsHub.BroadcastMessage("MENU_ITEM_DELETED", map[string]string{"id": id.String()})
 	return nil
+}
+
+func (s *menuService) IncrementOrderCount(itemID uuid.UUID) error {
+	return s.menuRepo.IncrementOrderCount(itemID)
 }

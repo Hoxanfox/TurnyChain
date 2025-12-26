@@ -38,6 +38,7 @@ func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *
 	menu.Post("/", menuHandler.CreateMenuItem)
 	menu.Put("/:id", menuHandler.UpdateMenuItem)
 	menu.Delete("/:id", menuHandler.DeleteMenuItem)
+	menu.Post("/items/:id/increment-order-count", menuHandler.IncrementOrderCount)
 
 	// Rutas de Órdenes
 	orders := protected.Group("/orders")
