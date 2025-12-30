@@ -65,6 +65,8 @@ interface CashierDashboardMobileProps {
   onConfirmPayment: (orderId: string) => void;
   onRejectPayment: (orderId: string) => void;
   onPrintCommand: (orderId: string) => void;
+  onPrintFullCommand: (orderId: string) => void;
+  onPreviewTickets: (orderId: string) => void;
 }
 
 export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
@@ -91,6 +93,8 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
   onConfirmPayment,
   onRejectPayment,
   onPrintCommand,
+  onPrintFullCommand,
+  onPreviewTickets,
 }) => {
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [selectedTableNumber, setSelectedTableNumber] = useState<number | null>(null);
@@ -381,6 +385,8 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
         onRejectPayment={onRejectPayment}
         onViewDetail={(orderId) => setSelectedOrderIdForDetail(orderId)}
         onPrintCommand={onPrintCommand}
+        onPrintFullCommand={onPrintFullCommand}
+        onPreviewTickets={onPreviewTickets}
       />
 
       {/* Modal de Detalle de Orden */}

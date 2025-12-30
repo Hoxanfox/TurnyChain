@@ -30,6 +30,9 @@ import {
   type CustomizationData
 } from './utils/waiterUtils.ts';
 import DeliveryInfoModal from './components/DeliveryInfoModal';
+// Importar toast y confetti para versión desktop
+import toast, { Toaster } from 'react-hot-toast';
+import confetti from 'canvas-confetti';
 
 const WaiterDashboardDesktop: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -53,6 +56,45 @@ const WaiterDashboardDesktop: React.FC = () => {
   const [isCheckoutBeforeSend, setIsCheckoutBeforeSend] = useState(false);
   const [checkoutOrderTotal, setCheckoutOrderTotal] = useState<number>(0);
   const [checkoutTableNumber, setCheckoutTableNumber] = useState<number>(0);
+
+  // 🆕 MEJORA UX #1: Persistencia del carrito (versión desktop)
+  useEffect(() => {
+    const savedDraft = localStorage.getItem('waiter-cart-draft-desktop');
+    if (savedDraft) {
+      try {
+        const parsed = JSON.parse(savedDraft);
+        const hoursSinceLastUpdate = (Date.now() - parsed.timestamp) / (1000 * 60 * 60);
+
+        if (parsed.cart.length > 0 && hoursSinceLastUpdate < 4) {
+          setCart(parsed.cart);
+          setTableId(parsed.tableId || '');
+          setOrderType(parsed.orderType || 'mesa');
+          toast('📦 Tienes una orden sin terminar', {
+            icon: '💡',
+            duration: 4000,
+          });
+        } else {
+          localStorage.removeItem('waiter-cart-draft-desktop');
+        }
+      } catch (error) {
+        console.error('Error al recuperar carrito guardado:', error);
+        localStorage.removeItem('waiter-cart-draft-desktop');
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (cart.length > 0) {
+      localStorage.setItem('waiter-cart-draft-desktop', JSON.stringify({
+        cart,
+        tableId,
+        orderType,
+        timestamp: Date.now()
+      }));
+    } else {
+      localStorage.removeItem('waiter-cart-draft-desktop');
+    }
+  }, [cart, tableId, orderType]);
 
   useEffect(() => {
     dispatch(fetchTables());
@@ -187,10 +229,34 @@ const WaiterDashboardDesktop: React.FC = () => {
       paymentProofFile: proofFile
     }));
 
+    // 🆕 MEJORA UX #3: Feedback celebratorio (versión desktop)
+    confetti({
+      particleCount: 100,
+      spread: 70,
+      origin: { y: 0.6 }
+    });
+
+    const total = cart.reduce((sum, item) => sum + item.finalPrice, 0);
+    const selectedTable = findTableById(tables, tableId);
+    toast.success(
+      `🎉 ¡Orden enviada!\nMesa ${selectedTable?.table_number || 'N/A'} • $${total.toFixed(2)}\n${cart.length} productos`,
+      {
+        duration: 4000,
+        style: {
+          background: '#10b981',
+          color: '#fff',
+          fontWeight: 'bold',
+          fontSize: '14px',
+        },
+        icon: '✅',
+      }
+    );
+
     setCart([]);
     setTableId('');
     setOrderType('mesa');
     setDeliveryData(null);
+    localStorage.removeItem('waiter-cart-draft-desktop');
   };
 
   const handleSelectOrder = (orderId: string) => {
@@ -203,20 +269,23 @@ const WaiterDashboardDesktop: React.FC = () => {
 
   return (
     <>
+      {/* Toaster para notificaciones */}
+      <Toaster position="top-center" />
+
       <div className="flex flex-col h-screen bg-gray-100">
-        {/* Header */}
-        <header className="bg-white shadow-md px-6 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-gray-800">Panel Mesero - Vista Escritorio</h1>
+        {/* Header - Compacto */}
+        <header className="bg-gradient-to-r from-indigo-600 to-indigo-700 shadow-md px-6 py-2.5 flex justify-between items-center">
+          <h1 className="text-xl font-bold text-white">Panel Mesero</h1>
           <div className="flex gap-3">
             <button
               onClick={() => setIsMyOrdersModalOpen(true)}
-              className="bg-blue-500 text-white px-5 py-2 rounded-lg shadow hover:bg-blue-600 transition-colors"
+              className="bg-white text-indigo-700 px-4 py-1.5 rounded-lg shadow-sm hover:bg-gray-50 transition-colors font-medium"
             >
               Hoy
             </button>
             <button
               onClick={() => setIsHistoryModalOpen(true)}
-              className="bg-purple-500 text-white px-5 py-2 rounded-lg shadow hover:bg-purple-600 transition-colors"
+              className="bg-indigo-800 text-white px-4 py-1.5 rounded-lg shadow-sm hover:bg-indigo-900 transition-colors font-medium"
             >
               Historial
             </button>
@@ -225,20 +294,20 @@ const WaiterDashboardDesktop: React.FC = () => {
         </header>
 
         {/* Contenido principal en 3 columnas */}
-        <div className="flex-grow overflow-hidden flex gap-4 p-4">
+        <div className="flex-grow overflow-hidden flex gap-3 p-3">
           {/* Columna 1: Mesas (25%) */}
-          <div className="w-1/4 bg-white rounded-lg shadow-lg p-4 flex flex-col">
-            <h2 className="text-xl font-bold mb-4 text-gray-800">Tipo de Orden</h2>
+          <div className="w-1/4 bg-gradient-to-b from-white to-gray-50 rounded-lg shadow-lg p-3 flex flex-col border border-gray-200">
+            <h2 className="text-lg font-bold mb-3 text-gray-800">Tipo de Orden</h2>
 
             {/* Selector de Tipo de Orden */}
-            <div className="mb-4">
+            <div className="mb-3">
               <div className="grid grid-cols-1 gap-2">
                 <button
                   onClick={() => handleOrderTypeChange('mesa')}
-                  className={`p-3 rounded-lg transition-all ${
+                  className={`p-2.5 rounded-lg transition-all shadow-md ${
                     orderType === 'mesa'
-                      ? 'bg-indigo-600 text-white shadow-lg'
-                      : 'bg-indigo-50 text-indigo-800 hover:bg-indigo-100'
+                      ? 'bg-indigo-600 text-white shadow-lg scale-105'
+                      : 'bg-white text-indigo-700 border-2 border-indigo-200 hover:bg-indigo-50'
                   }`}
                 >
                   <div className="flex items-center gap-2">
@@ -252,10 +321,10 @@ const WaiterDashboardDesktop: React.FC = () => {
 
                 <button
                   onClick={() => handleOrderTypeChange('llevar')}
-                  className={`p-3 rounded-lg transition-all ${
+                  className={`p-2.5 rounded-lg transition-all shadow-md ${
                     orderType === 'llevar'
-                      ? 'bg-green-600 text-white shadow-lg'
-                      : 'bg-green-50 text-green-800 hover:bg-green-100'
+                      ? 'bg-green-600 text-white shadow-lg scale-105'
+                      : 'bg-white text-green-700 border-2 border-green-200 hover:bg-green-50'
                   }`}
                 >
                   <div className="flex items-center gap-2">
@@ -269,10 +338,10 @@ const WaiterDashboardDesktop: React.FC = () => {
 
                 <button
                   onClick={() => handleOrderTypeChange('domicilio')}
-                  className={`p-3 rounded-lg transition-all ${
+                  className={`p-2.5 rounded-lg transition-all shadow-md ${
                     orderType === 'domicilio'
-                      ? 'bg-purple-600 text-white shadow-lg'
-                      : 'bg-purple-50 text-purple-800 hover:bg-purple-100'
+                      ? 'bg-purple-600 text-white shadow-lg scale-105'
+                      : 'bg-white text-purple-700 border-2 border-purple-200 hover:bg-purple-50'
                   }`}
                 >
                   <div className="flex items-center gap-2">
@@ -289,25 +358,25 @@ const WaiterDashboardDesktop: React.FC = () => {
             {/* Selector de Mesa (solo para tipo "mesa") */}
             {orderType === 'mesa' && (
               <>
-                <h3 className="text-lg font-semibold mb-3 text-gray-700">Mesas</h3>
-                {status === 'loading' && <p className="text-gray-600">Cargando mesas...</p>}
-                <div className="flex-grow overflow-y-auto">
-                  <div className="grid grid-cols-2 gap-3">
+                <h3 className="text-sm font-semibold mb-2 text-gray-700">Seleccionar Mesa</h3>
+                {status === 'loading' && <p className="text-gray-600 text-sm">Cargando mesas...</p>}
+                <div className="flex-grow overflow-y-auto pr-1">
+                  <div className="grid grid-cols-2 gap-2">
                     {tables.filter(t => t.table_number < 9998).map(table => (
                       <button
                         key={table.id}
                         onClick={() => setTableId(table.id)}
-                        className={`p-4 rounded-lg shadow transition-all transform hover:scale-105 ${
+                        className={`p-3 rounded-lg shadow-md transition-all ${
                           tableId === table.id
-                            ? 'bg-indigo-600 text-white ring-4 ring-indigo-300'
+                            ? 'bg-indigo-600 text-white shadow-lg scale-105'
                             : table.is_active
-                              ? 'bg-green-100 text-green-800 hover:bg-green-200'
-                              : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+                              ? 'bg-white border-2 border-green-200 text-green-700 hover:bg-green-50'
+                              : 'bg-gray-100 border-2 border-gray-300 text-gray-500'
                         }`}
                       >
                         <div className="text-center">
-                          <p className="text-2xl font-bold mb-1">{table.table_number}</p>
-                          <p className="text-xs capitalize">{table.is_active ? 'Disponible' : 'Inactiva'}</p>
+                          <p className="text-xl font-bold mb-0.5">{table.table_number}</p>
+                          <p className="text-xs">{table.is_active ? '✓' : '✗'}</p>
                         </div>
                       </button>
                     ))}
@@ -319,11 +388,13 @@ const WaiterDashboardDesktop: React.FC = () => {
             {/* Confirmación para llevar */}
             {orderType === 'llevar' && (
               <div className="flex-grow flex items-center justify-center">
-                <div className="bg-green-50 border-2 border-green-300 rounded-xl p-6 text-center">
-                  <span className="text-5xl mb-3 block">🥡</span>
-                  <h3 className="text-lg font-bold text-green-800 mb-2">Para Llevar</h3>
+                <div className="bg-gradient-to-br from-green-50 to-green-100 border-2 border-green-400 rounded-xl p-5 text-center shadow-lg">
+                  <span className="text-4xl mb-2 block">🥡</span>
+                  <h3 className="text-base font-bold text-green-800 mb-1">Para Llevar</h3>
                   <p className="text-sm text-green-700">Todo será empacado</p>
-                  <p className="text-xs text-green-600 mt-2">Mesa virtual: 9999</p>
+                  <div className="mt-2 bg-white rounded px-2 py-1 inline-block">
+                    <p className="text-xs text-green-600 font-mono font-bold">Mesa: 9999</p>
+                  </div>
                 </div>
               </div>
             )}
@@ -331,35 +402,37 @@ const WaiterDashboardDesktop: React.FC = () => {
             {/* Confirmación para domicilio */}
             {orderType === 'domicilio' && (
               <div className="flex-grow flex items-center justify-center">
-                <div className="bg-purple-50 border-2 border-purple-300 rounded-xl p-6 text-center">
-                  <span className="text-5xl mb-3 block">🏍️</span>
-                  <h3 className="text-lg font-bold text-purple-800 mb-2">Domicilio</h3>
+                <div className="bg-gradient-to-br from-purple-50 to-purple-100 border-2 border-purple-400 rounded-xl p-5 text-center shadow-lg">
+                  <span className="text-4xl mb-2 block">🏍️</span>
+                  <h3 className="text-base font-bold text-purple-800 mb-1">Domicilio</h3>
                   <p className="text-sm text-purple-700">Entrega a casa</p>
-                  <p className="text-xs text-purple-600 mt-2">Mesa virtual: 9998</p>
+                  <div className="mt-2 bg-white rounded px-2 py-1 inline-block">
+                    <p className="text-xs text-purple-600 font-mono font-bold">Mesa: 9998</p>
+                  </div>
                 </div>
               </div>
             )}
             {tableId && selectedTable && (
-              <div className="mt-4 p-3 bg-indigo-50 rounded-lg border border-indigo-200">
-                <p className="text-sm font-semibold text-indigo-800">
-                  Mesa seleccionada: {selectedTable.table_number}
+              <div className="mt-3 p-2.5 bg-indigo-50 rounded-lg border-2 border-indigo-300 shadow-sm">
+                <p className="text-sm font-bold text-indigo-800 text-center">
+                  ✓ Mesa: {selectedTable.table_number}
                 </p>
               </div>
             )}
           </div>
 
           {/* Columna 2: Menú (50%) */}
-          <div className="w-1/2 bg-gray-50 rounded-lg shadow-lg p-4 flex flex-col">
-            <div className="mb-4">
-              <h2 className="text-xl font-bold text-gray-800">Menú</h2>
+          <div className="w-1/2 bg-gradient-to-b from-gray-50 to-white rounded-lg shadow-lg p-3 flex flex-col border border-gray-200">
+            <div className="mb-2 pb-2 border-b border-gray-200">
+              <h2 className="text-lg font-bold text-gray-800">Menú</h2>
               {selectedTable && (
-                <p className="text-sm text-gray-600 mt-1">
-                  Agregando platos para <span className="font-semibold">Mesa {selectedTable.table_number}</span>
+                <p className="text-xs text-gray-600 mt-0.5">
+                  Agregando para <span className="font-bold text-indigo-700">Mesa {selectedTable.table_number}</span>
                 </p>
               )}
               {!tableId && (
-                <p className="text-sm text-red-500 mt-1">
-                  Primero selecciona una mesa
+                <p className="text-xs text-red-600 mt-0.5 font-medium">
+                  ⚠️ Primero selecciona una mesa
                 </p>
               )}
             </div>
@@ -369,12 +442,12 @@ const WaiterDashboardDesktop: React.FC = () => {
           </div>
 
           {/* Columna 3: Comanda/Carrito (25%) */}
-          <div className="w-1/4 bg-white rounded-lg shadow-lg p-4 flex flex-col">
-            <h2 className="text-xl font-bold mb-4 text-gray-800">Comanda</h2>
+          <div className="w-1/4 bg-gradient-to-b from-white to-gray-50 rounded-lg shadow-lg p-3 flex flex-col border border-gray-200">
+            <h2 className="text-lg font-bold mb-2 text-gray-800 pb-2 border-b border-gray-200">Comanda</h2>
             {cart.length === 0 && (
-              <div className="mb-4 bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                <p className="text-sm text-yellow-800 text-center">
-                  El carrito está vacío.
+              <div className="mb-3 bg-gradient-to-br from-yellow-50 to-yellow-100 border-2 border-yellow-300 rounded-lg p-2.5 shadow-sm">
+                <p className="text-xs text-yellow-800 text-center font-medium">
+                  🛒 El carrito está vacío
                 </p>
               </div>
             )}

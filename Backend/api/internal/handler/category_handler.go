@@ -12,12 +12,23 @@ import (
 type CategoryHandler struct { service service.CategoryService }
 func NewCategoryHandler(s service.CategoryService) *CategoryHandler { return &CategoryHandler{service: s} }
 
-type CategoryPayload struct { Name string `json:"name"` }
+type CategoryPayload struct {
+	Name      string  `json:"name"`
+	StationID *string `json:"station_id,omitempty"`
+}
 
 func (h *CategoryHandler) Create(c *fiber.Ctx) error {
 	payload := new(CategoryPayload)
 	if err := c.BodyParser(payload); err != nil { return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse JSON"}) }
-	cat, err := h.service.Create(payload.Name)
+
+	var stationID *uuid.UUID
+	if payload.StationID != nil && *payload.StationID != "" {
+		sid, err := uuid.Parse(*payload.StationID)
+		if err != nil { return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid station_id"}) }
+		stationID = &sid
+	}
+
+	cat, err := h.service.Create(payload.Name, stationID)
 	if err != nil { return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not create category"}) }
 	return c.Status(fiber.StatusCreated).JSON(cat)
 }
@@ -33,7 +44,15 @@ func (h *CategoryHandler) Update(c *fiber.Ctx) error {
 	if err != nil { return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid ID"}) }
 	payload := new(CategoryPayload)
 	if err := c.BodyParser(payload); err != nil { return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse JSON"}) }
-	cat, err := h.service.Update(id, payload.Name)
+
+	var stationID *uuid.UUID
+	if payload.StationID != nil && *payload.StationID != "" {
+		sid, err := uuid.Parse(*payload.StationID)
+		if err != nil { return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid station_id"}) }
+		stationID = &sid
+	}
+
+	cat, err := h.service.Update(id, payload.Name, stationID)
 	if err != nil { return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not update category"}) }
 	return c.JSON(cat)
 }

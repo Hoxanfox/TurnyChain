@@ -50,6 +50,8 @@ func main() {
 	categoryRepo := repository.NewCategoryRepository(db)
 	ingredientRepo := repository.NewIngredientRepository(db)
 	accompanimentRepo := repository.NewAccompanimentRepository(db)
+	stationRepo := repository.NewStationRepository(db)
+	printerRepo := repository.NewPrinterRepository(db)
 
 	// Servicios
 	userService := service.NewUserService(userRepo)
@@ -62,6 +64,9 @@ func main() {
 	categoryService := service.NewCategoryService(categoryRepo)
 	ingredientService := service.NewIngredientService(ingredientRepo)
 	accompanimentService := service.NewAccompanimentService(accompanimentRepo)
+	stationService := service.NewStationService(stationRepo)
+	printerService := service.NewPrinterService(printerRepo)
+	kitchenTicketService := service.NewKitchenTicketService(orderRepo, printerRepo, stationRepo)
 
 	// Handlers
 	userHandler := handler.NewUserHandler(userService)
@@ -73,6 +78,9 @@ func main() {
 	ingredientHandler := handler.NewIngredientHandler(ingredientService)
 	accompanimentHandler := handler.NewAccompanimentHandler(accompanimentService)
 	wsHandler := handler.NewWebSocketHandler(wsHub)
+	stationHandler := handler.NewStationHandler(stationService)
+	printerHandler := handler.NewPrinterHandler(printerService)
+	kitchenTicketHandler := handler.NewKitchenTicketHandler(kitchenTicketService)
 
 	app := fiber.New()
 	app.Use(cors.New())
@@ -84,7 +92,7 @@ func main() {
 	}
 	app.Static("/api/static", uploadsDir)
 
-	router.SetupRoutes(app, authHandler, userHandler, menuHandler, orderHandler, tableHandler, categoryHandler, ingredientHandler, accompanimentHandler, wsHandler)
+	router.SetupRoutes(app, authHandler, userHandler, menuHandler, orderHandler, tableHandler, categoryHandler, ingredientHandler, accompanimentHandler, wsHandler, stationHandler, printerHandler, kitchenTicketHandler)
 
 	log.Println("Iniciando servidor en el puerto 8080...")
 	if err := app.Listen(":8080"); err != nil {

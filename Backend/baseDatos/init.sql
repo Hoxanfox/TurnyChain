@@ -3,7 +3,7 @@
 -- =================================================================
 
 -- Borrar tablas antiguas si existen para un reinicio limpio
-DROP TABLE IF EXISTS "order_items", "orders", "menu_item_ingredients", "menu_item_accompaniments", "menu_items", "categories", "ingredients", "accompaniments", "tables", "users" CASCADE;
+DROP TABLE IF EXISTS "order_items", "orders", "menu_item_ingredients", "menu_item_accompaniments", "menu_items", "categories", "printers", "stations", "ingredients", "accompaniments", "tables", "users" CASCADE;
 
 -- Tabla para usuarios y roles
 CREATE TABLE "users" (
@@ -22,10 +22,31 @@ CREATE TABLE "tables" (
   "is_active" boolean NOT NULL DEFAULT true
 );
 
--- Nuevas tablas para la gestión granular del menú
+-- Tablas para el sistema de estaciones e impresoras (CREAR PRIMERO)
+CREATE TABLE "stations" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "name" varchar(100) UNIQUE NOT NULL,
+  "description" text,
+  "is_active" boolean NOT NULL DEFAULT true,
+  "created_at" timestamptz NOT NULL DEFAULT (now())
+);
+
+CREATE TABLE "printers" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "name" varchar(100) UNIQUE NOT NULL,
+  "ip_address" varchar(45) NOT NULL,
+  "port" integer NOT NULL DEFAULT 9100,
+  "printer_type" varchar(20) NOT NULL DEFAULT 'escpos' CHECK (printer_type IN ('escpos', 'pdf', 'raw')),
+  "station_id" uuid NOT NULL REFERENCES "stations"("id") ON DELETE CASCADE,
+  "is_active" boolean NOT NULL DEFAULT true,
+  "created_at" timestamptz NOT NULL DEFAULT (now())
+);
+
+-- Tablas para la gestión granular del menú (CON station_id desde el inicio)
 CREATE TABLE "categories" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  "name" varchar(100) UNIQUE NOT NULL
+  "name" varchar(100) UNIQUE NOT NULL,
+  "station_id" uuid REFERENCES "stations"("id")
 );
 
 CREATE TABLE "ingredients" (
@@ -46,8 +67,10 @@ CREATE TABLE "menu_items" (
   "description" text,
   "price" numeric(10, 2) NOT NULL,
   "category_id" uuid NOT NULL REFERENCES "categories"("id"),
-  "is_available" boolean NOT NULL DEFAULT true
+  "is_available" boolean NOT NULL DEFAULT true,
+  "order_count" integer NOT NULL DEFAULT 0
 );
+
 
 -- Tablas de pivote para las relaciones
 CREATE TABLE "menu_item_ingredients" (
@@ -123,6 +146,10 @@ EXECUTE PROCEDURE trigger_set_timestamp();
 -- Crear índices para mejorar el rendimiento de las búsquedas
 CREATE INDEX ON "orders" ("status");
 CREATE INDEX ON "orders" ("waiter_id");
+CREATE INDEX ON "menu_items" ("order_count");
+CREATE INDEX ON "menu_items" ("category_id");
+CREATE INDEX ON "printers" ("station_id");
+CREATE INDEX ON "categories" ("station_id");
 
 -- Insertar usuarios (Contraseña para todos: 1234)
 -- Hash generado con Costo 10 (Go Default)
@@ -139,8 +166,24 @@ INSERT INTO tables (id, table_number) VALUES
 ('b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b99', 9999),  -- Mesa virtual para LLEVAR
 ('b0eebc99-9c0b-4ef8-bb6d-6bb9bd380b98', 9998);  -- Mesa virtual para DOMICILIOS
 
+-- Insertar estaciones de preparación
+INSERT INTO stations (id, name, description) VALUES
+('e01e6f2b-2250-4630-8a2e-8a3d2a1f9d01', 'Cocina Principal', 'Preparación de platos principales y entradas'),
+('e02e6f2b-2250-4630-8a2e-8a3d2a1f9d02', 'Bar', 'Preparación de bebidas alcohólicas y no alcohólicas'),
+('e03e6f2b-2250-4630-8a2e-8a3d2a1f9d03', 'Parrilla', 'Preparación de carnes a la parrilla'),
+('e04e6f2b-2250-4630-8a2e-8a3d2a1f9d04', 'Postres', 'Preparación de postres y dulces');
+
+-- Insertar impresoras de ejemplo
+INSERT INTO printers (id, name, ip_address, port, printer_type, station_id) VALUES
+('p01e6f2b-2250-4630-8a2e-8a3d2a1f9e01', 'Impresora Cocina 1', '192.168.1.101', 9100, 'escpos', 'e01e6f2b-2250-4630-8a2e-8a3d2a1f9d01'),
+('p02e6f2b-2250-4630-8a2e-8a3d2a1f9e02', 'Impresora Bar 1', '192.168.1.102', 9100, 'escpos', 'e02e6f2b-2250-4630-8a2e-8a3d2a1f9d02'),
+('p03e6f2b-2250-4630-8a2e-8a3d2a1f9e03', 'Impresora Parrilla 1', '192.168.1.103', 9100, 'escpos', 'e03e6f2b-2250-4630-8a2e-8a3d2a1f9d03'),
+('p04e6f2b-2250-4630-8a2e-8a3d2a1f9e04', 'Impresora Postres 1', '192.168.1.104', 9100, 'escpos', 'e04e6f2b-2250-4630-8a2e-8a3d2a1f9d04');
+
 -- Insertar categorías, ingredientes y acompañantes con UUIDs válidos
-INSERT INTO categories (id, name) VALUES ('c01e6f2b-2250-4630-8a2e-8a3d2a1f9c34', 'Platos Fuertes'), ('c02e6f2b-2250-4630-8a2e-8a3d2a1f9c35', 'Bebidas');
+INSERT INTO categories (id, name, station_id) VALUES
+('c01e6f2b-2250-4630-8a2e-8a3d2a1f9c34', 'Platos Fuertes', 'e01e6f2b-2250-4630-8a2e-8a3d2a1f9d01'),
+('c02e6f2b-2250-4630-8a2e-8a3d2a1f9c35', 'Bebidas', 'e02e6f2b-2250-4630-8a2e-8a3d2a1f9d02');
 INSERT INTO ingredients (id, name) VALUES ('i01e6f2b-2250-4630-8a2e-8a3d2a1f9c36', 'Panceta'), ('i02e6f2b-2250-4630-8a2e-8a3d2a1f9c37', 'Bondiola');
 INSERT INTO accompaniments (id, name, price) VALUES ('a01e6f2b-2250-4630-8a2e-8a3d2a1f9c38', 'Papa', 2.00), ('a02e6f2b-2250-4630-8a2e-8a3d2a1f9c39', 'Yuca', 2.50), ('a03e6f2b-2250-4630-8a2e-8a3d2a1f9c40', 'Hielo', 0.00);
 

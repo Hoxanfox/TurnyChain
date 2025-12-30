@@ -16,6 +16,7 @@ type MenuRepository interface {
 	GetMenuItemDetails(menuItemID uuid.UUID) ([]domain.Ingredient, []domain.Accompaniment, error)
 	UpdateMenuItem(item *domain.MenuItem, ingredientIDs, accompanimentIDs []uuid.UUID) (*domain.MenuItem, error)
 	DeleteMenuItem(itemID uuid.UUID) error
+	IncrementOrderCount(itemID uuid.UUID) error
 }
 
 type menuRepository struct{ db *sql.DB }
@@ -29,8 +30,8 @@ func (r *menuRepository) CreateMenuItem(item *domain.MenuItem, ingredientIDs, ac
 	}
 
 	item.ID = uuid.New()
-	query := `INSERT INTO menu_items (id, name, description, price, category_id, is_available) 
-			  VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`
+	query := `INSERT INTO menu_items (id, name, description, price, category_id, is_available, order_count) 
+			  VALUES ($1, $2, $3, $4, $5, $6, 0) RETURNING id`
 	err = tx.QueryRow(query, item.ID, item.Name, item.Description, item.Price, item.CategoryID, item.IsAvailable).Scan(&item.ID)
 	if err != nil {
 		tx.Rollback()
@@ -56,9 +57,14 @@ func (r *menuRepository) CreateMenuItem(item *domain.MenuItem, ingredientIDs, ac
 	return item, tx.Commit()
 }
 
-// GetMenuItems ahora obtiene los ítems y sus relaciones
+// GetMenuItems ahora obtiene los ítems y sus relaciones, incluyendo category_name y order_count
 func (r *menuRepository) GetMenuItems() ([]domain.MenuItem, error) {
-	query := "SELECT id, name, description, price, category_id, is_available FROM menu_items WHERE is_available = true"
+	query := `SELECT m.id, m.name, m.description, m.price, m.category_id, c.name as category_name, 
+	          m.is_available, m.order_count 
+	          FROM menu_items m 
+	          JOIN categories c ON m.category_id = c.id 
+	          WHERE m.is_available = true 
+	          ORDER BY m.order_count DESC, m.name ASC`
 	rows, err := r.db.Query(query)
 	if err != nil {
 		return nil, err
@@ -70,7 +76,8 @@ func (r *menuRepository) GetMenuItems() ([]domain.MenuItem, error) {
 
 	for rows.Next() {
 		var item domain.MenuItem
-		if err := rows.Scan(&item.ID, &item.Name, &item.Description, &item.Price, &item.CategoryID, &item.IsAvailable); err != nil {
+		if err := rows.Scan(&item.ID, &item.Name, &item.Description, &item.Price, &item.CategoryID,
+			&item.CategoryName, &item.IsAvailable, &item.OrderCount); err != nil {
 			return nil, err
 		}
 		itemsMap[item.ID] = &item
@@ -209,6 +216,13 @@ func (r *menuRepository) UpdateMenuItem(item *domain.MenuItem, ingredientIDs, ac
 
 func (r *menuRepository) DeleteMenuItem(itemID uuid.UUID) error {
 	query := "UPDATE menu_items SET is_available = false WHERE id = $1"
+	_, err := r.db.Exec(query, itemID)
+	return err
+}
+
+// IncrementOrderCount incrementa el contador de pedidos para un item del menú
+func (r *menuRepository) IncrementOrderCount(itemID uuid.UUID) error {
+	query := "UPDATE menu_items SET order_count = order_count + 1 WHERE id = $1"
 	_, err := r.db.Exec(query, itemID)
 	return err
 }

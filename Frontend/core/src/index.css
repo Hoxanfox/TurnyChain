@@ -82,3 +82,15 @@
 .animate-slide-up {
   animation: slideUp 0.3s ease-out;
 }
+
+/* Ocultar scrollbar manteniendo funcionalidad (para filtros horizontales) */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE y Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;  /* Chrome, Safari y Opera */
+}
+
+

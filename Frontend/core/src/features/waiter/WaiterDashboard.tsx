@@ -43,6 +43,9 @@ import {
 
 // Importar el modal de delivery
 import DeliveryInfoModal from './components/DeliveryInfoModal';
+// Importar toast y confetti
+import toast, { Toaster } from 'react-hot-toast';
+import confetti from 'canvas-confetti';
 
 const WaiterDashboard: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -69,6 +72,49 @@ const WaiterDashboard: React.FC = () => {
   const [checkoutOrderTotal, setCheckoutOrderTotal] = useState<number>(0);
   const [checkoutTableNumber, setCheckoutTableNumber] = useState<number>(0);
   const [isCheckoutBeforeSend, setIsCheckoutBeforeSend] = useState(false);
+
+  // 🆕 MEJORA UX #1: Persistencia del carrito (Efecto Zeigarnik)
+  // Recuperar carrito guardado al montar el componente
+  useEffect(() => {
+    const savedDraft = localStorage.getItem('waiter-cart-draft');
+    if (savedDraft) {
+      try {
+        const parsed = JSON.parse(savedDraft);
+        const hoursSinceLastUpdate = (Date.now() - parsed.timestamp) / (1000 * 60 * 60);
+
+        // Solo recuperar si tiene menos de 4 horas (un turno)
+        if (parsed.cart.length > 0 && hoursSinceLastUpdate < 4) {
+          setCart(parsed.cart);
+          setTableId(parsed.tableId || '');
+          setOrderType(parsed.orderType || 'mesa');
+          toast('📦 Tienes una orden sin terminar', {
+            icon: '💡',
+            duration: 4000,
+          });
+        } else {
+          // Limpiar si es muy viejo
+          localStorage.removeItem('waiter-cart-draft');
+        }
+      } catch (error) {
+        console.error('Error al recuperar carrito guardado:', error);
+        localStorage.removeItem('waiter-cart-draft');
+      }
+    }
+  }, []);
+
+  // Guardar carrito en localStorage cada vez que cambie
+  useEffect(() => {
+    if (cart.length > 0) {
+      localStorage.setItem('waiter-cart-draft', JSON.stringify({
+        cart,
+        tableId,
+        orderType,
+        timestamp: Date.now()
+      }));
+    } else {
+      localStorage.removeItem('waiter-cart-draft');
+    }
+  }, [cart, tableId, orderType]);
 
   useEffect(() => {
     dispatch(fetchTables());
@@ -240,32 +286,62 @@ const WaiterDashboard: React.FC = () => {
       paymentProofFile: proofFile
     }));
 
+    // 🆕 MEJORA UX #3: Feedback celebratorio (Peak-End Rule)
+    // Confetti animation
+    confetti({
+      particleCount: 100,
+      spread: 70,
+      origin: { y: 0.6 }
+    });
+
+    // Toast personalizado con información de la orden
+    const total = cart.reduce((sum, item) => sum + item.finalPrice, 0);
+    const selectedTable = findTableById(tables, tableId);
+    toast.success(
+      `🎉 ¡Orden enviada!\nMesa ${selectedTable?.table_number || 'N/A'} • $${total.toFixed(2)}\n${cart.length} productos`,
+      {
+        duration: 4000,
+        style: {
+          background: '#10b981',
+          color: '#fff',
+          fontWeight: 'bold',
+          fontSize: '14px',
+        },
+        icon: '✅',
+      }
+    );
+
+    // Limpiar estado
     setCart([]);
     setTableId('');
     setOrderType('mesa');
     setDeliveryData(null);
+    localStorage.removeItem('waiter-cart-draft');
   };
 
   const selectedTable = findTableById(tables, tableId);
 
   return (
     <>
+      {/* Toaster para notificaciones */}
+      <Toaster position="top-center" />
+
       <div className="flex flex-col h-screen-mobile bg-gray-100">
-        {/* Header */}
-        <header className="bg-white shadow-md px-4 py-3 flex justify-between items-center">
-          <h1 className="text-xl font-bold text-gray-800">Panel Mesero</h1>
+        {/* Header - Compacto */}
+        <header className="bg-gradient-to-r from-indigo-600 to-indigo-700 shadow-md px-4 py-2 flex justify-between items-center">
+          <h1 className="text-lg font-bold text-white">Mesero</h1>
           <div className="flex gap-2">
             <button
               onClick={() => setIsMyOrdersModalOpen(true)}
-              className="bg-blue-500 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-600 transition-colors"
+              className="bg-white text-indigo-700 px-3 py-1.5 rounded-lg shadow-sm hover:bg-gray-50 transition-colors text-sm font-medium"
             >
               Hoy
             </button>
             <button
               onClick={() => setIsHistoryModalOpen(true)}
-              className="bg-purple-500 text-white px-4 py-2 rounded-lg shadow hover:bg-purple-600 transition-colors"
+              className="bg-indigo-800 text-white px-3 py-1.5 rounded-lg shadow-sm hover:bg-indigo-900 transition-colors text-sm font-medium"
             >
-              Historial
+              📋
             </button>
             <LogoutButton />
           </div>
@@ -340,9 +416,9 @@ const WaiterDashboard: React.FC = () => {
           </Swiper>
         </div>
 
-        {/* Footer / Navigation Dots */}
-        <footer className="bg-white shadow-md px-4 py-3">
-          <div className="flex justify-center items-center gap-2 mb-2">
+        {/* Footer / Navigation Dots - Compacto */}
+        <footer className="bg-white shadow-md px-4 py-2 border-t-2 border-indigo-100">
+          <div className="flex justify-center items-center gap-2 mb-1">
             <button
               onClick={() => swiperRef.current?.slideTo(0)}
               className={`w-2 h-2 rounded-full transition-all ${
@@ -372,10 +448,10 @@ const WaiterDashboard: React.FC = () => {
               aria-label="Ir a Pagos"
             />
           </div>
-          <p className="text-center text-xs text-gray-500">
-            {activeSlide === 0 && 'Paso 1: Selecciona una mesa'}
-            {activeSlide === 1 && 'Paso 2: Elige del menú'}
-            {activeSlide === 2 && 'Paso 3: Revisa y envía la comanda'}
+          <p className="text-center text-xs text-gray-600 font-medium">
+            {activeSlide === 0 && '📋 Paso 1: Selecciona una mesa'}
+            {activeSlide === 1 && '🍽️ Paso 2: Elige del menú'}
+            {activeSlide === 2 && '✅ Paso 3: Revisa y envía'}
             {activeSlide === 3 && '💳 Gestión de Pagos'}
           </p>
         </footer>

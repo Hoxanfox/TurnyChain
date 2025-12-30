@@ -2,8 +2,10 @@
 // ARCHIVO 2: /src/features/waiter/components/CurrentOrder.tsx (MEJORADO)
 // =================================================================
 import React, { useState } from 'react';
+import { FaMapMarkedAlt } from 'react-icons/fa';
 import type { CartItem } from '../../../types/menu';
 import type { Table } from '../../../types/tables';
+import TableMapModal from './TableMapModal';
 
 interface CurrentOrderProps {
   cart: CartItem[];
@@ -36,8 +38,25 @@ const CurrentOrder: React.FC<CurrentOrderProps> = ({
 }) => {
   const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
   const [tempPrice, setTempPrice] = useState<number>(0);
+  // 🆕 MEJORA UX #2: Estado para colapsar/expandir detalles (Reducir Carga Cognitiva)
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+  // 🆕 MEJORA UX #6: Estado para modal de mapa de mesas
+  const [showTableMap, setShowTableMap] = useState(false);
 
   const total = cart.reduce((sum, item) => sum + item.finalPrice, 0);
+
+
+  const toggleExpand = (cartItemId: string) => {
+    setExpandedItems(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(cartItemId)) {
+        newSet.delete(cartItemId);
+      } else {
+        newSet.add(cartItemId);
+      }
+      return newSet;
+    });
+  };
 
   const handleStartEditPrice = (item: CartItem) => {
     setEditingPriceId(item.cartItemId);
@@ -56,24 +75,63 @@ const CurrentOrder: React.FC<CurrentOrderProps> = ({
     setTempPrice(0);
   };
 
+
   return (
     <div className="pb-4 flex flex-col h-full">
       <h2 className="text-xl font-bold mb-4 text-gray-800">Nueva Orden</h2>
-      <div className="mb-4">
-        <label htmlFor="table" className="block text-sm font-medium text-gray-700">Mesa</label>
-        <select value={tableId} onChange={e => onTableChange(e.target.value)} className="mt-1 block w-full px-3 py-2 border rounded-md">
-          <option value="" disabled>Seleccione una mesa</option>
-          {tables.map(table => (
-              <option key={table.id} value={table.id}>Mesa {table.table_number}</option>
-          ))}
-        </select>
-      </div>
+
+      {/* 🆕 MEJORA UX #6: Selector compacto de mesa en una línea con modal */}
+      {orderType === 'mesa' && (
+        <div className="mb-4 flex items-center gap-2">
+          {tableId ? (
+            // Mesa seleccionada - mostrar badge compacto
+            <div className="flex-1 flex items-center justify-between bg-green-50 border-2 border-green-300 rounded-lg px-3 py-2">
+              <span className="text-green-700 font-semibold text-sm flex items-center gap-2">
+                ✓ Mesa {tables.find(t => t.id === tableId)?.table_number}
+              </span>
+              <button
+                onClick={() => onTableChange('')}
+                className="text-xs text-red-600 hover:text-red-700 font-medium"
+              >
+                Cambiar
+              </button>
+            </div>
+          ) : (
+            // No hay mesa seleccionada - mostrar mensaje
+            <div className="flex-1 bg-yellow-50 border-2 border-yellow-300 rounded-lg px-3 py-2">
+              <span className="text-yellow-800 text-sm font-medium">
+                ⚠️ Selecciona una mesa
+              </span>
+            </div>
+          )}
+
+          {/* Botón para abrir mapa de mesas */}
+          <button
+            onClick={() => setShowTableMap(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all font-semibold shadow-md hover:shadow-lg"
+            title="Abrir mapa de mesas"
+          >
+            <FaMapMarkedAlt className="text-lg" />
+            <span className="hidden sm:inline">Mapa</span>
+          </button>
+        </div>
+      )}
+
+      {/* Modal de Mapa de Mesas */}
+      <TableMapModal
+        isOpen={showTableMap}
+        onClose={() => setShowTableMap(false)}
+        tables={tables}
+        selectedTableId={tableId}
+        onSelectTable={onTableChange}
+      />
 
       <div className="flex-grow space-y-2 mb-4 overflow-y-auto">
         {cart.length === 0 && <p className="text-gray-500 text-center mt-10">El carrito está vacío</p>}
         {cart.map((item, index) => {
           // Ingredientes que vienen originalmente con el plato
           const originalIngredients = item.ingredients || [];
+          const isExpanded = expandedItems.has(item.cartItemId);
 
           return (
             <div key={item.cartItemId} className="relative p-2 bg-white rounded border border-gray-200">
@@ -86,9 +144,19 @@ const CurrentOrder: React.FC<CurrentOrderProps> = ({
 
               <div className="flex gap-2">
                 <div className="flex-1 ml-4">
-                  <p className="font-bold text-sm text-gray-800">{item.name}</p>
+                  {/* INFORMACIÓN SIEMPRE VISIBLE */}
+                  <div className="flex items-start justify-between">
+                    <p className="font-bold text-sm text-gray-800 flex-1">{item.name}</p>
+                    <button
+                      onClick={() => toggleExpand(item.cartItemId)}
+                      className="text-gray-500 hover:text-gray-700 p-1 ml-2"
+                      title={isExpanded ? "Ocultar detalles" : "Ver detalles"}
+                    >
+                      {isExpanded ? '▲' : '▼'}
+                    </button>
+                  </div>
 
-                  {/* Controles de Cantidad - COMPACTO */}
+                  {/* Controles de Cantidad - SIEMPRE VISIBLE */}
                   {onIncrementQuantity && onDecrementQuantity && (
                     <div className="flex items-center gap-2 mt-2">
                       <span className="text-xs text-gray-600">Cant:</span>
@@ -113,30 +181,7 @@ const CurrentOrder: React.FC<CurrentOrderProps> = ({
                     </div>
                   )}
 
-                  {/* Toggle Para Llevar/Mesa - COMPACTO */}
-                  {orderType === 'mesa' && onToggleTakeout && (
-                    <div className="mt-2">
-                      <button
-                        onClick={() => onToggleTakeout(item.cartItemId)}
-                        className={`flex items-center gap-1 px-2 py-1 rounded border text-xs font-semibold transition-colors ${
-                          item.is_takeout
-                            ? 'bg-green-50 border-green-300 text-green-700 hover:bg-green-100'
-                            : 'bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100'
-                        }`}
-                      >
-                        <span>{item.is_takeout ? '🥡' : '🍽️'}</span>
-                        <span>{item.is_takeout ? 'P/Llevar' : 'Aquí'}</span>
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Badge para llevar o domicilio - COMPACTO */}
-                  {(orderType === 'llevar' || orderType === 'domicilio') && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-green-50 border border-green-200 text-green-700 text-xs font-semibold mt-2">
-                      🥡 P/Llevar
-                    </span>
-                  )}
-
+                  {/* PRECIO - SIEMPRE VISIBLE */}
                   {editingPriceId === item.cartItemId ? (
                     <div className="flex items-center gap-2 mt-2">
                       <span className="text-sm font-medium">$</span>
@@ -185,56 +230,86 @@ const CurrentOrder: React.FC<CurrentOrderProps> = ({
                     </div>
                   )}
 
-                  {item.notes && (
-                    <div className="mt-2 p-2 bg-yellow-50 rounded border border-yellow-200">
-                      <p className="text-xs italic text-gray-700">
-                        📝 {item.notes}
-                      </p>
+                  {/* DETALLES COLAPSABLES */}
+                  {isExpanded && (
+                    <div className="mt-3 space-y-2 border-t pt-2">
+                      {/* Toggle Para Llevar/Mesa - 🆕 MEJORA UX #4: Solo si tipo = mesa */}
+                      {orderType === 'mesa' && onToggleTakeout && (
+                        <div>
+                          <button
+                            onClick={() => onToggleTakeout(item.cartItemId)}
+                            className={`flex items-center gap-1 px-2 py-1 rounded border text-xs font-semibold transition-colors ${
+                              item.is_takeout
+                                ? 'bg-green-50 border-green-300 text-green-700 hover:bg-green-100'
+                                : 'bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100'
+                            }`}
+                          >
+                            <span>{item.is_takeout ? '🥡' : '🍽️'}</span>
+                            <span>{item.is_takeout ? 'P/Llevar' : 'Aquí'}</span>
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Badge para llevar o domicilio */}
+                      {(orderType === 'llevar' || orderType === 'domicilio') && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-green-50 border border-green-200 text-green-700 text-xs font-semibold">
+                          🥡 P/Llevar
+                        </span>
+                      )}
+
+                      {/* Notas */}
+                      {item.notes && (
+                        <div className="p-2 bg-yellow-50 rounded border border-yellow-200">
+                          <p className="text-xs italic text-gray-700">
+                            📝 {item.notes}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* CUSTOMIZACIONES */}
+                      {(() => {
+                        const activeIngredients = originalIngredients.filter(
+                          ing => !item.removedIngredients.find(removed => removed.id === ing.id)
+                        );
+                        const selectedAccompaniments = item.selectedAccompaniments;
+                        const hasCustomizations = activeIngredients.length > 0 || selectedAccompaniments.length > 0;
+
+                        if (!hasCustomizations) return null;
+
+                        return (
+                          <div className="space-y-1">
+                            {/* INGREDIENTES */}
+                            {activeIngredients.length > 0 && (
+                              <div className="p-1.5 bg-green-50 rounded border border-green-200">
+                                <p className="text-xs font-semibold text-green-700 mb-1">🥬 Ingredientes:</p>
+                                <div className="flex flex-wrap gap-1">
+                                  {activeIngredients.map(ing => (
+                                    <span key={ing.id} className="text-xs bg-white px-1.5 py-0.5 rounded border border-green-200 text-green-700">
+                                      {ing.name}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* ACOMPAÑANTES */}
+                            {selectedAccompaniments.length > 0 && (
+                              <div className="p-1.5 bg-blue-50 rounded border border-blue-200">
+                                <p className="text-xs font-semibold text-blue-700 mb-1">🍽️ Acompañantes:</p>
+                                <div className="flex flex-wrap gap-1">
+                                  {selectedAccompaniments.map(acc => (
+                                    <span key={acc.id} className="text-xs bg-white px-1.5 py-0.5 rounded border border-blue-200 text-blue-700">
+                                      {acc.name}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   )}
-
-                  {/* CUSTOMIZACIONES - COMPACTO */}
-                  {(() => {
-                    const activeIngredients = originalIngredients.filter(
-                      ing => !item.removedIngredients.find(removed => removed.id === ing.id)
-                    );
-                    const selectedAccompaniments = item.selectedAccompaniments;
-                    const hasCustomizations = activeIngredients.length > 0 || selectedAccompaniments.length > 0;
-
-                    if (!hasCustomizations) return null;
-
-                    return (
-                      <div className="mt-2 space-y-1">
-                        {/* INGREDIENTES */}
-                        {activeIngredients.length > 0 && (
-                          <div className="p-1.5 bg-green-50 rounded border border-green-200">
-                            <p className="text-xs font-semibold text-green-700 mb-1">🥬 Ingredientes:</p>
-                            <div className="flex flex-wrap gap-1">
-                              {activeIngredients.map(ing => (
-                                <span key={ing.id} className="text-xs bg-white px-1.5 py-0.5 rounded border border-green-200 text-green-700">
-                                  {ing.name}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* ACOMPAÑANTES */}
-                        {selectedAccompaniments.length > 0 && (
-                          <div className="p-1.5 bg-blue-50 rounded border border-blue-200">
-                            <p className="text-xs font-semibold text-blue-700 mb-1">🍽️ Acompañantes:</p>
-                            <div className="flex flex-wrap gap-1">
-                              {selectedAccompaniments.map(acc => (
-                                <span key={acc.id} className="text-xs bg-white px-1.5 py-0.5 rounded border border-blue-200 text-blue-700">
-                                  {acc.name}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
                 </div>
 
                 {/* Botones de acción - COMPACTO */}

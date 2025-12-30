@@ -74,4 +74,8 @@ type OrderItem struct {
 	Customizations      Customizations       `json:"customizations" db:"customizations"`
 	CustomizationsInput *CustomizationsInput `json:"customizations_input,omitempty" db:"-"` // Solo para input, no se guarda en BD
 	IsTakeout           bool                 `json:"is_takeout" db:"is_takeout"`            // Indica si este item específico es para llevar
+	// Campos para tickets de cocina (obtenidos por JOIN)
+	CategoryID          *uuid.UUID `json:"category_id,omitempty" db:"category_id"`
+	CategoryStationID   *uuid.UUID `json:"category_station_id,omitempty" db:"category_station_id"`
+	CategoryStationName string     `json:"category_station_name,omitempty" db:"category_station_name"`
 }

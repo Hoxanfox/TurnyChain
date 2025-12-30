@@ -13,6 +13,8 @@ interface TableOrdersModalProps {
   onRejectPayment: (orderId: string) => void;
   onViewDetail: (orderId: string) => void;
   onPrintCommand: (orderId: string) => void;
+  onPrintFullCommand?: (orderId: string) => void;
+  onPreviewTickets?: (orderId: string) => void;
 }
 
 export const TableOrdersModal: React.FC<TableOrdersModalProps> = ({
@@ -25,6 +27,8 @@ export const TableOrdersModal: React.FC<TableOrdersModalProps> = ({
   onRejectPayment,
   onViewDetail,
   onPrintCommand,
+  onPrintFullCommand,
+  onPreviewTickets,
 }) => {
   const [selectedProofOrder, setSelectedProofOrder] = useState<Order | null>(null);
   const [filterTab, setFilterTab] = useState<'all' | 'pending' | 'paid'>('all');
@@ -161,21 +165,49 @@ export const TableOrdersModal: React.FC<TableOrdersModalProps> = ({
                         <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-4 py-3 rounded-xl text-center font-semibold">
                           ✓ Pagado Completamente
                         </div>
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-1 gap-2">
                           <button
                             onClick={() => onViewDetail(order.id)}
                             className="px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
                           >
                             <span className="text-xl">📋</span>
-                            <span>Detalle</span>
+                            <span>Ver Detalle</span>
                           </button>
-                          <button
-                            onClick={() => onPrintCommand(order.id)}
-                            className="px-4 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:from-purple-700 hover:to-pink-700 font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
-                          >
-                            <span className="text-xl">🖨️</span>
-                            <span>Imprimir</span>
-                          </button>
+
+                          {/* Sección de Impresión */}
+                          <div className="border-t-2 border-gray-200 pt-2 mt-1">
+                            <p className="text-xs text-gray-600 font-semibold mb-2 text-center">🖨️ OPCIONES DE IMPRESIÓN</p>
+
+                            {onPreviewTickets && (
+                              <button
+                                onClick={() => onPreviewTickets(order.id)}
+                                className="w-full px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 mb-2"
+                              >
+                                <span className="text-lg">🎫</span>
+                                <span className="text-sm">Vista Previa Tickets</span>
+                              </button>
+                            )}
+
+                            <div className="grid grid-cols-2 gap-2">
+                              <button
+                                onClick={() => onPrintCommand(order.id)}
+                                className="px-3 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:from-purple-700 hover:to-pink-700 font-semibold shadow-md hover:shadow-lg transition-all flex flex-col items-center justify-center gap-1"
+                              >
+                                <span className="text-lg">🏪</span>
+                                <span className="text-xs leading-tight">Tickets Cocina</span>
+                              </button>
+
+                              {onPrintFullCommand && (
+                                <button
+                                  onClick={() => onPrintFullCommand(order.id)}
+                                  className="px-3 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl hover:from-orange-600 hover:to-red-600 font-semibold shadow-md hover:shadow-lg transition-all flex flex-col items-center justify-center gap-1"
+                                >
+                                  <span className="text-lg">📄</span>
+                                  <span className="text-xs leading-tight">Comanda Completa</span>
+                                </button>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       </>
                     ) : (
