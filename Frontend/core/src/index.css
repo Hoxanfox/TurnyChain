@@ -1,0 +1,96 @@
+@import "tailwindcss";
+
+/* ===================================================================
+   FIX PARA 100VH EN MÓVILES - EVITA PROBLEMA DE BARRA DE NAVEGACIÓN
+   =================================================================== */
+:root {
+  /* Altura real de la ventana sin barra de navegación */
+  --vh: 1vh;
+  --real-vh: calc(var(--vh, 1vh) * 100);
+}
+
+/* Clase personalizada para altura completa en móviles */
+.h-screen-mobile {
+  height: 100vh; /* Fallback para navegadores antiguos */
+  height: var(--real-vh);
+}
+
+.min-h-screen-mobile {
+  min-height: 100vh; /* Fallback */
+  min-height: var(--real-vh);
+}
+
+/* Animaciones personalizadas para el Modal de Cobro */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes bounceSmooth {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.animate-bounce {
+  animation: bounceSmooth 2s ease-in-out infinite;
+}
+
+/* Animación para notificaciones */
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in {
+  animation: slideIn 0.3s ease-out;
+}
+
+/* Animación para modales desde abajo (mobile) */
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.3s ease-out;
+}
+
+/* Ocultar scrollbar manteniendo funcionalidad (para filtros horizontales) */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE y Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;  /* Chrome, Safari y Opera */
+}
+
+

@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  # --- 1. BASE DE DATOS ---
+  postgres:
+    build: ./Backend/baseDatos
+    container_name: restaurant_db_container
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  # --- 2. BACKEND (API GO) ---
+  backend:
+    build: ./Backend/api
+    container_name: restaurant_app_container
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+    
+    # Nota: Ya no necesitamos "extra_hosts" porque vamos a internet (Alchemy),
+    # no a tu máquina local.
+    
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      BLOCKCHAIN_RPC_URL: ${BLOCKCHAIN_RPC_URL}
+      CONTRACT_ADDRESS: ${CONTRACT_ADDRESS}
+      WALLET_PRIVATE_KEY: ${WALLET_PRIVATE_KEY}
+      INVOICE_ENCRYPTION_KEY: ${INVOICE_ENCRYPTION_KEY}
+    volumes:
+      # Persistir uploads de comprobantes fuera del contenedor
+      - uploads_data:/app/uploads
+    restart: unless-stopped
+
+  # --- 3. FRONTEND (REACT) ---
+  frontend:
+    build: 
+      context: ./Frontend/core
+      args:
+        - VITE_API_URL=${VITE_API_URL}
+    container_name: restaurant_frontend_container
+    ports:
+      - "80:80"     # HTTP (para redireccionar a HTTPS)
+      - "443:443"   # HTTPS (¡Aquí vive la cámara!)
+    volumes:
+      # 1. Inyectamos la carpeta de certificados que creaste con mkcert
+      # Ajusta la ruta './Frontend/certs' si la creaste en otro lado
+      - ./Frontend/certs:/etc/nginx/certs:ro
+      
+      # 2. Inyectamos la configuración de Nginx (la crearemos en el siguiente paso)
+      - ./Frontend/core/nginx.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  uploads_data:
