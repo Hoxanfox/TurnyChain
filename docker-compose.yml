@@ -27,7 +27,11 @@ services:
     # Nota: Ya no necesitamos "extra_hosts" porque vamos a internet (Alchemy),
     # no a tu máquina local.
     
+    extra_hosts:
+      - "impresora-host:192.168.1.100" 
+    
     environment:
+      PRINTER_ADDRESS: "impresora-host:9100"
       DATABASE_URL: ${DATABASE_URL}
       BLOCKCHAIN_RPC_URL: ${BLOCKCHAIN_RPC_URL}
       CONTRACT_ADDRESS: ${CONTRACT_ADDRESS}
@@ -46,8 +50,8 @@ services:
         - VITE_API_URL=${VITE_API_URL}
     container_name: restaurant_frontend_container
     ports:
-      - "80:80"     # HTTP (para redireccionar a HTTPS)
-      - "443:443"   # HTTPS (¡Aquí vive la cámara!)
+      - "8081:80"     # HTTP (para redireccionar a HTTPS)
+    # - "443:443"   # HTTPS (¡Aquí vive la cámara!)
     volumes:
       # 1. Inyectamos la carpeta de certificados que creaste con mkcert
       # Ajusta la ruta './Frontend/certs' si la creaste en otro lado
