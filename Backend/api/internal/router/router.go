@@ -96,6 +96,7 @@ func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *
 	printers.Post("/", printerHandler.Create)
 	printers.Put("/:id", printerHandler.Update)
 	printers.Delete("/:id", printerHandler.Delete)
+	printers.Post("/:id/test", printerHandler.TestConnection) // Nueva ruta para probar conexión
 
 	// Rutas de Tickets de Cocina (anidadas bajo orders)
 	orders.Get("/:orderId/kitchen-tickets/preview", kitchenTicketHandler.GetTicketsPreview)

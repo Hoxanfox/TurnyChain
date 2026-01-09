@@ -6,6 +6,7 @@ package handler
 import (
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/domain"
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/service"
+	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/utils"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 )
@@ -149,4 +150,58 @@ func (h *PrinterHandler) Delete(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"message": "Impresora eliminada correctamente",
 	})
+}
+
+// TestConnection prueba la conexión con una impresora
+// POST /api/printers/:id/test
+func (h *PrinterHandler) TestConnection(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "ID inválido",
+		})
+	}
+
+	// Obtener la impresora
+	printer, err := h.service.GetByID(id)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	// Probar conexión según el tipo de impresora
+	switch printer.PrinterType {
+	case domain.PrinterTypeESCPOS:
+		escposPrinter := utils.NewESCPOSPrinter(printer.IPAddress, printer.Port)
+		err := escposPrinter.TestConnection()
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"success": false,
+				"error":   "Error al conectar con la impresora: " + err.Error(),
+			})
+		}
+		return c.JSON(fiber.Map{
+			"success": true,
+			"message": "Conexión exitosa. Se ha enviado un ticket de prueba.",
+		})
+
+	case domain.PrinterTypePDF:
+		return c.JSON(fiber.Map{
+			"success": true,
+			"message": "Tipo PDF - No requiere prueba de conexión de red",
+		})
+
+	case domain.PrinterTypeRaw:
+		return c.Status(fiber.StatusNotImplemented).JSON(fiber.Map{
+			"success": false,
+			"error":   "Prueba de conexión para tipo Raw no implementada",
+		})
+
+	default:
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"error":   "Tipo de impresora no soportado",
+		})
+	}
 }

@@ -7,10 +7,10 @@ package service
 import (
 	"fmt"
 	"log"
-	"time"
 
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/domain"
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/repository"
+	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/utils"
 	"github.com/google/uuid"
 )
 
@@ -197,32 +197,33 @@ func (s *KitchenTicketService) PrintKitchenTickets(orderID uuid.UUID, reprint bo
 }
 
 // sendToPrinter envía el ticket a una impresora específica
-// TODO: Implementar la lógica real de impresión ESC/POS
 func (s *KitchenTicketService) sendToPrinter(printer domain.Printer, ticket domain.KitchenTicket) error {
-	// Por ahora solo simulamos el envío
-	// En producción, aquí se implementaría:
-	// 1. Generar comandos ESC/POS
-	// 2. Conectar al socket de la impresora (printer.IPAddress:printer.Port)
-	// 3. Enviar los bytes del ticket
-
-	log.Printf("📄 Simulando impresión en %s (%s:%d)", printer.Name, printer.IPAddress, printer.Port)
+	log.Printf("📄 Enviando ticket a %s (%s:%d)", printer.Name, printer.IPAddress, printer.Port)
 	log.Printf("   Orden: %s | Mesa: %d | Estación: %s", ticket.OrderNumber, ticket.TableNumber, ticket.StationName)
 	log.Printf("   Items: %d", len(ticket.Items))
 
-	// Simular delay de red/impresora
-	time.Sleep(100 * time.Millisecond)
-
-	// TODO: Implementar lógica real según printer.PrinterType
+	// Implementar lógica según el tipo de impresora
 	switch printer.PrinterType {
 	case domain.PrinterTypeESCPOS:
-		// Implementar comandos ESC/POS
+		// Impresión ESC/POS real
+		escposPrinter := utils.NewESCPOSPrinter(printer.IPAddress, printer.Port)
+		err := escposPrinter.PrintKitchenTicket(ticket)
+		if err != nil {
+			return fmt.Errorf("error al imprimir ticket ESC/POS: %w", err)
+		}
+		log.Printf("✅ Ticket impreso exitosamente en %s", printer.Name)
 		return nil
+
 	case domain.PrinterTypePDF:
-		// Generar PDF
-		return nil
+		// TODO: Implementar generación de PDF
+		log.Printf("⚠️  Generación de PDF no implementada aún")
+		return fmt.Errorf("generación de PDF no implementada")
+
 	case domain.PrinterTypeRaw:
-		// Envío raw
-		return nil
+		// TODO: Implementar envío raw
+		log.Printf("⚠️  Envío raw no implementado aún")
+		return fmt.Errorf("envío raw no implementado")
+
 	default:
 		return fmt.Errorf("tipo de impresora no soportado: %s", printer.PrinterType)
 	}
