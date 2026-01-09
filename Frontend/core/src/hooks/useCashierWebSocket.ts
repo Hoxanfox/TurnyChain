@@ -25,6 +25,7 @@ export const useCashierWebSocket = (
   const dispatch = useDispatch<AppDispatch>();
   const ws = useRef<WebSocket | null>(null);
   const heartbeatInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isConnecting = useRef(false);
 
   useEffect(() => {
     // Solo conectar si es cajero
@@ -34,50 +35,58 @@ export const useCashierWebSocket = (
       return;
     }
 
-    if (!ws.current) {
-      const userId = localStorage.getItem('user_id') || 'unknown';
-      const userRole = localStorage.getItem('user_role') || 'unknown';
-
-      const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-      const wsUrl = `${protocol}://${window.location.host}/ws?user_id=${userId}&role=${userRole}`;
-
-      console.log(`🔌 [Cajero] Conectando WebSocket como ${userRole} (${userId})`);
-
-      ws.current = new WebSocket(wsUrl);
-
-      ws.current.onopen = () => {
-        console.log('✅ [Cajero] WebSocket conectado exitosamente');
-
-        // Heartbeat
-        heartbeatInterval.current = setInterval(() => {
-          if (ws.current?.readyState === WebSocket.OPEN) {
-            ws.current.send(JSON.stringify({ type: 'ping' }));
-          }
-        }, 30000);
-      };
-
-      ws.current.onmessage = (event) => {
-        try {
-          const message: WebSocketMessage = JSON.parse(event.data);
-          console.log('📨 [Cajero] Mensaje recibido:', message);
-
-          handleWebSocketMessage(message);
-        } catch (error) {
-          console.error('❌ [Cajero] Error al parsear mensaje:', error);
-        }
-      };
-
-      ws.current.onerror = (error) => {
-        console.error('❌ [Cajero] Error en WebSocket:', error);
-      };
-
-      ws.current.onclose = () => {
-        console.log('👋 [Cajero] WebSocket desconectado');
-        if (heartbeatInterval.current) {
-          clearInterval(heartbeatInterval.current);
-        }
-      };
+    // Evitar múltiples conexiones simultáneas
+    if (ws.current?.readyState === WebSocket.OPEN || ws.current?.readyState === WebSocket.CONNECTING || isConnecting.current) {
+      console.log('⚠️ [Cajero] Ya existe una conexión WebSocket activa o en progreso');
+      return;
     }
+
+    isConnecting.current = true;
+    const userId = localStorage.getItem('user_id') || 'unknown';
+
+    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    const wsUrl = `${protocol}://${window.location.host}/ws?user_id=${userId}&role=${userRole}`;
+
+    console.log(`🔌 [Cajero] Conectando WebSocket como ${userRole} (${userId})`);
+
+    ws.current = new WebSocket(wsUrl);
+
+    ws.current.onopen = () => {
+      console.log('✅ [Cajero] WebSocket conectado exitosamente');
+      isConnecting.current = false;
+
+      // Heartbeat
+      heartbeatInterval.current = setInterval(() => {
+        if (ws.current?.readyState === WebSocket.OPEN) {
+          ws.current.send(JSON.stringify({ type: 'ping' }));
+        }
+      }, 30000);
+    };
+
+    ws.current.onmessage = (event) => {
+      try {
+        const message: WebSocketMessage = JSON.parse(event.data);
+        console.log('📨 [Cajero] Mensaje recibido:', message);
+
+        handleWebSocketMessage(message);
+      } catch (error) {
+        console.error('❌ [Cajero] Error al parsear mensaje:', error);
+      }
+    };
+
+    ws.current.onerror = (error) => {
+      console.error('❌ [Cajero] Error en WebSocket:', error);
+      isConnecting.current = false;
+    };
+
+    ws.current.onclose = () => {
+      console.log('👋 [Cajero] WebSocket desconectado');
+      isConnecting.current = false;
+      if (heartbeatInterval.current) {
+        clearInterval(heartbeatInterval.current);
+        heartbeatInterval.current = null;
+      }
+    };
 
     const handleWebSocketMessage = (message: WebSocketMessage) => {
       switch (message.type) {
@@ -200,13 +209,21 @@ export const useCashierWebSocket = (
     };
 
     return () => {
+      console.log('🧹 [Cajero] Limpiando WebSocket...');
+
       if (heartbeatInterval.current) {
         clearInterval(heartbeatInterval.current);
+        heartbeatInterval.current = null;
       }
-      if (ws.current && ws.current.readyState === WebSocket.OPEN) {
-        ws.current.close();
+
+      if (ws.current) {
+        if (ws.current.readyState === WebSocket.OPEN || ws.current.readyState === WebSocket.CONNECTING) {
+          ws.current.close();
+        }
+        ws.current = null;
       }
-      ws.current = null;
+
+      isConnecting.current = false;
     };
   }, [dispatch, onNotification]);
 

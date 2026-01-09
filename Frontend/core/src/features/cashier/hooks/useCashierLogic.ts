@@ -24,7 +24,7 @@ interface CashierStatistics {
 
 export const useCashierLogic = (activeOrders: Order[]) => {
   // Estados de UI
-  const [showStats, setShowStats] = useState(true);
+  const [showStats, setShowStats] = useState(false); // 🔧 Oculto por defecto
   const [selectedTable, setSelectedTable] = useState<number | null>(null);
 
   // Estados de filtros
