@@ -54,7 +54,18 @@ func (r *menuRepository) CreateMenuItem(item *domain.MenuItem, ingredientIDs, ac
 		}
 	}
 
-	return item, tx.Commit()
+	// Commit de transacción
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+
+	// Cargar el item completo con todas sus relaciones
+	finalItem, err := r.getMenuItemByID(item.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return finalItem, nil
 }
 
 // GetMenuItems ahora obtiene los ítems y sus relaciones, incluyendo category_name y order_count
@@ -211,7 +222,18 @@ func (r *menuRepository) UpdateMenuItem(item *domain.MenuItem, ingredientIDs, ac
 		}
 	}
 
-	return nil, nil // Placeholder
+	// Commit de transacción
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+
+	// Ahora cargar el item completo con todas sus relaciones
+	finalItem, err := r.getMenuItemByID(item.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return finalItem, nil
 }
 
 func (r *menuRepository) DeleteMenuItem(itemID uuid.UUID) error {
@@ -225,4 +247,66 @@ func (r *menuRepository) IncrementOrderCount(itemID uuid.UUID) error {
 	query := "UPDATE menu_items SET order_count = order_count + 1 WHERE id = $1"
 	_, err := r.db.Exec(query, itemID)
 	return err
+}
+
+// getMenuItemByID es una función helper para obtener un menu item completo con todas sus relaciones
+func (r *menuRepository) getMenuItemByID(itemID uuid.UUID) (*domain.MenuItem, error) {
+	query := `SELECT m.id, m.name, m.description, m.price, m.category_id, c.name as category_name, 
+	          m.is_available, m.order_count 
+	          FROM menu_items m 
+	          JOIN categories c ON m.category_id = c.id 
+	          WHERE m.id = $1`
+	
+	var item domain.MenuItem
+	err := r.db.QueryRow(query, itemID).Scan(
+		&item.ID, &item.Name, &item.Description, &item.Price, &item.CategoryID,
+		&item.CategoryName, &item.IsAvailable, &item.OrderCount,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Cargar ingredientes
+	ingRows, err := r.db.Query(`
+		SELECT i.id, i.name 
+		FROM ingredients i 
+		JOIN menu_item_ingredients mii ON i.id = mii.ingredient_id 
+		WHERE mii.menu_item_id = $1`, itemID)
+	if err != nil {
+		return nil, err
+	}
+	defer ingRows.Close()
+
+	var ingredients []domain.Ingredient
+	for ingRows.Next() {
+		var ing domain.Ingredient
+		if err := ingRows.Scan(&ing.ID, &ing.Name); err != nil {
+			return nil, err
+		}
+		ingredients = append(ingredients, ing)
+	}
+	item.Ingredients = ingredients
+
+	// Cargar acompañantes
+	accRows, err := r.db.Query(`
+		SELECT a.id, a.name, a.price 
+		FROM accompaniments a 
+		JOIN menu_item_accompaniments mia ON a.id = mia.accompaniment_id 
+		WHERE mia.menu_item_id = $1`, itemID)
+	if err != nil {
+		return nil, err
+	}
+	defer accRows.Close()
+
+	var accompaniments []domain.Accompaniment
+	for accRows.Next() {
+		var acc domain.Accompaniment
+		if err := accRows.Scan(&acc.ID, &acc.Name, &acc.Price); err != nil {
+			return nil, err
+		}
+		accompaniments = append(accompaniments, acc)
+	}
+	item.Accompaniments = accompaniments
+
+	return &item, nil
 }

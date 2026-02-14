@@ -60,21 +60,72 @@ const MenuItemModal: React.FC<MenuItemModalProps> = ({ item, onClose }) => {
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
+    
+    // Validaciones
     if (!categoryId) {
-        alert("Por favor, seleccione una categoría.");
-        return;
+      alert("❌ Por favor, seleccione una categoría.");
+      return;
     }
+    
+    if (!name.trim()) {
+      alert("❌ El nombre del ítem es obligatorio.");
+      return;
+    }
+    
+    if (price <= 0) {
+      alert("❌ El precio debe ser mayor a 0.");
+      return;
+    }
+    
+    console.log('📦 Submitting menu item:', {
+      name,
+      description,
+      price,
+      category_id: categoryId,
+      ingredient_ids: selectedIngredients,
+      accompaniment_ids: selectedAccompaniments,
+      isUpdate: !!item
+    });
+    
     const itemData: MenuItemPayload = { 
-        name, description, price, category_id: categoryId, 
-        ingredient_ids: selectedIngredients, 
-        accompaniment_ids: selectedAccompaniments 
+      name, 
+      description, 
+      price, 
+      category_id: categoryId, 
+      ingredient_ids: selectedIngredients, 
+      accompaniment_ids: selectedAccompaniments 
     };
-    if (item) {
-      dispatch(updateExistingMenuItem({ id: item.id, itemData }));
-    } else {
-      dispatch(addNewMenuItem(itemData));
+    
+    try {
+      if (item) {
+        console.log(`🔄 Updating menu item: ${item.id}`);
+        dispatch(updateExistingMenuItem({ id: item.id, itemData }))
+          .unwrap()
+          .then(() => {
+            console.log('✅ Menu item updated successfully');
+            onClose();
+          })
+          .catch((error) => {
+            console.error('❌ Error updating menu item:', error);
+            alert(`Error al actualizar el ítem: ${error}`);
+          });
+      } else {
+        console.log('➕ Creating new menu item');
+        dispatch(addNewMenuItem(itemData))
+          .unwrap()
+          .then(() => {
+            console.log('✅ Menu item created successfully');
+            onClose();
+          })
+          .catch((error) => {
+            console.error('❌ Error creating menu item:', error);
+            alert(`Error al crear el ítem: ${error}`);
+          });
+      }
+    } catch (error) {
+      console.error('❌ Unexpected error:', error);
+      alert('Error inesperado al guardar el ítem');
     }
-    onClose();
   };
 
   return (
