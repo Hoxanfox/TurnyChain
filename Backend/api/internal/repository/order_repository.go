@@ -5,6 +5,7 @@ package repository
 
 import (
 	"database/sql"
+	"log"
 	"strconv"
 
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/domain"
@@ -88,8 +89,12 @@ func (r *orderRepository) GetOrders(filters map[string]interface{}) ([]domain.Or
 		argId++
 	}
 
+	log.Printf("📊 [GetOrders] Query: %s", query)
+	log.Printf("📊 [GetOrders] Args: %v", args)
+
 	rows, err := r.db.Query(query, args...)
 	if err != nil {
+		log.Printf("❌ [GetOrders] Query error: %v", err)
 		return nil, err
 	}
 	defer rows.Close()
@@ -171,9 +176,16 @@ func (r *orderRepository) GetOrders(filters map[string]interface{}) ([]domain.Or
 		var categoryID sql.NullString
 		var categoryStationID sql.NullString
 		var categoryStationName sql.NullString
+		var notes sql.NullString
 
-		if err := itemRows.Scan(&orderID, &item.MenuItemID, &item.MenuItemName, &item.Quantity, &item.PriceAtOrder, &item.Notes, &item.Customizations, &item.IsTakeout, &categoryID, &categoryStationID, &categoryStationName); err != nil {
+		if err := itemRows.Scan(&orderID, &item.MenuItemID, &item.MenuItemName, &item.Quantity, &item.PriceAtOrder, &notes, &item.Customizations, &item.IsTakeout, &categoryID, &categoryStationID, &categoryStationName); err != nil {
+			log.Printf("❌ [GetOrders] Error scanning item: %v", err)
 			return nil, err
+		}
+
+		// Convertir notes nullable
+		if notes.Valid {
+			item.Notes = &notes.String
 		}
 
 		// Convertir los campos nullable a punteros UUID
@@ -226,9 +238,15 @@ func (r *orderRepository) loadOrderItems(orderID uuid.UUID) ([]domain.OrderItem,
 		var categoryID sql.NullString
 		var categoryStationID sql.NullString
 		var categoryStationName sql.NullString
+		var notes sql.NullString
 
-		if err := rows.Scan(&item.MenuItemID, &item.MenuItemName, &item.Quantity, &item.PriceAtOrder, &item.Notes, &item.Customizations, &item.IsTakeout, &categoryID, &categoryStationID, &categoryStationName); err != nil {
+		if err := rows.Scan(&item.MenuItemID, &item.MenuItemName, &item.Quantity, &item.PriceAtOrder, &notes, &item.Customizations, &item.IsTakeout, &categoryID, &categoryStationID, &categoryStationName); err != nil {
 			return nil, err
+		}
+
+		// Convertir notes nullable
+		if notes.Valid {
+			item.Notes = &notes.String
 		}
 
 		// Convertir los campos nullable a punteros UUID

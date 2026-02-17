@@ -54,10 +54,15 @@ func (h *OrderHandler) GetOrders(c *fiber.Ctx) error {
 	status := c.Query("status")
 	myOrders := c.Query("my_orders") // Nuevo parámetro
 
+	log.Printf("📥 [GetOrders] Request - UserID: %s, Role: %s, Status: %s, MyOrders: %s", userID, userRole, status, myOrders)
+
 	orders, err := h.orderService.GetOrders(userRole, userID, status, myOrders)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not retrieve orders"})
+		log.Printf("❌ [GetOrders] Error: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not retrieve orders", "details": err.Error()})
 	}
+	
+	log.Printf("✅ [GetOrders] Returning %d orders", len(orders))
 	return c.JSON(orders)
 }
 
