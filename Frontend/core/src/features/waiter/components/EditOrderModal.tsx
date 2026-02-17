@@ -3,8 +3,8 @@
 // Componente para editar órdenes de forma granular
 // =================================================================
 import React, { useState, useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import type { AppDispatch, RootState } from '../../../app/store';
+import { useDispatch } from 'react-redux';
+import type { AppDispatch } from '../../../app/store';
 import { updateOrder } from '../../shared/orders/api/ordersSlice';
 import type { Order, OrderItem, EditOrderRequest, UpdateItemOp, OrderItemPayload } from '../../../types/orders';
 import AddItemModal from './AddItemModal';
@@ -17,7 +17,6 @@ interface EditOrderModalProps {
 
 const EditOrderModal: React.FC<EditOrderModalProps> = ({ order, onClose, onSuccess }) => {
   const dispatch = useDispatch<AppDispatch>();
-  const menuItems = useSelector((state: RootState) => state.menu.items);
 
   // Estado local de items (copia de los items de la orden)
   const [localItems, setLocalItems] = useState<(OrderItem & { _localId: string })[]>([]);
