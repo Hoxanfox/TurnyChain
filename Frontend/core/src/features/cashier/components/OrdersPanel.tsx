@@ -6,6 +6,7 @@ interface OrdersPanelProps {
   orders: Order[];
   selectedTable: number | null;
   isLoading: boolean;
+  hasFailed?: boolean;
   onStatusChange: (orderId: string, status: string) => void;
   onConfirmPayment: (orderId: string) => void;
   onRejectPayment: (orderId: string) => void;
@@ -14,12 +15,14 @@ interface OrdersPanelProps {
   onPrintCommand: (orderId: string) => void;
   onPrintFullCommand?: (orderId: string) => void;
   onPreviewTickets?: (orderId: string) => void;
+  onRetryLoadOrders?: () => void;
 }
 
 export const OrdersPanel: React.FC<OrdersPanelProps> = ({
   orders,
   selectedTable,
   isLoading,
+  hasFailed,
   onStatusChange,
   onConfirmPayment,
   onRejectPayment,
@@ -28,12 +31,38 @@ export const OrdersPanel: React.FC<OrdersPanelProps> = ({
   onPrintCommand,
   onPrintFullCommand,
   onPreviewTickets,
+  onRetryLoadOrders,
 }) => {
   if (isLoading) {
     return (
       <div className="w-full md:w-3/4 overflow-y-auto">
         <div className="flex items-center justify-center h-full bg-white rounded-lg shadow">
-          <p className="text-gray-500 text-lg">Cargando órdenes...</p>
+          <div className="text-center py-8">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-indigo-600 border-t-transparent"></div>
+            <p className="mt-2 text-gray-600">Cargando órdenes...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (hasFailed) {
+    return (
+      <div className="w-full md:w-3/4 overflow-y-auto">
+        <div className="flex items-center justify-center h-full bg-white rounded-lg shadow">
+          <div className="text-center py-8">
+            <div className="text-red-600 text-5xl mb-2">⚠️</div>
+            <p className="text-red-600 font-semibold">Error al cargar las órdenes</p>
+            <p className="text-gray-500 text-sm mt-1">Verifica tu conexión o intenta nuevamente</p>
+            {onRetryLoadOrders && (
+              <button
+                onClick={onRetryLoadOrders}
+                className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+              >
+                🔄 Reintentar
+              </button>
+            )}
+          </div>
         </div>
       </div>
     );

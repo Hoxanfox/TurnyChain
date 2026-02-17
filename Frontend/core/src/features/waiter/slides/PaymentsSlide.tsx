@@ -178,6 +178,20 @@ const PaymentsSlide: React.FC<PaymentsSlideProps> = ({ onViewOrderDetails }) => 
           </div>
         )}
 
+        {myOrdersStatus === 'failed' && (
+          <div className="text-center py-8">
+            <div className="text-red-600 text-5xl mb-2">⚠️</div>
+            <p className="text-red-600 font-semibold">Error al cargar las órdenes</p>
+            <p className="text-gray-500 text-sm mt-1">Verifica tu conexión o intenta nuevamente</p>
+            <button
+              onClick={() => dispatch(fetchMyOrders())}
+              className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+            >
+              🔄 Reintentar
+            </button>
+          </div>
+        )}
+
         {myOrdersStatus === 'succeeded' && filteredOrders.length === 0 && (
           <div className="text-center py-8">
             <div className="text-6xl mb-3">📭</div>

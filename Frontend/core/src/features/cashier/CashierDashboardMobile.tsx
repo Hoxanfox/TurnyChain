@@ -43,6 +43,7 @@ interface CashierDashboardMobileProps {
   ordersByTable: Record<number, Order[]>;
   pendingVerificationCount: number;
   isLoading: boolean;
+  hasFailed?: boolean;
 
   // Notificaciones
   notification: {
@@ -67,6 +68,7 @@ interface CashierDashboardMobileProps {
   onPrintCommand: (orderId: string) => void;
   onPrintFullCommand: (orderId: string) => void;
   onPreviewTickets: (orderId: string) => void;
+  onRetryLoadOrders?: () => void;
 }
 
 export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
@@ -79,6 +81,7 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
   ordersByTable,
   pendingVerificationCount,
   isLoading,
+  hasFailed,
   notification,
   onToggleStats,
   onFilterStatusChange,
@@ -95,6 +98,7 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
   onPrintCommand,
   onPrintFullCommand,
   onPreviewTickets,
+  onRetryLoadOrders,
 }) => {
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [selectedTableNumber, setSelectedTableNumber] = useState<number | null>(null);
@@ -269,8 +273,24 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
         {isLoading ? (
           <div className="flex items-center justify-center py-20">
             <div className="text-center">
-              <div className="text-6xl mb-4 animate-bounce">⏳</div>
-              <p className="text-gray-500 text-lg">Cargando órdenes...</p>
+              <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-indigo-600 border-t-transparent mb-4"></div>
+              <p className="text-gray-600 text-lg">Cargando órdenes...</p>
+            </div>
+          </div>
+        ) : hasFailed ? (
+          <div className="flex items-center justify-center py-20">
+            <div className="text-center">
+              <div className="text-red-600 text-6xl mb-4">⚠️</div>
+              <p className="text-red-600 font-semibold text-lg">Error al cargar las órdenes</p>
+              <p className="text-gray-500 text-sm mt-1">Verifica tu conexión o intenta nuevamente</p>
+              {onRetryLoadOrders && (
+                <button
+                  onClick={onRetryLoadOrders}
+                  className="mt-4 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-semibold"
+                >
+                  🔄 Reintentar
+                </button>
+              )}
             </div>
           </div>
         ) : viewMode === 'tables' ? (

@@ -45,6 +45,7 @@ interface CashierDashboardDesktopProps {
   sortedSelectedOrders: Order[];
   pendingVerificationCount: number;
   isLoading: boolean;
+  hasFailed: boolean;
 
   // Notificaciones
   notification: {
@@ -71,6 +72,7 @@ interface CashierDashboardDesktopProps {
   onPrintFullCommand: (orderId: string) => void;
   onPreviewTickets: (orderId: string) => void;
   onViewProof: () => void;
+  onRetryLoadOrders: () => void;
 }
 
 export const CashierDashboardDesktop: React.FC<CashierDashboardDesktopProps> = ({
@@ -85,6 +87,7 @@ export const CashierDashboardDesktop: React.FC<CashierDashboardDesktopProps> = (
   sortedSelectedOrders,
   pendingVerificationCount,
   isLoading,
+  hasFailed,
   notification,
   onToggleStats,
   onFilterStatusChange,
@@ -102,6 +105,7 @@ export const CashierDashboardDesktop: React.FC<CashierDashboardDesktopProps> = (
   onPrintCommand,
   onPrintFullCommand,
   onPreviewTickets,
+  onRetryLoadOrders,
 }) => {
   const [selectedProofOrder, setSelectedProofOrder] = useState<Order | null>(null);
   const [selectedOrderIdForDetail, setSelectedOrderIdForDetail] = useState<string | null>(null);
@@ -195,6 +199,7 @@ export const CashierDashboardDesktop: React.FC<CashierDashboardDesktopProps> = (
             orders={sortedSelectedOrders}
             selectedTable={selectedTable}
             isLoading={isLoading}
+            hasFailed={hasFailed}
             onStatusChange={onStatusChange}
             onConfirmPayment={onConfirmPayment}
             onRejectPayment={onRejectPayment}
@@ -203,6 +208,7 @@ export const CashierDashboardDesktop: React.FC<CashierDashboardDesktopProps> = (
             onPrintCommand={onPrintCommand}
             onPrintFullCommand={onPrintFullCommand}
             onPreviewTickets={onPreviewTickets}
+            onRetryLoadOrders={onRetryLoadOrders}
           />
         </div>
 

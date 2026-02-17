@@ -62,6 +62,7 @@ export const createOrder = async (
 };
 
 export const getOrders = async (token: string, status?: string, filterByWaiter?: boolean): Promise<Order[]> => {
+  console.log('🌐 [API] getOrders llamado con:', { status, filterByWaiter });
   const config = {
     headers: { Authorization: `Bearer ${token}` },
     params: {
@@ -69,8 +70,26 @@ export const getOrders = async (token: string, status?: string, filterByWaiter?:
       my_orders: filterByWaiter ? 'true' : undefined // Nuevo parámetro para filtrar por mesero
     }
   };
-  const response = await axios.get(API_URL, config);
-  return response.data;
+  console.log('📤 [API] Haciendo petición GET a:', API_URL, 'con params:', config.params);
+  try {
+    const response = await axios.get(API_URL, config);
+    console.log('📥 [API] Respuesta recibida:', {
+      status: response.status,
+      dataType: typeof response.data,
+      isArray: Array.isArray(response.data),
+      count: Array.isArray(response.data) ? response.data.length : 'N/A',
+      firstItem: Array.isArray(response.data) && response.data.length > 0 ? response.data[0] : null
+    });
+    return response.data;
+  } catch (error: any) {
+    console.error('❌ [API] Error en getOrders:', {
+      message: error.message,
+      status: error.response?.status,
+      data: error.response?.data,
+      config: error.config
+    });
+    throw error;
+  }
 };
 
 export const getOrderDetails = async (orderId: string, token: string): Promise<Order> => {
