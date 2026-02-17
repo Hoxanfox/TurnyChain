@@ -49,6 +49,7 @@ func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *
 	orders.Put("/:id/status", orderHandler.UpdateOrderStatus)
 	orders.Put("/:id/manage", orderHandler.ManageOrder)
 	orders.Put("/:id/items", orderHandler.UpdateOrderItems)
+	orders.Patch("/:id/edit", orderHandler.EditOrder) // Nueva ruta para edición granular
 	orders.Post("/:id/proof", orderHandler.UploadPaymentProof) // Nueva ruta para subir comprobante de pago
 
 	// Rutas de Mesas

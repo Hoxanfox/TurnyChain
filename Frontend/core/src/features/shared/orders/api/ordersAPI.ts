@@ -2,7 +2,7 @@
 // ARCHIVO 2: /src/features/orders/ordersAPI.ts
 // =================================================================
 import axios from 'axios';
-import type { Order, NewOrderPayload } from '../../../../types/orders.ts';
+import type { Order, NewOrderPayload, EditOrderRequest } from '../../../../types/orders.ts';
 
 // Usamos rutas relativas. En desarrollo, Vite proxy redirige a localhost:8080
 // En producción, nginx redirige al backend
@@ -118,6 +118,32 @@ export const uploadPaymentProof = async (orderId: string, file: File, method: st
     orderId: response.data.id,
     status: response.data.status,
     payment_method: response.data.payment_method
+  });
+
+  return response.data;
+};
+
+// Editar orden de forma granular
+export const editOrder = async (orderId: string, editRequest: EditOrderRequest, token: string): Promise<Order> => {
+  console.log('✏️ [Frontend] Editando orden:', {
+    orderId,
+    editRequest
+  });
+
+  const config = {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    }
+  };
+
+  const response = await axios.patch(`${API_URL}/${orderId}/edit`, editRequest, config);
+
+  console.log('✅ [Frontend] Orden editada exitosamente:', {
+    orderId: response.data.id,
+    status: response.data.status,
+    itemsCount: response.data.items?.length || 0,
+    total: response.data.total
   });
 
   return response.data;

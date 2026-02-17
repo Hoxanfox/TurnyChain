@@ -6,6 +6,8 @@ import { useDispatch, useSelector } from 'react-redux';
 import { fetchMyOrders } from '../../shared/orders/api/ordersSlice.ts';
 import type { AppDispatch, RootState } from '../../../app/store';
 import CheckoutModal from '../components/CheckoutModal';
+import EditOrderModal from '../components/EditOrderModal';
+import type { Order } from '../../../types/orders';
 
 interface PaymentsSlideProps {
   onViewOrderDetails: (orderId: string) => void;
@@ -23,6 +25,9 @@ const PaymentsSlide: React.FC<PaymentsSlideProps> = ({ onViewOrderDetails }) => 
     table: number;
   } | null>(null);
 
+  // Estado para el modal de edición
+  const [selectedOrderForEdit, setSelectedOrderForEdit] = useState<Order | null>(null);
+
   useEffect(() => {
     if (myOrdersStatus === 'idle') {
       dispatch(fetchMyOrders());
@@ -37,6 +42,18 @@ const PaymentsSlide: React.FC<PaymentsSlideProps> = ({ onViewOrderDetails }) => 
   // Función para manejar el éxito del pago
   const handlePaymentSuccess = () => {
     setSelectedOrderForCheckout(null);
+    // Recargar las órdenes para mostrar el estado actualizado
+    dispatch(fetchMyOrders());
+  };
+
+  // Función para abrir el modal de edición
+  const handleOpenEditModal = (order: Order) => {
+    setSelectedOrderForEdit(order);
+  };
+
+  // Función para manejar el éxito de la edición
+  const handleEditSuccess = () => {
+    setSelectedOrderForEdit(null);
     // Recargar las órdenes para mostrar el estado actualizado
     dispatch(fetchMyOrders());
   };
@@ -246,19 +263,29 @@ const PaymentsSlide: React.FC<PaymentsSlideProps> = ({ onViewOrderDetails }) => 
             )}
 
             {/* Acciones */}
-            <div className="p-3 flex gap-2">
+            <div className="p-3 flex gap-2 flex-wrap">
               <button
                 onClick={() => onViewOrderDetails(order.id)}
-                className="flex-1 py-2 px-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium text-sm"
+                className="flex-1 min-w-[120px] py-2 px-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium text-sm"
               >
                 👁️ Ver Detalles
               </button>
+
+              {/* Botón para editar órdenes rechazadas o pendientes */}
+              {(order.status === 'rechazado' || order.status === 'pendiente_aprobacion') && (
+                <button
+                  onClick={() => handleOpenEditModal(order)}
+                  className="flex-1 min-w-[120px] py-2 px-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all font-bold text-sm shadow-md"
+                >
+                  ✏️ Modificar
+                </button>
+              )}
 
               {/* Botón para cobrar órdenes entregadas sin método de pago */}
               {order.status === 'entregado' && !order.payment_method && (
                 <button
                   onClick={() => handleOpenCheckout(order.id, order.total, order.table_number)}
-                  className="flex-1 py-2 px-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 transition-all font-bold text-sm shadow-md"
+                  className="flex-1 min-w-[120px] py-2 px-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 transition-all font-bold text-sm shadow-md"
                 >
                   💳 Cobrar
                 </button>
@@ -268,7 +295,7 @@ const PaymentsSlide: React.FC<PaymentsSlideProps> = ({ onViewOrderDetails }) => 
               {(order.status === 'por_verificar' || (order.status === 'entregado' && order.payment_method)) && (
                 <button
                   onClick={() => handleOpenCheckout(order.id, order.total, order.table_number)}
-                  className="flex-1 py-2 px-3 bg-gradient-to-r from-orange-600 to-orange-700 text-white rounded-lg hover:from-orange-700 hover:to-orange-800 transition-all font-bold text-sm shadow-md"
+                  className="flex-1 min-w-[120px] py-2 px-3 bg-gradient-to-r from-orange-600 to-orange-700 text-white rounded-lg hover:from-orange-700 hover:to-orange-800 transition-all font-bold text-sm shadow-md"
                 >
                   🔄 Reintentar Pago
                 </button>
@@ -276,7 +303,7 @@ const PaymentsSlide: React.FC<PaymentsSlideProps> = ({ onViewOrderDetails }) => 
 
               {/* Indicador visual para órdenes pagadas */}
               {order.status === 'pagado' && (
-                <div className="flex-1 py-2 px-3 bg-blue-100 text-blue-800 rounded-lg text-center font-medium text-sm">
+                <div className="flex-1 min-w-[120px] py-2 px-3 bg-blue-100 text-blue-800 rounded-lg text-center font-medium text-sm">
                   ✅ Pagado
                 </div>
               )}
@@ -293,6 +320,15 @@ const PaymentsSlide: React.FC<PaymentsSlideProps> = ({ onViewOrderDetails }) => 
           tableNumber={selectedOrderForCheckout.table}
           onClose={() => setSelectedOrderForCheckout(null)}
           onSuccess={handlePaymentSuccess}
+        />
+      )}
+
+      {/* Modal de Edición */}
+      {selectedOrderForEdit && (
+        <EditOrderModal
+          order={selectedOrderForEdit}
+          onClose={() => setSelectedOrderForEdit(null)}
+          onSuccess={handleEditSuccess}
         />
       )}
     </div>

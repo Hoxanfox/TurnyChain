@@ -45,6 +45,8 @@ export interface Order {
   payment_proof_path?: string; // Ruta de la imagen del comprobante
   // Nuevo: Tipo de orden
   order_type?: string; // "mesa" | "llevar" | "domicilio"
+  // Nuevo: Nombre del cliente (obligatorio para llevar/domicilio)
+  customer_name?: string;
   // Nuevo: Campos para domicilio
   delivery_address?: string;
   delivery_phone?: string;
@@ -69,8 +71,35 @@ export interface NewOrderPayload {
   items: OrderItemPayload[];
   // Nuevo: Tipo de orden
   order_type?: string; // "mesa" | "llevar" | "domicilio"
+  // Nuevo: Nombre del cliente (obligatorio para llevar/domicilio)
+  customer_name?: string;
   // Nuevo: Campos para domicilio
   delivery_address?: string;
   delivery_phone?: string;
   delivery_notes?: string;
+}
+
+// ============================================
+// PAYLOAD para edición granular (PATCH /orders/:id/edit)
+// ============================================
+export interface UpdateItemOp {
+  index: number; // Índice del item en el array (0-based)
+  quantity?: number;
+  notes?: string;
+  customizations_input?: CustomizationsInput;
+  is_takeout?: boolean;
+}
+
+export interface EditOrderRequest {
+  // Operaciones sobre items
+  add_items?: OrderItemPayload[];
+  update_items?: UpdateItemOp[];
+  remove_items?: number[]; // Índices de items a eliminar
+  // Modificaciones a nivel de orden
+  order_type?: string; // "mesa" | "llevar" | "domicilio"
+  customer_name?: string;
+  delivery_address?: string;
+  delivery_phone?: string;
+  delivery_notes?: string;
+  table_number?: number;
 }

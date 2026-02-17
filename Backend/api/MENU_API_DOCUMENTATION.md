@@ -4,6 +4,10 @@
 
 El sistema de gestión de menú permite realizar operaciones CRUD completas (Crear, Leer, Actualizar, Eliminar) sobre los items del menú del restaurante. Todos los endpoints requieren autenticación mediante token JWT.
 
+> **📚 Documentación Adicional:**
+> - [Edición Granular de Órdenes](EDICION_GRANULAR_ORDENES.md) - Guía completa del nuevo sistema de edición
+> - [Análisis de Edición de Órdenes](ANALISIS_EDICION_ORDENES.md) - Análisis técnico del sistema
+
 ---
 
 ## 🔐 Autenticación
