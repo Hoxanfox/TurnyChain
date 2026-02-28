@@ -29,6 +29,40 @@ const CheckoutBeforeSendModal: React.FC<CheckoutBeforeSendModalProps> = ({
   const formatMoney = (amount: number) =>
     new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(amount);
 
+  // Clave única para localStorage basada en mesa y total (puedes mejorarla si tienes un id de orden temporal)
+  const storageKey = `payment_proof_before_send_${tableNumber}_${orderTotal}`;
+
+  // Recuperar imagen guardada cada vez que se selecciona transferencia
+  React.useEffect(() => {
+    if (paymentMethod === 'transferencia') {
+      const savedImageData = localStorage.getItem(storageKey);
+      if (savedImageData) {
+        try {
+          const { base64, fileName, fileType } = JSON.parse(savedImageData);
+          fetch(base64)
+            .then(res => res.blob())
+            .then(blob => {
+              const file = new File([blob], fileName, { type: fileType });
+              setProofImage(file);
+              setPreviewUrl(base64);
+              console.log('[CheckoutBeforeSendModal] Imagen restaurada en estado');
+            })
+            .catch(err => {
+              console.error('[CheckoutBeforeSendModal] Error al recuperar imagen guardada:', err);
+              localStorage.removeItem(storageKey);
+            });
+        } catch (err) {
+          console.error('[CheckoutBeforeSendModal] Error al parsear imagen guardada:', err);
+          localStorage.removeItem(storageKey);
+        }
+      } else {
+        setProofImage(null);
+        setPreviewUrl(null);
+        console.log('[CheckoutBeforeSendModal] No hay imagen guardada para transferencia');
+      }
+    }
+  }, [paymentMethod, storageKey]);
+
   // Manejar captura de foto con validación y compresión
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -60,6 +94,21 @@ const CheckoutBeforeSendModal: React.FC<CheckoutBeforeSendModalProps> = ({
       const url = URL.createObjectURL(compressedFile);
       setPreviewUrl(url);
 
+      // Guardar en localStorage para persistencia
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = reader.result as string;
+        const imageData = {
+          base64,
+          fileName: compressedFile.name,
+          fileType: compressedFile.type
+        };
+        localStorage.setItem(storageKey, JSON.stringify(imageData));
+        const previewBase64 = base64.length > 100 ? base64.substring(0, 100) + '...' : base64;
+        console.log('[CheckoutBeforeSendModal] Imagen guardada en localStorage:', { ...imageData, base64: previewBase64 });
+      };
+      reader.readAsDataURL(compressedFile);
+
       console.log('✅ Imagen procesada y lista para enviar');
     } catch (err) {
       console.error('❌ Error al procesar imagen:', err);
@@ -77,6 +126,9 @@ const CheckoutBeforeSendModal: React.FC<CheckoutBeforeSendModalProps> = ({
     }
     setPreviewUrl(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
+    // Limpiar de localStorage
+    localStorage.removeItem(storageKey);
+    console.log('[CheckoutBeforeSendModal] Imagen eliminada manualmente');
   };
 
   const handleSubmit = () => {
@@ -85,7 +137,8 @@ const CheckoutBeforeSendModal: React.FC<CheckoutBeforeSendModalProps> = ({
       setError("Por favor adjunta la foto del comprobante");
       return;
     }
-
+    // Limpiar localStorage solo al confirmar
+    localStorage.removeItem(storageKey);
     // Confirmar y enviar datos de pago al padre
     onConfirm(paymentMethod, proofImage);
   };
@@ -96,6 +149,12 @@ const CheckoutBeforeSendModal: React.FC<CheckoutBeforeSendModalProps> = ({
       if (previewUrl) URL.revokeObjectURL(previewUrl);
     };
   }, [previewUrl]);
+
+  // Cambiar método de pago sin borrar imagen
+  const handlePaymentMethodChange = (method: 'efectivo' | 'transferencia') => {
+    setPaymentMethod(method);
+    // No borrar imagen ni limpiar localStorage
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
@@ -125,10 +184,7 @@ const CheckoutBeforeSendModal: React.FC<CheckoutBeforeSendModalProps> = ({
         {/* SELECCIÓN DE MÉTODO (TABS) */}
         <div className="flex p-3 gap-2 bg-gray-100">
           <button
-            onClick={() => {
-              setPaymentMethod('efectivo');
-              handleRemovePhoto();
-            }}
+            onClick={() => handlePaymentMethodChange('efectivo')}
             className={`flex-1 py-3 rounded-xl flex items-center justify-center gap-2 font-bold transition-all ${
               paymentMethod === 'efectivo' 
                 ? 'bg-white text-green-700 shadow-lg border-2 border-green-200' 
@@ -138,7 +194,7 @@ const CheckoutBeforeSendModal: React.FC<CheckoutBeforeSendModalProps> = ({
             <MdAttachMoney size={24} /> Efectivo
           </button>
           <button
-            onClick={() => setPaymentMethod('transferencia')}
+            onClick={() => handlePaymentMethodChange('transferencia')}
             className={`flex-1 py-3 rounded-xl flex items-center justify-center gap-2 font-bold transition-all ${
               paymentMethod === 'transferencia' 
                 ? 'bg-white text-blue-700 shadow-lg border-2 border-blue-200' 

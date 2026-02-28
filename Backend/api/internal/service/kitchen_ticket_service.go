@@ -74,6 +74,7 @@ func (s *KitchenTicketService) GenerateKitchenTickets(orderID uuid.UUID) ([]doma
 				Quantity:       item.Quantity,
 				Customizations: &item.Customizations,
 				IsTakeout:      item.IsTakeout,
+				Price:          int(item.PriceAtOrder),
 			}
 
 			// Manejar Notes que puede ser nil

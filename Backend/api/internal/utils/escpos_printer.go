@@ -42,6 +42,17 @@ const (
 	CMD_LINE_FEED = "\n"
 )
 
+// Helper para abreviar precios (ej: 15000 -> 15k)
+func formatPriceShort(price int) string {
+	if price >= 1000 {
+		if price%1000 == 0 {
+			return fmt.Sprintf("%dk", price/1000)
+		}
+		return fmt.Sprintf("%.1fk", float64(price)/1000)
+	}
+	return fmt.Sprintf("%d", price)
+}
+
 // ESCPOSPrinter maneja la conexión y comandos de impresora ESC/POS
 type ESCPOSPrinter struct {
 	host    string
@@ -84,24 +95,39 @@ func (p *ESCPOSPrinter) buildTicketContent(ticket domain.KitchenTicket) string {
 	builder.WriteString(CMD_BOLD_OFF)
 	builder.WriteString(CMD_LINE_FEED)
 
-	// Información de la orden
-	builder.WriteString(CMD_ALIGN_LEFT)
+	// Información de la orden modificada
+	// Centrar número de orden
+	builder.WriteString(CMD_ALIGN_CENTER)
 	builder.WriteString(CMD_BOLD_ON)
 	builder.WriteString(fmt.Sprintf("ORDEN: %s", ticket.OrderNumber))
 	builder.WriteString(CMD_LINE_FEED)
 	builder.WriteString(CMD_BOLD_OFF)
 
-	builder.WriteString(fmt.Sprintf("Mesa: %d", ticket.TableNumber))
+	// Centrar y resaltar tipo de orden en grande
+	builder.WriteString(CMD_ALIGN_CENTER)
+	builder.WriteString(CMD_DOUBLE_ON)
+	builder.WriteString(CMD_BOLD_ON)
+	// Mostrar tipo de orden especial para mesa 9999 y domicilio
+	var tipoOrden string
+	if ticket.TableNumber == 9999 {
+		tipoOrden = "LLEVAR"
+	} else if ticket.TableNumber == 9998 {
+		tipoOrden = "DOMICILIO"
+	} else {
+		tipoOrden = strings.ToUpper(ticket.OrderType)
+	}
+	builder.WriteString(tipoOrden)
+	builder.WriteString(CMD_BOLD_OFF)
+	builder.WriteString(CMD_DOUBLE_OFF)
 	builder.WriteString(CMD_LINE_FEED)
 
-	builder.WriteString(fmt.Sprintf("Mesero: %s", ticket.WaiterName))
-	builder.WriteString(CMD_LINE_FEED)
-
-	builder.WriteString(fmt.Sprintf("Tipo: %s", ticket.OrderType))
-	builder.WriteString(CMD_LINE_FEED)
-
+	// Hora centrada
+	builder.WriteString(CMD_ALIGN_CENTER)
 	builder.WriteString(fmt.Sprintf("Hora: %s", ticket.CreatedAt.Format("15:04:05")))
 	builder.WriteString(CMD_LINE_FEED)
+
+	// Mesero y mesa en esquina inferior izquierda (antes de cortar papel)
+	// Se imprime después de los items y notas especiales
 
 	// Línea separadora
 	builder.WriteString(p.line("-", 42))
@@ -115,13 +141,22 @@ func (p *ESCPOSPrinter) buildTicketContent(ticket domain.KitchenTicket) string {
 	builder.WriteString(CMD_LINE_FEED)
 
 	for _, item := range ticket.Items {
-		// Cantidad y nombre del item
+		// Mejorar formato: cantidad junto a 'x' y nombre, precio y subtotal bien diferenciados
 		builder.WriteString(CMD_BOLD_ON)
 		builder.WriteString(CMD_DOUBLE_ON)
-		builder.WriteString(fmt.Sprintf("%dx %s", item.Quantity, item.MenuItemName))
+		name := item.MenuItemName
+		if len(name) > 18 {
+			name = name[:15] + "..."
+		}
+		unitPrice := formatPriceShort(item.Price)
+		subtotal := formatPriceShort(item.Price * item.Quantity)
+		// Ejemplo: 10x Picada   $15k  -> $150k (todo en una línea)
+		// Formato compacto: 10xPicada $15k->$150k
+		builder.WriteString(fmt.Sprintf("%dx %s  $%s->$%s", item.Quantity, name, unitPrice, subtotal))
+		builder.WriteString(CMD_LINE_FEED)
 		builder.WriteString(CMD_DOUBLE_OFF)
 		builder.WriteString(CMD_BOLD_OFF)
-		builder.WriteString(CMD_LINE_FEED)
+		// No agregar salto de línea extra aquí, solo si hay customizaciones o notas
 
 		// Para llevar
 		if item.IsTakeout {
@@ -181,6 +216,25 @@ func (p *ESCPOSPrinter) buildTicketContent(ticket domain.KitchenTicket) string {
 
 	// Línea final
 	builder.WriteString(p.line("=", 42))
+	builder.WriteString(CMD_LINE_FEED)
+
+	// Mesero y mesa en esquina inferior izquierda, en texto grande
+	builder.WriteString(CMD_ALIGN_LEFT)
+	builder.WriteString(CMD_DOUBLE_ON)
+	var mesaLabel string
+	if ticket.TableNumber == 9999 {
+		mesaLabel = "LLEVAR"
+	} else if ticket.TableNumber == 9998 {
+		mesaLabel = "DOMICILIO"
+	} else {
+		mesaLabel = fmt.Sprintf("Mesa: %d", ticket.TableNumber)
+	}
+	builder.WriteString(fmt.Sprintf("Mesero: %s | %s", ticket.WaiterName, mesaLabel))
+	builder.WriteString(CMD_DOUBLE_OFF)
+	builder.WriteString(CMD_LINE_FEED)
+
+	// Línea de guiones como final de la comanda
+	builder.WriteString(p.line("-", 42))
 	builder.WriteString(CMD_LINE_FEED)
 
 	// Espacios antes del corte
