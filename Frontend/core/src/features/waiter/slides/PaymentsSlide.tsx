@@ -213,6 +213,18 @@ const PaymentsSlide: React.FC<PaymentsSlideProps> = ({ onViewOrderDetails }) => 
             {/* Resumen de items */}
             <div className="p-3 bg-gray-50 border-b">
               <p className="text-xs text-gray-600 font-semibold mb-1">Resumen de la orden:</p>
+              {/* Mostrar nombre del cliente si es para llevar y existe */}
+              {order.order_type === 'llevar' && order.customer_name && (
+                <div className="mb-2 text-xs text-green-700 font-bold">
+                  🧑 Cliente: {order.customer_name}
+                </div>
+              )}
+              {/* Nota adicional si existe delivery_notes */}
+              {order.delivery_notes && (
+                <div className="mb-2 text-xs text-indigo-700 font-bold">
+                  📝 Nota: {order.delivery_notes}
+                </div>
+              )}
               <div className="space-y-1">
                 {(order.items || []).slice(0, 3).map((item, idx) => (
                   <div key={idx} className="flex justify-between text-xs text-gray-700">

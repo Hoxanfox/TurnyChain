@@ -93,6 +93,11 @@ func (s *KitchenTicketService) GenerateKitchenTickets(orderID uuid.UUID) ([]doma
 	for stationID, items := range stationItems {
 		info := stationInfo[stationID]
 
+		// Usar delivery_notes como nota especial si existe
+		specialNotes := ""
+		if order.DeliveryNotes != nil && *order.DeliveryNotes != "" {
+			specialNotes = *order.DeliveryNotes
+		}
 		ticket := domain.KitchenTicket{
 			OrderID:      order.ID,
 			OrderNumber:  orderNumber,
@@ -103,7 +108,7 @@ func (s *KitchenTicketService) GenerateKitchenTickets(orderID uuid.UUID) ([]doma
 			Items:        items,
 			CreatedAt:    order.CreatedAt,
 			OrderType:    order.OrderType,
-			SpecialNotes: "", // Se puede agregar después si es necesario
+			SpecialNotes: specialNotes,
 		}
 
 		tickets = append(tickets, ticket)

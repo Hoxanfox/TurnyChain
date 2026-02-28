@@ -178,7 +178,10 @@ const WaiterDashboardDesktop: React.FC = () => {
     }
   };
 
-  const handleSendOrder = () => {
+  // Estado para notas de checkout en orden para llevar
+  const [checkoutTakeoutNotes, setCheckoutTakeoutNotes] = useState<string>("");
+
+  const handleSendOrder = (notes?: string) => {
     if (!canSendOrder(cart, tableId)) return;
 
     // Si es domicilio y no hay datos de entrega, mostrar modal
@@ -193,10 +196,15 @@ const WaiterDashboardDesktop: React.FC = () => {
 
     if (!selectedTable) return;
 
-    // Abrir modal de checkout antes de enviar
+    // Guardar notas para llevar si aplica (ahora se pasa por argumento)
     setCheckoutOrderTotal(total);
     setCheckoutTableNumber(selectedTable.table_number);
     setIsCheckoutBeforeSend(true);
+    if (orderType === 'llevar' && notes) {
+      setCheckoutTakeoutNotes(notes);
+    } else {
+      setCheckoutTakeoutNotes("");
+    }
   };
 
   const handleDeliveryInfoConfirm = (data: {
@@ -214,8 +222,13 @@ const WaiterDashboardDesktop: React.FC = () => {
     setIsCheckoutBeforeSend(false);
 
     // Ahora sí enviar la orden con los datos de pago
-    const payload = buildOrderPayload(cart, tableId, tables, orderType, deliveryData || undefined);
+    let payload = buildOrderPayload(cart, tableId, tables, orderType, deliveryData || undefined);
     if (!payload) return;
+
+    // Agregar delivery_notes si es para llevar y hay notas
+    if (orderType === 'llevar' && checkoutTakeoutNotes) {
+      payload.delivery_notes = checkoutTakeoutNotes;
+    }
 
     console.log("Enviando payload de la orden al backend con datos de pago:", {
       orderData: payload,

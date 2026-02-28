@@ -48,6 +48,8 @@ import toast, { Toaster } from 'react-hot-toast';
 import confetti from 'canvas-confetti';
 
 const WaiterDashboard: React.FC = () => {
+    // Estado para nota especial de checkout en pedidos para llevar
+    const [checkoutTakeoutNotes, setCheckoutTakeoutNotes] = useState<string>("");
   const dispatch = useDispatch<AppDispatch>();
   const { tables } = useSelector((state: RootState) => state.tables);
   const swiperRef = useRef<SwiperType | null>(null);
@@ -212,8 +214,19 @@ const WaiterDashboard: React.FC = () => {
     setCart(currentCart => decrementItemQuantity(currentCart, cartItemId));
   };
 
-  const handleSendOrder = () => {
+  const handleSendOrder = (notes?: string) => {
     if (!canSendOrder(cart, tableId)) return;
+
+    // Validar nota especial obligatoria para llevar
+    if (orderType === 'llevar') {
+      if (!notes || notes.trim() === '') {
+        toast.error('Debes ingresar una nota especial para pedidos para llevar.');
+        return;
+      }
+      setCheckoutTakeoutNotes(notes);
+    } else {
+      setCheckoutTakeoutNotes("");
+    }
 
     // Si es domicilio y no hay datos de entrega, mostrar modal
     if (orderType === 'domicilio' && !deliveryData) {
@@ -273,6 +286,11 @@ const WaiterDashboard: React.FC = () => {
     // Ahora sí enviar la orden con los datos de pago
     const payload = buildOrderPayload(cart, tableId, tables, orderType, deliveryData || undefined);
     if (!payload) return;
+
+    // Agregar delivery_notes si es para llevar y hay notas
+    if (orderType === 'llevar' && checkoutTakeoutNotes) {
+      payload.delivery_notes = checkoutTakeoutNotes;
+    }
 
     console.log("Enviando payload de la orden al backend con datos de pago:", {
       orderData: payload,

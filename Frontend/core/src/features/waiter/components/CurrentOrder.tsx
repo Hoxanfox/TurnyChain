@@ -14,7 +14,7 @@ interface CurrentOrderProps {
   orderType: string; // "mesa" | "llevar" | "domicilio"
   onTableChange: (value: string) => void;
   onCartAction: (item: CartItem, action: 'delete') => void;
-  onSendOrder: () => void;
+  onSendOrder: (takeoutNotes?: string) => void;
   onEditItem: (item: CartItem) => void;
   onUpdateItemPrice?: (cartItemId: string, newPrice: number) => void;
   onIncrementQuantity?: (cartItemId: string) => void; // Nueva función
@@ -42,6 +42,8 @@ const CurrentOrder: React.FC<CurrentOrderProps> = ({
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   // 🆕 MEJORA UX #6: Estado para modal de mapa de mesas
   const [showTableMap, setShowTableMap] = useState(false);
+  // Estado para notas adicionales en pedidos para llevar
+  const [takeoutNotes, setTakeoutNotes] = useState("");
 
   const total = cart.reduce((sum, item) => sum + item.finalPrice, 0);
 
@@ -79,6 +81,24 @@ const CurrentOrder: React.FC<CurrentOrderProps> = ({
   return (
     <div className="pb-4 flex flex-col h-full">
       <h2 className="text-xl font-bold mb-4 text-gray-800">Nueva Orden</h2>
+      {/* Campo de notas obligatorias para llevar */}
+      {orderType === 'llevar' && (
+        <div className="mb-4">
+          <label htmlFor="takeoutNotes" className="block text-sm font-semibold text-red-700 mb-2">Notas especiales para llevar <span className="text-red-500">(obligatorio)</span></label>
+          <textarea
+            id="takeoutNotes"
+            value={takeoutNotes}
+            onChange={e => setTakeoutNotes(e.target.value)}
+            placeholder="Ej: Nombre para reclamar, instrucciones, etc."
+            rows={2}
+            className="w-full px-4 py-2 border-2 border-red-300 rounded-xl focus:outline-none focus:border-red-500 focus:ring-2 focus:ring-red-200 transition-all"
+            required
+          />
+          {takeoutNotes.trim() === '' && (
+            <p className="text-xs text-red-600 mt-1">Debes ingresar una nota especial para pedidos para llevar.</p>
+          )}
+        </div>
+      )}
 
       {/* 🆕 MEJORA UX #6: Selector compacto de mesa en una línea con modal */}
       {orderType === 'mesa' && (
@@ -363,9 +383,9 @@ const CurrentOrder: React.FC<CurrentOrderProps> = ({
         </div>
 
         <button
-          onClick={onSendOrder}
+          onClick={() => onSendOrder(orderType === 'llevar' ? takeoutNotes : undefined)}
           className="w-full bg-gradient-to-r from-green-600 to-green-700 text-white py-3 rounded-lg hover:from-green-700 hover:to-green-800 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all font-bold shadow-lg disabled:shadow-none"
-          disabled={!tableId || cart.length === 0}
+          disabled={!tableId || cart.length === 0 || (orderType === 'llevar' && takeoutNotes.trim() === '')}
         >
           💰 Cobrar y Enviar Orden
         </button>

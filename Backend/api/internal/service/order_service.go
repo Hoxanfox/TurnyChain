@@ -24,13 +24,14 @@ type OrderService interface {
 }
 
 type orderService struct {
-	orderRepo         repository.OrderRepository
-	tableRepo         repository.TableRepository
-	menuRepo          repository.MenuRepository
-	ingredientRepo    repository.IngredientRepository
-	accompanimentRepo repository.AccompanimentRepository
-	wsHub             *wshub.Hub
-	blockchain        BlockchainService
+orderRepo         repository.OrderRepository
+tableRepo         repository.TableRepository
+menuRepo          repository.MenuRepository
+ingredientRepo    repository.IngredientRepository
+accompanimentRepo repository.AccompanimentRepository
+wsHub             *wshub.Hub
+blockchain        BlockchainService
+kitchenTicketService *KitchenTicketService
 }
 
 func NewOrderService(
@@ -41,15 +42,17 @@ func NewOrderService(
 	accompanimentRepo repository.AccompanimentRepository,
 	wsHub *wshub.Hub,
 	bc BlockchainService,
+	kitchenTicketService *KitchenTicketService,
 ) OrderService {
 	return &orderService{
-		orderRepo:         orderRepo,
-		tableRepo:         tableRepo,
-		menuRepo:          menuRepo,
-		ingredientRepo:    ingredientRepo,
-		accompanimentRepo: accompanimentRepo,
-		wsHub:             wsHub,
-		blockchain:        bc,
+		 orderRepo:         orderRepo,
+		 tableRepo:         tableRepo,
+		 menuRepo:          menuRepo,
+		 ingredientRepo:    ingredientRepo,
+		 accompanimentRepo: accompanimentRepo,
+		 wsHub:             wsHub,
+		 blockchain:        bc,
+		 kitchenTicketService: kitchenTicketService,
 	}
 }
 
@@ -178,13 +181,21 @@ func (s *orderService) CreateOrder(waiterID uuid.UUID, tableNumber int, orderTyp
 		DeliveryNotes:   deliveryNotes,
 	}
 
-	createdOrder, err := s.orderRepo.CreateOrder(order)
-	if err != nil {
-		return nil, err
-	}
+	       createdOrder, err := s.orderRepo.CreateOrder(order)
+	       if err != nil {
+		       return nil, err
+	       }
 
-	s.wsHub.BroadcastMessage("NEW_PENDING_ORDER", createdOrder)
-	return createdOrder, nil
+		       // Imprimir tickets de cocina inmediatamente al crear la orden
+		       if s.kitchenTicketService != nil {
+			       _, printErr := s.kitchenTicketService.PrintKitchenTickets(createdOrder.ID, false)
+			       if printErr != nil {
+				       log.Printf("❌ Error imprimiendo tickets de cocina: %v", printErr)
+			       }
+		       }
+
+	       s.wsHub.BroadcastMessage("NEW_PENDING_ORDER", createdOrder)
+	       return createdOrder, nil
 }
 
 func (s *orderService) GetOrders(userRole string, userID uuid.UUID, status string, myOrders string) ([]domain.Order, error) {
