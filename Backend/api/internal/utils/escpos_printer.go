@@ -95,19 +95,17 @@ func (p *ESCPOSPrinter) buildTicketContent(ticket domain.KitchenTicket) string {
 	builder.WriteString(CMD_BOLD_OFF)
 	builder.WriteString(CMD_LINE_FEED)
 
-	// Información de la orden modificada
-	// Centrar número de orden
+	// Información de la orden
 	builder.WriteString(CMD_ALIGN_CENTER)
 	builder.WriteString(CMD_BOLD_ON)
 	builder.WriteString(fmt.Sprintf("ORDEN: %s", ticket.OrderNumber))
 	builder.WriteString(CMD_LINE_FEED)
 	builder.WriteString(CMD_BOLD_OFF)
 
-	// Centrar y resaltar tipo de orden en grande
+	// Tipo de orden resaltado
 	builder.WriteString(CMD_ALIGN_CENTER)
 	builder.WriteString(CMD_DOUBLE_ON)
 	builder.WriteString(CMD_BOLD_ON)
-	// Mostrar tipo de orden especial para mesa 9999 y domicilio
 	var tipoOrden string
 	if ticket.TableNumber == 9999 {
 		tipoOrden = "LLEVAR"
@@ -121,15 +119,10 @@ func (p *ESCPOSPrinter) buildTicketContent(ticket domain.KitchenTicket) string {
 	builder.WriteString(CMD_DOUBLE_OFF)
 	builder.WriteString(CMD_LINE_FEED)
 
-	// Hora centrada
 	builder.WriteString(CMD_ALIGN_CENTER)
 	builder.WriteString(fmt.Sprintf("Hora: %s", ticket.CreatedAt.Format("15:04:05")))
 	builder.WriteString(CMD_LINE_FEED)
 
-	// Mesero y mesa en esquina inferior izquierda (antes de cortar papel)
-	// Se imprime después de los items y notas especiales
-
-	// Línea separadora
 	builder.WriteString(p.line("-", 42))
 	builder.WriteString(CMD_LINE_FEED)
 
@@ -138,111 +131,89 @@ func (p *ESCPOSPrinter) buildTicketContent(ticket domain.KitchenTicket) string {
 	builder.WriteString("ITEMS:")
 	builder.WriteString(CMD_BOLD_OFF)
 	builder.WriteString(CMD_LINE_FEED)
-	builder.WriteString(CMD_LINE_FEED)
 
 	for _, item := range ticket.Items {
-		// Mejorar formato: cantidad junto a 'x' y nombre, precio y subtotal bien diferenciados
-		builder.WriteString(CMD_BOLD_ON)
 		builder.WriteString(CMD_DOUBLE_ON)
-		name := item.MenuItemName
-		if len(name) > 18 {
-			name = name[:15] + "..."
-		}
+		builder.WriteString(CMD_BOLD_ON)
+		
+		// 1. Cantidad y Nombre del Item
+		builder.WriteString(fmt.Sprintf("%dx %s", item.Quantity, item.MenuItemName))
+		builder.WriteString(CMD_LINE_FEED) // <--- SALTO DE LÍNEA SOLICITADO después del nombre
+		
+		// 2. Precios en la línea siguiente (Alineado un poco a la derecha para orden)
 		unitPrice := formatPriceShort(item.Price)
 		subtotal := formatPriceShort(item.Price * item.Quantity)
-		// Ejemplo: 10x Picada   $15k  -> $150k (todo en una línea)
-		// Formato compacto: 10xPicada $15k->$150k
-		builder.WriteString(fmt.Sprintf("%dx %s  $%s->$%s", item.Quantity, name, unitPrice, subtotal))
-		builder.WriteString(CMD_LINE_FEED)
-		builder.WriteString(CMD_DOUBLE_OFF)
+		builder.WriteString(fmt.Sprintf("   $%s c/u -> $%s", unitPrice, subtotal))
+		
 		builder.WriteString(CMD_BOLD_OFF)
-		// No agregar salto de línea extra aquí, solo si hay customizaciones o notas
+		builder.WriteString(CMD_DOUBLE_OFF)
+		builder.WriteString(CMD_LINE_FEED)
 
-		// Para llevar
+		// Customizaciones y Notas
 		if item.IsTakeout {
-			builder.WriteString(CMD_BOLD_ON)
-			builder.WriteString("   >>> PARA LLEVAR <<<")
-			builder.WriteString(CMD_BOLD_OFF)
-			builder.WriteString(CMD_LINE_FEED)
+			builder.WriteString("   >>> PARA LLEVAR <<<" + CMD_LINE_FEED)
 		}
 
-		// Customizaciones
 		if item.Customizations != nil {
-			// Ingredientes activos (los que SÍ lleva el platillo)
 			if len(item.Customizations.ActiveIngredients) > 0 {
 				builder.WriteString("   CON: ")
-				ingredients := make([]string, len(item.Customizations.ActiveIngredients))
-				for i, ing := range item.Customizations.ActiveIngredients {
-					ingredients[i] = ing.Name
-				}
-				builder.WriteString(strings.Join(ingredients, ", "))
-				builder.WriteString(CMD_LINE_FEED)
+				ings := []string{}
+				for _, ing := range item.Customizations.ActiveIngredients { ings = append(ings, ing.Name) }
+				builder.WriteString(strings.Join(ings, ", ") + CMD_LINE_FEED)
 			}
-
-			// Acompañamientos seleccionados
 			if len(item.Customizations.SelectedAccompaniments) > 0 {
 				builder.WriteString("   ACOMP: ")
-				accompaniments := make([]string, len(item.Customizations.SelectedAccompaniments))
-				for i, acc := range item.Customizations.SelectedAccompaniments {
-					accompaniments[i] = acc.Name
-				}
-				builder.WriteString(strings.Join(accompaniments, ", "))
-				builder.WriteString(CMD_LINE_FEED)
+				accs := []string{}
+				for _, acc := range item.Customizations.SelectedAccompaniments { accs = append(accs, acc.Name) }
+				builder.WriteString(strings.Join(accs, ", ") + CMD_LINE_FEED)
 			}
 		}
 
-		// Notas del item
 		if item.Notes != "" {
-			builder.WriteString(CMD_UNDERLINE_ON)
-			builder.WriteString(fmt.Sprintf("   NOTA: %s", item.Notes))
-			builder.WriteString(CMD_UNDERLINE_OFF)
-			builder.WriteString(CMD_LINE_FEED)
+			builder.WriteString(CMD_UNDERLINE_ON + "   NOTA: " + item.Notes + CMD_UNDERLINE_OFF + CMD_LINE_FEED)
+		}
+		builder.WriteString(CMD_LINE_FEED)
+	}
+
+	// === TOTAL PARA CAJA ===
+	// Si la estación contiene "CAJA", calculamos el total de los items presentes en este ticket
+	if strings.Contains(strings.ToUpper(ticket.StationName), "CAJA") {
+		totalTicket := 0
+		for _, item := range ticket.Items {
+			totalTicket += (item.Price * item.Quantity)
 		}
 
-		builder.WriteString(CMD_LINE_FEED)
+		builder.WriteString(p.line("=", 42) + CMD_LINE_FEED)
+		builder.WriteString(CMD_ALIGN_RIGHT)
+		builder.WriteString(CMD_DOUBLE_ON + CMD_BOLD_ON)
+		builder.WriteString(fmt.Sprintf("TOTAL ORDEN: $%d", totalTicket)) // Formato moneda completo para Caja
+		builder.WriteString(CMD_BOLD_OFF + CMD_DOUBLE_OFF + CMD_LINE_FEED)
+		builder.WriteString(CMD_ALIGN_LEFT)
 	}
 
 	// Notas especiales de la orden
 	if ticket.SpecialNotes != "" {
-		builder.WriteString(p.line("-", 42))
-		builder.WriteString(CMD_LINE_FEED)
-		builder.WriteString(CMD_BOLD_ON)
-		builder.WriteString("NOTA ESPECIAL:")
-		builder.WriteString(CMD_BOLD_OFF)
-		builder.WriteString(CMD_LINE_FEED)
-		builder.WriteString(ticket.SpecialNotes)
-		builder.WriteString(CMD_LINE_FEED)
+		builder.WriteString(p.line("-", 42) + CMD_LINE_FEED)
+		builder.WriteString(CMD_BOLD_ON + "NOTA ESPECIAL:" + CMD_BOLD_OFF + CMD_LINE_FEED)
+		builder.WriteString(ticket.SpecialNotes + CMD_LINE_FEED)
 	}
 
-	// Línea final
-	builder.WriteString(p.line("=", 42))
-	builder.WriteString(CMD_LINE_FEED)
+	builder.WriteString(p.line("=", 42) + CMD_LINE_FEED)
 
-	// Mesero y mesa en esquina inferior izquierda, en texto grande
+	// Pie de ticket: Mesero y Mesa
 	builder.WriteString(CMD_ALIGN_LEFT)
 	builder.WriteString(CMD_DOUBLE_ON)
-	var mesaLabel string
-	if ticket.TableNumber == 9999 {
-		mesaLabel = "LLEVAR"
-	} else if ticket.TableNumber == 9998 {
-		mesaLabel = "DOMICILIO"
-	} else {
-		mesaLabel = fmt.Sprintf("Mesa: %d", ticket.TableNumber)
+	mesaLabel := ""
+	switch ticket.TableNumber {
+	case 9999: mesaLabel = "LLEVAR"
+	case 9998: mesaLabel = "DOMICILIO"
+	default:   mesaLabel = fmt.Sprintf("Mesa: %d", ticket.TableNumber)
 	}
-	builder.WriteString(fmt.Sprintf("Mesero: %s | %s", ticket.WaiterName, mesaLabel))
-	builder.WriteString(CMD_DOUBLE_OFF)
-	builder.WriteString(CMD_LINE_FEED)
+	builder.WriteString(fmt.Sprintf("Mesero: %s\n%s", ticket.WaiterName, mesaLabel))
+	builder.WriteString(CMD_DOUBLE_OFF + CMD_LINE_FEED)
 
-	// Línea de guiones como final de la comanda
-	builder.WriteString(p.line("-", 42))
-	builder.WriteString(CMD_LINE_FEED)
-
-	// Espacios antes del corte
-	builder.WriteString(CMD_LINE_FEED)
-	builder.WriteString(CMD_LINE_FEED)
-	builder.WriteString(CMD_LINE_FEED)
-
-	// Cortar papel
+	builder.WriteString(p.line("-", 42) + CMD_LINE_FEED)
+	builder.WriteString(CMD_LINE_FEED + CMD_LINE_FEED + CMD_LINE_FEED)
 	builder.WriteString(CMD_CUT_PARTIAL)
 
 	return builder.String()

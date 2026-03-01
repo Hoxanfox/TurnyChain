@@ -116,6 +116,82 @@ func (s *KitchenTicketService) GenerateKitchenTickets(orderID uuid.UUID) ([]doma
 
 	return tickets, nil
 }
+// PrintGlobalOrderTicket imprime la comanda completa en la estación 'Caja'
+// Útil para control administrativo o precuenta.
+func (s *KitchenTicketService) PrintGlobalOrderTicket(orderID uuid.UUID) error {
+	// 1. Obtener la orden completa
+	order, err := s.orderRepo.GetOrderByID(orderID)
+	if err != nil {
+		return fmt.Errorf("error al obtener orden: %w", err)
+	}
+	if order == nil {
+		return fmt.Errorf("orden no encontrada")
+	}
+
+	// 2. Mapear TODOS los ítems de la orden a KitchenTicketItem
+	var allItems []domain.KitchenTicketItem
+	for _, item := range order.Items {
+		kitchenItem := domain.KitchenTicketItem{
+			MenuItemName:   item.MenuItemName,
+			Quantity:       item.Quantity,
+			Customizations: &item.Customizations,
+			IsTakeout:      item.IsTakeout,
+			Price:          int(item.PriceAtOrder),
+		}
+		if item.Notes != nil {
+			kitchenItem.Notes = *item.Notes
+		}
+		allItems = append(allItems, kitchenItem)
+	}
+
+	// 3. Crear el ticket global
+	specialNotes := ""
+	if order.DeliveryNotes != nil {
+		specialNotes = *order.DeliveryNotes
+	}
+
+	globalTicket := domain.KitchenTicket{
+		OrderID:      order.ID,
+		OrderNumber:  fmt.Sprintf("ORD-%s", order.ID.String()[:8]),
+		TableNumber:  order.TableNumber,
+		WaiterName:   order.WaiterName,
+		StationID:    uuid.Nil, // Es un ticket global, no pertenece a una sola estación de preparación
+		StationName:  "CAJA GLOBAL",
+		Items:        allItems,
+		CreatedAt:    order.CreatedAt,
+		OrderType:    order.OrderType,
+		SpecialNotes: specialNotes,
+	}
+
+	// 4. Buscar la estación llamada "Caja" para obtener su impresora
+	stations, err := s.stationRepo.GetAll()
+	if err != nil {
+		return fmt.Errorf("error al obtener estaciones: %w", err)
+	}
+
+	var cajaStationID uuid.UUID
+	for _, st := range stations {
+		// Validamos ignorando mayúsculas/minúsculas para mayor seguridad
+		if st.Name == "Caja" || st.Name == "CAJA" {
+			cajaStationID = st.ID
+			break
+		}
+	}
+
+	if cajaStationID == uuid.Nil {
+		return fmt.Errorf("la estación 'Caja' no está configurada en el sistema")
+	}
+
+	// 5. Obtener impresoras de la estación Caja
+	printers, err := s.printerRepo.GetByStationID(cajaStationID)
+	if err != nil || len(printers) == 0 {
+		return fmt.Errorf("no hay impresoras configuradas para la estación Caja")
+	}
+
+	// 6. Enviar a la impresora principal de Caja
+	return s.sendToPrinter(printers[0], globalTicket)
+}
+
 
 // PrintKitchenTickets genera los tickets y los envía a las impresoras correspondientes
 func (s *KitchenTicketService) PrintKitchenTickets(orderID uuid.UUID, reprint bool) (*domain.PrintResponse, error) {
@@ -246,4 +322,31 @@ func (s *KitchenTicketService) GetTicketsPreview(orderID uuid.UUID) (*domain.Sta
 		OrderID: orderID,
 		Tickets: tickets,
 	}, nil
+}
+
+// PrintOrderAllDestinations orquesta la impresión en cocina (cortados) y en caja (global)
+func (s *KitchenTicketService) PrintOrderAllDestinations(orderID uuid.UUID) (*domain.PrintResponse, error) {
+    // 1. Mandar a imprimir por estaciones (Cocina, Barra, etc.)
+    result, err := s.PrintKitchenTickets(orderID, false)
+    if err != nil {
+        log.Printf("⚠️ Error parcial en impresión de estaciones: %v", err)
+        // No retornamos error aquí para intentar imprimir al menos en caja
+    }
+
+    // 2. Mandar a imprimir la comanda global en la estación 'Caja'
+    errCaja := s.PrintGlobalOrderTicket(orderID)
+    if errCaja != nil {
+        log.Printf("❌ Error en impresión de Caja: %v", errCaja)
+        if result != nil {
+            result.FailedPrints = append(result.FailedPrints, domain.FailedPrintInfo{
+                StationName: "Caja",
+                Error:       errCaja.Error(),
+            })
+            result.Success = false
+        }
+    } else {
+        log.Printf("✅ Comanda global enviada a Caja correctamente")
+    }
+
+    return result, err
 }
