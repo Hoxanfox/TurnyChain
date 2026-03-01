@@ -133,14 +133,18 @@ func (p *ESCPOSPrinter) buildTicketContent(ticket domain.KitchenTicket) string {
 	builder.WriteString(CMD_LINE_FEED)
 
 	for _, item := range ticket.Items {
+		// 1. Línea superior divisoria por ítem
+		builder.WriteString(p.line("-", 42))
+		builder.WriteString(CMD_LINE_FEED)
+
 		builder.WriteString(CMD_DOUBLE_ON)
 		builder.WriteString(CMD_BOLD_ON)
 		
-		// 1. Cantidad y Nombre del Item
+		// 2. Cantidad y Nombre del Item (con su respectivo salto de línea)
 		builder.WriteString(fmt.Sprintf("%dx %s", item.Quantity, item.MenuItemName))
-		builder.WriteString(CMD_LINE_FEED) // <--- SALTO DE LÍNEA SOLICITADO después del nombre
+		builder.WriteString(CMD_LINE_FEED) 
 		
-		// 2. Precios en la línea siguiente (Alineado un poco a la derecha para orden)
+		// 3. Precios justo debajo
 		unitPrice := formatPriceShort(item.Price)
 		subtotal := formatPriceShort(item.Price * item.Quantity)
 		builder.WriteString(fmt.Sprintf("   $%s c/u -> $%s", unitPrice, subtotal))
@@ -149,7 +153,7 @@ func (p *ESCPOSPrinter) buildTicketContent(ticket domain.KitchenTicket) string {
 		builder.WriteString(CMD_DOUBLE_OFF)
 		builder.WriteString(CMD_LINE_FEED)
 
-		// Customizaciones y Notas
+		// 4. Customizaciones y Notas (si existen)
 		if item.IsTakeout {
 			builder.WriteString("   >>> PARA LLEVAR <<<" + CMD_LINE_FEED)
 		}
@@ -172,6 +176,12 @@ func (p *ESCPOSPrinter) buildTicketContent(ticket domain.KitchenTicket) string {
 		if item.Notes != "" {
 			builder.WriteString(CMD_UNDERLINE_ON + "   NOTA: " + item.Notes + CMD_UNDERLINE_OFF + CMD_LINE_FEED)
 		}
+
+		// 5. Línea inferior divisoria por ítem
+		builder.WriteString(p.line("-", 42))
+		builder.WriteString(CMD_LINE_FEED)
+		
+		// Un pequeño espacio extra entre ítems para que respire el diseño
 		builder.WriteString(CMD_LINE_FEED)
 	}
 
