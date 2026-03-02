@@ -55,17 +55,21 @@ func formatPriceShort(price int) string {
 
 // ESCPOSPrinter maneja la conexión y comandos de impresora ESC/POS
 type ESCPOSPrinter struct {
-	host    string
-	port    int
-	timeout time.Duration
+	host          string
+	port          int
+	timeout       time.Duration
+	retryAttempts int
+	retryDelay    time.Duration
 }
 
 // NewESCPOSPrinter crea una nueva instancia del printer
 func NewESCPOSPrinter(host string, port int) *ESCPOSPrinter {
 	return &ESCPOSPrinter{
-		host:    host,
-		port:    port,
-		timeout: 5 * time.Second,
+		host:          host,
+		port:          port,
+		timeout:       10 * time.Second, // Timeout aumentado a 10 segundos
+		retryAttempts: 3,                // 3 intentos de reintento
+		retryDelay:    500 * time.Millisecond,
 	}
 }
 
@@ -139,16 +143,16 @@ func (p *ESCPOSPrinter) buildTicketContent(ticket domain.KitchenTicket) string {
 
 		builder.WriteString(CMD_DOUBLE_ON)
 		builder.WriteString(CMD_BOLD_ON)
-		
+
 		// 2. Cantidad y Nombre del Item (con su respectivo salto de línea)
 		builder.WriteString(fmt.Sprintf("%dx %s", item.Quantity, item.MenuItemName))
-		builder.WriteString(CMD_LINE_FEED) 
-		
+		builder.WriteString(CMD_LINE_FEED)
+
 		// 3. Precios justo debajo
 		unitPrice := formatPriceShort(item.Price)
 		subtotal := formatPriceShort(item.Price * item.Quantity)
 		builder.WriteString(fmt.Sprintf("   $%s c/u -> $%s", unitPrice, subtotal))
-		
+
 		builder.WriteString(CMD_BOLD_OFF)
 		builder.WriteString(CMD_DOUBLE_OFF)
 		builder.WriteString(CMD_LINE_FEED)
@@ -162,13 +166,17 @@ func (p *ESCPOSPrinter) buildTicketContent(ticket domain.KitchenTicket) string {
 			if len(item.Customizations.ActiveIngredients) > 0 {
 				builder.WriteString("   CON: ")
 				ings := []string{}
-				for _, ing := range item.Customizations.ActiveIngredients { ings = append(ings, ing.Name) }
+				for _, ing := range item.Customizations.ActiveIngredients {
+					ings = append(ings, ing.Name)
+				}
 				builder.WriteString(strings.Join(ings, ", ") + CMD_LINE_FEED)
 			}
 			if len(item.Customizations.SelectedAccompaniments) > 0 {
 				builder.WriteString("   ACOMP: ")
 				accs := []string{}
-				for _, acc := range item.Customizations.SelectedAccompaniments { accs = append(accs, acc.Name) }
+				for _, acc := range item.Customizations.SelectedAccompaniments {
+					accs = append(accs, acc.Name)
+				}
 				builder.WriteString(strings.Join(accs, ", ") + CMD_LINE_FEED)
 			}
 		}
@@ -180,7 +188,7 @@ func (p *ESCPOSPrinter) buildTicketContent(ticket domain.KitchenTicket) string {
 		// 5. Línea inferior divisoria por ítem
 		builder.WriteString(p.line("-", 42))
 		builder.WriteString(CMD_LINE_FEED)
-		
+
 		// Un pequeño espacio extra entre ítems para que respire el diseño
 		builder.WriteString(CMD_LINE_FEED)
 	}
@@ -215,9 +223,12 @@ func (p *ESCPOSPrinter) buildTicketContent(ticket domain.KitchenTicket) string {
 	builder.WriteString(CMD_DOUBLE_ON)
 	mesaLabel := ""
 	switch ticket.TableNumber {
-	case 9999: mesaLabel = "LLEVAR"
-	case 9998: mesaLabel = "DOMICILIO"
-	default:   mesaLabel = fmt.Sprintf("Mesa: %d", ticket.TableNumber)
+	case 9999:
+		mesaLabel = "LLEVAR"
+	case 9998:
+		mesaLabel = "DOMICILIO"
+	default:
+		mesaLabel = fmt.Sprintf("Mesa: %d", ticket.TableNumber)
 	}
 	builder.WriteString(fmt.Sprintf("Mesero: %s\n%s", ticket.WaiterName, mesaLabel))
 	builder.WriteString(CMD_DOUBLE_OFF + CMD_LINE_FEED)
@@ -234,28 +245,46 @@ func (p *ESCPOSPrinter) line(char string, length int) string {
 	return strings.Repeat(char, length)
 }
 
-// sendToNetwork envía los datos a la impresora vía TCP/IP
+// sendToNetwork envía los datos a la impresora vía TCP/IP con reintentos
 func (p *ESCPOSPrinter) sendToNetwork(data string) error {
-	// Construir la dirección
 	address := fmt.Sprintf("%s:%d", p.host, p.port)
+	var lastErr error
 
-	// Conectar a la impresora
-	conn, err := net.DialTimeout("tcp", address, p.timeout)
-	if err != nil {
-		return fmt.Errorf("error al conectar con la impresora en %s: %w", address, err)
+	// Intentar múltiples veces en caso de que la impresora esté ocupada
+	for attempt := 1; attempt <= p.retryAttempts; attempt++ {
+		if attempt > 1 {
+			// Esperar antes de reintentar
+			time.Sleep(p.retryDelay)
+			fmt.Printf("⚠️  Reintentando conexión a %s (intento %d/%d)...\n", address, attempt, p.retryAttempts)
+		}
+
+		// Conectar a la impresora
+		conn, err := net.DialTimeout("tcp", address, p.timeout)
+		if err != nil {
+			lastErr = err
+			continue // Intentar de nuevo
+		}
+
+		// Establecer timeout de escritura
+		conn.SetWriteDeadline(time.Now().Add(p.timeout))
+		conn.SetReadDeadline(time.Now().Add(p.timeout))
+
+		// Enviar datos
+		_, err = conn.Write([]byte(data))
+		conn.Close() // Cerrar inmediatamente después de enviar
+
+		if err != nil {
+			lastErr = err
+			continue // Intentar de nuevo
+		}
+
+		// Éxito
+		return nil
 	}
-	defer conn.Close()
 
-	// Establecer timeout de escritura
-	conn.SetWriteDeadline(time.Now().Add(p.timeout))
-
-	// Enviar datos
-	_, err = conn.Write([]byte(data))
-	if err != nil {
-		return fmt.Errorf("error al enviar datos a la impresora: %w", err)
-	}
-
-	return nil
+	// Si llegamos aquí, todos los intentos fallaron
+	return fmt.Errorf("error al conectar con la impresora en %s después de %d intentos: %w",
+		address, p.retryAttempts, lastErr)
 }
 
 // TestConnection prueba la conexión con la impresora enviando un ticket de prueba
