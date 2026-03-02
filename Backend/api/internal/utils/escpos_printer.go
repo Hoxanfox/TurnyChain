@@ -53,6 +53,17 @@ func formatPriceShort(price int) string {
 	return fmt.Sprintf("%d", price)
 }
 
+// Helper para convertir timestamp a hora de Colombia (UTC-5)
+func toColombiaTime(t time.Time) time.Time {
+	// Cargar la zona horaria de Colombia (America/Bogota)
+	loc, err := time.LoadLocation("America/Bogota")
+	if err != nil {
+		// Si falla, usar UTC-5 manualmente
+		loc = time.FixedZone("COT", -5*60*60) // Colombia Time (UTC-5)
+	}
+	return t.In(loc)
+}
+
 // ESCPOSPrinter maneja la conexión y comandos de impresora ESC/POS
 type ESCPOSPrinter struct {
 	host          string
@@ -124,7 +135,9 @@ func (p *ESCPOSPrinter) buildTicketContent(ticket domain.KitchenTicket) string {
 	builder.WriteString(CMD_LINE_FEED)
 
 	builder.WriteString(CMD_ALIGN_CENTER)
-	builder.WriteString(fmt.Sprintf("Hora: %s", ticket.CreatedAt.Format("15:04:05")))
+	// Convertir la hora a zona horaria de Colombia antes de formatear
+	colombiaTime := toColombiaTime(ticket.CreatedAt)
+	builder.WriteString(fmt.Sprintf("Hora: %s", colombiaTime.Format("15:04:05")))
 	builder.WriteString(CMD_LINE_FEED)
 
 	builder.WriteString(p.line("-", 42))
@@ -204,7 +217,7 @@ func (p *ESCPOSPrinter) buildTicketContent(ticket domain.KitchenTicket) string {
 		builder.WriteString(p.line("=", 42) + CMD_LINE_FEED)
 		builder.WriteString(CMD_ALIGN_RIGHT)
 		builder.WriteString(CMD_DOUBLE_ON + CMD_BOLD_ON)
-		builder.WriteString(fmt.Sprintf("TOTAL ORDEN: $%d", totalTicket)) // Formato moneda completo para Caja
+		builder.WriteString(fmt.Sprintf("TOTAL ORDEN: $%s", formatPriceShort(totalTicket))) // Formato abreviado con "k"
 		builder.WriteString(CMD_BOLD_OFF + CMD_DOUBLE_OFF + CMD_LINE_FEED)
 		builder.WriteString(CMD_ALIGN_LEFT)
 	}
