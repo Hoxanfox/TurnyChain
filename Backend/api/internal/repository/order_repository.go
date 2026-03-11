@@ -5,6 +5,7 @@ package repository
 
 import (
 	"database/sql"
+	"log"
 	"strconv"
 
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/domain"
@@ -20,6 +21,7 @@ type OrderRepository interface {
 	ManageOrder(orderID uuid.UUID, updates map[string]interface{}) (*domain.Order, error)
 	UpdateOrderItems(orderID uuid.UUID, items []domain.OrderItem, newTotal float64) error
 	AddPaymentProof(orderID uuid.UUID, method string, proofPath string) (*domain.Order, error)
+	EditOrder(orderID uuid.UUID, items []domain.OrderItem, updates map[string]interface{}) error
 }
 
 type orderRepository struct{ db *sql.DB }
@@ -35,10 +37,10 @@ func (r *orderRepository) CreateOrder(order *domain.Order) (*domain.Order, error
 	}
 
 	order.ID = uuid.New()
-	orderQuery := `INSERT INTO orders (id, waiter_id, table_id, table_number, status, total, order_type, delivery_address, delivery_phone, delivery_notes) 
-                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) 
+	orderQuery := `INSERT INTO orders (id, waiter_id, table_id, table_number, status, total, order_type, customer_name, delivery_address, delivery_phone, delivery_notes) 
+                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) 
                    RETURNING id, created_at`
-	err = tx.QueryRow(orderQuery, order.ID, order.WaiterID, order.TableID, order.TableNumber, order.Status, order.Total, order.OrderType, order.DeliveryAddress, order.DeliveryPhone, order.DeliveryNotes).Scan(&order.ID, &order.CreatedAt)
+	err = tx.QueryRow(orderQuery, order.ID, order.WaiterID, order.TableID, order.TableNumber, order.Status, order.Total, order.OrderType, order.CustomerName, order.DeliveryAddress, order.DeliveryPhone, order.DeliveryNotes).Scan(&order.ID, &order.CreatedAt)
 	if err != nil {
 		tx.Rollback()
 		return nil, err
@@ -69,7 +71,7 @@ func (r *orderRepository) CreateOrder(order *domain.Order) (*domain.Order, error
 }
 
 func (r *orderRepository) GetOrders(filters map[string]interface{}) ([]domain.Order, error) {
-	query := `SELECT o.id, o.waiter_id, u.username as waiter_name, o.cashier_id, o.table_number, o.status, o.total, o.order_type, o.delivery_address, o.delivery_phone, o.delivery_notes, o.payment_method, o.payment_proof_path, o.created_at, o.updated_at 
+	query := `SELECT o.id, o.waiter_id, u.username as waiter_name, o.cashier_id, o.table_number, o.status, o.total, o.order_type, o.customer_name, o.delivery_address, o.delivery_phone, o.delivery_notes, o.payment_method, o.payment_proof_path, o.created_at, o.updated_at 
               FROM orders o
               LEFT JOIN users u ON o.waiter_id = u.id
               WHERE 1=1`
@@ -87,8 +89,12 @@ func (r *orderRepository) GetOrders(filters map[string]interface{}) ([]domain.Or
 		argId++
 	}
 
+	log.Printf("📊 [GetOrders] Query: %s", query)
+	log.Printf("📊 [GetOrders] Args: %v", args)
+
 	rows, err := r.db.Query(query, args...)
 	if err != nil {
+		log.Printf("❌ [GetOrders] Query error: %v", err)
 		return nil, err
 	}
 	defer rows.Close()
@@ -102,10 +108,11 @@ func (r *orderRepository) GetOrders(filters map[string]interface{}) ([]domain.Or
 		var waiterName sql.NullString
 		var paymentMethod sql.NullString
 		var paymentProof sql.NullString
+		var customerName sql.NullString
 		var deliveryAddress sql.NullString
 		var deliveryPhone sql.NullString
 		var deliveryNotes sql.NullString
-		if err := rows.Scan(&order.ID, &order.WaiterID, &waiterName, &cashierID, &order.TableNumber, &order.Status, &order.Total, &order.OrderType, &deliveryAddress, &deliveryPhone, &deliveryNotes, &paymentMethod, &paymentProof, &order.CreatedAt, &order.UpdatedAt); err != nil {
+		if err := rows.Scan(&order.ID, &order.WaiterID, &waiterName, &cashierID, &order.TableNumber, &order.Status, &order.Total, &order.OrderType, &customerName, &deliveryAddress, &deliveryPhone, &deliveryNotes, &paymentMethod, &paymentProof, &order.CreatedAt, &order.UpdatedAt); err != nil {
 			return nil, err
 		}
 		if cashierID.Valid {
@@ -134,6 +141,10 @@ func (r *orderRepository) GetOrders(filters map[string]interface{}) ([]domain.Or
 		if deliveryNotes.Valid {
 			notes := deliveryNotes.String
 			order.DeliveryNotes = &notes
+		}
+		if customerName.Valid {
+			name := customerName.String
+			order.CustomerName = &name
 		}
 		ordersMap[order.ID] = &order
 		orderIDs = append(orderIDs, order.ID)
@@ -165,9 +176,16 @@ func (r *orderRepository) GetOrders(filters map[string]interface{}) ([]domain.Or
 		var categoryID sql.NullString
 		var categoryStationID sql.NullString
 		var categoryStationName sql.NullString
+		var notes sql.NullString
 
-		if err := itemRows.Scan(&orderID, &item.MenuItemID, &item.MenuItemName, &item.Quantity, &item.PriceAtOrder, &item.Notes, &item.Customizations, &item.IsTakeout, &categoryID, &categoryStationID, &categoryStationName); err != nil {
+		if err := itemRows.Scan(&orderID, &item.MenuItemID, &item.MenuItemName, &item.Quantity, &item.PriceAtOrder, &notes, &item.Customizations, &item.IsTakeout, &categoryID, &categoryStationID, &categoryStationName); err != nil {
+			log.Printf("❌ [GetOrders] Error scanning item: %v", err)
 			return nil, err
+		}
+
+		// Convertir notes nullable
+		if notes.Valid {
+			item.Notes = &notes.String
 		}
 
 		// Convertir los campos nullable a punteros UUID
@@ -220,9 +238,15 @@ func (r *orderRepository) loadOrderItems(orderID uuid.UUID) ([]domain.OrderItem,
 		var categoryID sql.NullString
 		var categoryStationID sql.NullString
 		var categoryStationName sql.NullString
+		var notes sql.NullString
 
-		if err := rows.Scan(&item.MenuItemID, &item.MenuItemName, &item.Quantity, &item.PriceAtOrder, &item.Notes, &item.Customizations, &item.IsTakeout, &categoryID, &categoryStationID, &categoryStationName); err != nil {
+		if err := rows.Scan(&item.MenuItemID, &item.MenuItemName, &item.Quantity, &item.PriceAtOrder, &notes, &item.Customizations, &item.IsTakeout, &categoryID, &categoryStationID, &categoryStationName); err != nil {
 			return nil, err
+		}
+
+		// Convertir notes nullable
+		if notes.Valid {
+			item.Notes = &notes.String
 		}
 
 		// Convertir los campos nullable a punteros UUID
@@ -246,17 +270,18 @@ func (r *orderRepository) loadOrderItems(orderID uuid.UUID) ([]domain.OrderItem,
 
 func (r *orderRepository) GetOrderByID(orderID uuid.UUID) (*domain.Order, error) {
 	order := &domain.Order{}
-	orderQuery := `SELECT o.id, o.waiter_id, u.username as waiter_name, o.cashier_id, o.table_number, o.status, o.total, o.order_type, o.delivery_address, o.delivery_phone, o.delivery_notes, o.payment_method, o.payment_proof_path, o.created_at, o.updated_at 
+	orderQuery := `SELECT o.id, o.waiter_id, u.username as waiter_name, o.cashier_id, o.table_number, o.status, o.total, o.order_type, o.customer_name, o.delivery_address, o.delivery_phone, o.delivery_notes, o.payment_method, o.payment_proof_path, o.created_at, o.updated_at 
 	               FROM orders o
 	               LEFT JOIN users u ON o.waiter_id = u.id
 	               WHERE o.id = $1`
 	var waiterName sql.NullString
 	var paymentMethod sql.NullString
 	var paymentProof sql.NullString
+	var customerName sql.NullString
 	var deliveryAddress sql.NullString
 	var deliveryPhone sql.NullString
 	var deliveryNotes sql.NullString
-	err := r.db.QueryRow(orderQuery, orderID).Scan(&order.ID, &order.WaiterID, &waiterName, &order.CashierID, &order.TableNumber, &order.Status, &order.Total, &order.OrderType, &deliveryAddress, &deliveryPhone, &deliveryNotes, &paymentMethod, &paymentProof, &order.CreatedAt, &order.UpdatedAt)
+	err := r.db.QueryRow(orderQuery, orderID).Scan(&order.ID, &order.WaiterID, &waiterName, &order.CashierID, &order.TableNumber, &order.Status, &order.Total, &order.OrderType, &customerName, &deliveryAddress, &deliveryPhone, &deliveryNotes, &paymentMethod, &paymentProof, &order.CreatedAt, &order.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -282,6 +307,10 @@ func (r *orderRepository) GetOrderByID(orderID uuid.UUID) (*domain.Order, error)
 	if deliveryNotes.Valid {
 		notes := deliveryNotes.String
 		order.DeliveryNotes = &notes
+	}
+	if customerName.Valid {
+		name := customerName.String
+		order.CustomerName = &name
 	}
 
 	// Usar el método auxiliar para cargar items
@@ -555,3 +584,56 @@ func (r *orderRepository) AddPaymentProof(orderID uuid.UUID, method string, proo
 
 	return order, nil
 }
+
+// EditOrder actualiza items y metadatos de una orden de forma granular
+func (r *orderRepository) EditOrder(orderID uuid.UUID, items []domain.OrderItem, updates map[string]interface{}) error {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+
+	// 1. Actualizar metadatos de la orden si hay updates
+	if len(updates) > 0 {
+		query := "UPDATE orders SET "
+		args := []interface{}{}
+		argId := 1
+
+		for key, value := range updates {
+			if argId > 1 {
+				query += ", "
+			}
+			query += key + " = $" + strconv.Itoa(argId)
+			args = append(args, value)
+			argId++
+		}
+
+		query += " WHERE id = $" + strconv.Itoa(argId)
+		args = append(args, orderID)
+
+		_, err = tx.Exec(query, args...)
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+
+	// 2. Reemplazar items (DELETE + INSERT)
+	_, err = tx.Exec("DELETE FROM order_items WHERE order_id = $1", orderID)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	itemQuery := `INSERT INTO order_items (order_id, menu_item_id, quantity, price_at_order, notes, customizations, is_takeout) 
+	              VALUES ($1, $2, $3, $4, $5, $6, $7)`
+	for _, item := range items {
+		_, err := tx.Exec(itemQuery, orderID, item.MenuItemID, item.Quantity, item.PriceAtOrder, item.Notes, item.Customizations, item.IsTakeout)
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+
+	return tx.Commit()
+}
+

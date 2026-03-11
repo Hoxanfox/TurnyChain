@@ -18,7 +18,9 @@ const MyOrdersList: React.FC<MyOrdersListProps> = ({ onSelectOrder, onCheckout, 
   const { myOrders, myOrdersStatus } = useSelector((state: RootState) => state.orders);
 
   useEffect(() => {
+    console.log('🔍 [MyOrdersList] Estado actual:', myOrdersStatus);
     if (myOrdersStatus === 'idle') {
+      console.log('🚀 [MyOrdersList] Despachando fetchMyOrders...');
       dispatch(fetchMyOrders());
     }
   }, [myOrdersStatus, dispatch]);
@@ -44,7 +46,25 @@ const MyOrdersList: React.FC<MyOrdersListProps> = ({ onSelectOrder, onCheckout, 
   return (
     <div className="flex-grow pt-4">
       <h2 className="text-xl font-bold mb-4 text-gray-800">{title}</h2>
-      {myOrdersStatus === 'loading' && <p>Cargando mis órdenes...</p>}
+      {myOrdersStatus === 'loading' && (
+        <div className="text-center py-8">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-indigo-600 border-t-transparent"></div>
+          <p className="mt-2 text-gray-600">Cargando órdenes...</p>
+        </div>
+      )}
+      {myOrdersStatus === 'failed' && (
+        <div className="text-center py-8">
+          <div className="text-red-600 text-5xl mb-2">⚠️</div>
+          <p className="text-red-600 font-semibold">Error al cargar las órdenes</p>
+          <p className="text-gray-500 text-sm mt-1">Verifica tu conexión o intenta nuevamente</p>
+          <button
+            onClick={() => dispatch(fetchMyOrders())}
+            className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+          >
+            🔄 Reintentar
+          </button>
+        </div>
+      )}
       {myOrdersStatus === 'succeeded' && filteredOrders.length === 0 && (
         <p className="text-gray-500 text-center py-4">
           {filterByToday ? 'No tienes órdenes para hoy' : 'No tienes órdenes'}

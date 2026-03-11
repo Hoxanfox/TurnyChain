@@ -14,13 +14,14 @@ import (
 )
 
 type OrderService interface {
-	CreateOrder(waiterID uuid.UUID, tableNumber int, orderType string, deliveryAddress, deliveryPhone, deliveryNotes *string, items []domain.OrderItem) (*domain.Order, error)
+	CreateOrder(waiterID uuid.UUID, tableNumber int, orderType string, customerName, deliveryAddress, deliveryPhone, deliveryNotes *string, items []domain.OrderItem) (*domain.Order, error)
 	GetOrders(userRole string, userID uuid.UUID, status string, myOrders string) ([]domain.Order, error)
 	GetOrderByID(orderID uuid.UUID) (*domain.Order, error)
 	UpdateOrderStatus(orderID, userID uuid.UUID, newStatus string) (*domain.Order, error)
 	UpdateOrderItems(orderID uuid.UUID, items []domain.OrderItem) (*domain.Order, error)
 	ManageOrderAsAdmin(orderID uuid.UUID, status *string, newWaiterID *uuid.UUID) (*domain.Order, error)
 	AddPaymentProof(orderID uuid.UUID, method string, proofPath string) (*domain.Order, error)
+	EditOrder(orderID, userID uuid.UUID, editRequest domain.EditOrderRequest) (*domain.Order, error)
 }
 
 type orderService struct {
@@ -56,7 +57,7 @@ func NewOrderService(
 	}
 }
 
-func (s *orderService) CreateOrder(waiterID uuid.UUID, tableNumber int, orderType string, deliveryAddress, deliveryPhone, deliveryNotes *string, items []domain.OrderItem) (*domain.Order, error) {
+func (s *orderService) CreateOrder(waiterID uuid.UUID, tableNumber int, orderType string, customerName, deliveryAddress, deliveryPhone, deliveryNotes *string, items []domain.OrderItem) (*domain.Order, error) {
 	if len(items) == 0 {
 		return nil, errors.New("la orden no puede estar vacía")
 	}
@@ -69,7 +70,14 @@ func (s *orderService) CreateOrder(waiterID uuid.UUID, tableNumber int, orderTyp
 		return nil, errors.New("order_type inválido. Debe ser: mesa, llevar o domicilio")
 	}
 
-	// 2. Validar campos obligatorios para domicilio
+	// 2. Validar customer_name para llevar y domicilio
+	if (orderType == "llevar" || orderType == "domicilio") {
+		if customerName == nil || *customerName == "" {
+			return nil, errors.New("customer_name es obligatorio para órdenes de tipo llevar o domicilio")
+		}
+	}
+
+	// 3. Validar campos obligatorios para domicilio
 	if orderType == "domicilio" {
 		if deliveryAddress == nil || *deliveryAddress == "" {
 			return nil, errors.New("delivery_address es obligatorio para órdenes a domicilio")
@@ -165,6 +173,7 @@ func (s *orderService) CreateOrder(waiterID uuid.UUID, tableNumber int, orderTyp
 		Total:           total,
 		Items:           items,
 		OrderType:       orderType,
+		CustomerName:    customerName,
 		DeliveryAddress: deliveryAddress,
 		DeliveryPhone:   deliveryPhone,
 		DeliveryNotes:   deliveryNotes,
@@ -374,3 +383,277 @@ func (s *orderService) AddPaymentProof(orderID uuid.UUID, method string, proofPa
 
 	return order, nil
 }
+
+// EditOrder permite editar una orden de forma granular (agregar, modificar, eliminar items y cambiar metadatos)
+func (s *orderService) EditOrder(orderID, userID uuid.UUID, editRequest domain.EditOrderRequest) (*domain.Order, error) {
+	log.Printf("✏️ [Service] Editando orden %s por usuario %s", orderID.String(), userID.String())
+
+	// 1. Obtener la orden actual
+	order, err := s.orderRepo.GetOrderByID(orderID)
+	if err != nil {
+		return nil, errors.New("orden no encontrada")
+	}
+
+	// 2. Validar que la orden esté en un estado editable
+	editableStates := []string{"pendiente_aprobacion", "rechazado"}
+	if !contains(editableStates, order.Status) {
+		return nil, errors.New("la orden solo puede editarse cuando está en estado 'pendiente_aprobacion' o 'rechazado'. Estado actual: " + order.Status)
+	}
+
+	// 3. Validar permisos: solo el mesero que creó la orden o un admin pueden editarla
+	// (Este check se puede hacer en el handler si ya tienes el rol)
+
+	// 4. Copiar items actuales para aplicar operaciones
+	currentItems := make([]domain.OrderItem, len(order.Items))
+	copy(currentItems, order.Items)
+
+	// 5. Aplicar operaciones de ELIMINACIÓN (de mayor a menor índice para evitar problemas)
+	if len(editRequest.RemoveItems) > 0 {
+		// Ordenar índices de mayor a menor
+		indices := make([]int, len(editRequest.RemoveItems))
+		copy(indices, editRequest.RemoveItems)
+		for i := 0; i < len(indices); i++ {
+			for j := i + 1; j < len(indices); j++ {
+				if indices[i] < indices[j] {
+					indices[i], indices[j] = indices[j], indices[i]
+				}
+			}
+		}
+
+		// Eliminar de mayor a menor
+		for _, idx := range indices {
+			if idx < 0 || idx >= len(currentItems) {
+				return nil, errors.New("índice de item a eliminar fuera de rango")
+			}
+			currentItems = append(currentItems[:idx], currentItems[idx+1:]...)
+		}
+	}
+
+	// 6. Aplicar operaciones de ACTUALIZACIÓN
+	for _, updateOp := range editRequest.UpdateItems {
+		if updateOp.Index < 0 || updateOp.Index >= len(currentItems) {
+			return nil, errors.New("índice de item a actualizar fuera de rango")
+		}
+
+		item := &currentItems[updateOp.Index]
+
+		// Actualizar cantidad si se especifica
+		if updateOp.Quantity != nil {
+			if *updateOp.Quantity <= 0 {
+				return nil, errors.New("la cantidad debe ser mayor a 0")
+			}
+			item.Quantity = *updateOp.Quantity
+		}
+
+		// Actualizar notas si se especifica
+		if updateOp.Notes != nil {
+			item.Notes = updateOp.Notes
+		}
+
+		// Actualizar is_takeout si se especifica
+		if updateOp.IsTakeout != nil {
+			item.IsTakeout = *updateOp.IsTakeout
+		}
+
+		// Actualizar customizaciones si se especifica
+		if updateOp.CustomizationsInput != nil {
+			// Obtener todos los ingredientes y acompañantes del menu item
+			allIngredients, allAccompaniments, err := s.menuRepo.GetMenuItemDetails(item.MenuItemID)
+			if err != nil {
+				log.Printf("⚠️ Error obteniendo detalles del menu item %s: %v", item.MenuItemID, err)
+				allIngredients = []domain.Ingredient{}
+				allAccompaniments = []domain.Accompaniment{}
+			}
+
+			// Crear mapas para búsqueda rápida de IDs removidos/no seleccionados
+			removedIngredientsMap := make(map[uuid.UUID]bool)
+			for _, id := range updateOp.CustomizationsInput.RemovedIngredientIDs {
+				removedIngredientsMap[id] = true
+			}
+
+			unselectedAccompanimentsMap := make(map[uuid.UUID]bool)
+			for _, id := range updateOp.CustomizationsInput.UnselectedAccompanimentIDs {
+				unselectedAccompanimentsMap[id] = true
+			}
+
+			// Filtrar ingredientes ACTIVOS
+			activeIngredients := []domain.Ingredient{}
+			for _, ingredient := range allIngredients {
+				if !removedIngredientsMap[ingredient.ID] {
+					activeIngredients = append(activeIngredients, ingredient)
+				}
+			}
+
+			// Filtrar acompañamientos SELECCIONADOS
+			selectedAccompaniments := []domain.Accompaniment{}
+			for _, accompaniment := range allAccompaniments {
+				if !unselectedAccompanimentsMap[accompaniment.ID] {
+					selectedAccompaniments = append(selectedAccompaniments, accompaniment)
+				}
+			}
+
+			// Actualizar customizaciones del item
+			item.Customizations = domain.Customizations{
+				ActiveIngredients:      activeIngredients,
+				SelectedAccompaniments: selectedAccompaniments,
+			}
+		}
+	}
+
+	// 7. Aplicar operaciones de ADICIÓN
+	for _, newItem := range editRequest.AddItems {
+		// Validar que el item tenga datos mínimos
+		if newItem.MenuItemID == uuid.Nil {
+			return nil, errors.New("menu_item_id es requerido para items nuevos")
+		}
+		if newItem.Quantity <= 0 {
+			return nil, errors.New("la cantidad debe ser mayor a 0")
+		}
+		if newItem.PriceAtOrder <= 0 {
+			return nil, errors.New("price_at_order debe ser mayor a 0")
+		}
+
+		// Procesar customizaciones del nuevo item
+		if newItem.CustomizationsInput != nil {
+			allIngredients, allAccompaniments, err := s.menuRepo.GetMenuItemDetails(newItem.MenuItemID)
+			if err != nil {
+				log.Printf("⚠️ Error obteniendo detalles del menu item %s: %v", newItem.MenuItemID, err)
+				allIngredients = []domain.Ingredient{}
+				allAccompaniments = []domain.Accompaniment{}
+			}
+
+			removedIngredientsMap := make(map[uuid.UUID]bool)
+			for _, id := range newItem.CustomizationsInput.RemovedIngredientIDs {
+				removedIngredientsMap[id] = true
+			}
+
+			unselectedAccompanimentsMap := make(map[uuid.UUID]bool)
+			for _, id := range newItem.CustomizationsInput.UnselectedAccompanimentIDs {
+				unselectedAccompanimentsMap[id] = true
+			}
+
+			activeIngredients := []domain.Ingredient{}
+			for _, ingredient := range allIngredients {
+				if !removedIngredientsMap[ingredient.ID] {
+					activeIngredients = append(activeIngredients, ingredient)
+				}
+			}
+
+			selectedAccompaniments := []domain.Accompaniment{}
+			for _, accompaniment := range allAccompaniments {
+				if !unselectedAccompanimentsMap[accompaniment.ID] {
+					selectedAccompaniments = append(selectedAccompaniments, accompaniment)
+				}
+			}
+
+			newItem.Customizations = domain.Customizations{
+				ActiveIngredients:      activeIngredients,
+				SelectedAccompaniments: selectedAccompaniments,
+			}
+		}
+
+		currentItems = append(currentItems, newItem)
+	}
+
+	// 8. Validar que la orden tenga al menos un item
+	if len(currentItems) == 0 {
+		return nil, errors.New("la orden debe tener al menos un item")
+	}
+
+	// 9. Aplicar cambios a metadatos de la orden si se especificaron
+	orderUpdates := make(map[string]interface{})
+
+	if editRequest.OrderType != nil {
+		if *editRequest.OrderType != "mesa" && *editRequest.OrderType != "llevar" && *editRequest.OrderType != "domicilio" {
+			return nil, errors.New("order_type inválido. Debe ser: mesa, llevar o domicilio")
+		}
+		orderUpdates["order_type"] = *editRequest.OrderType
+		
+		// Si cambia a domicilio, validar campos obligatorios
+		if *editRequest.OrderType == "domicilio" {
+			if editRequest.DeliveryAddress == nil && order.DeliveryAddress == nil {
+				return nil, errors.New("delivery_address es obligatorio para órdenes a domicilio")
+			}
+			if editRequest.DeliveryPhone == nil && order.DeliveryPhone == nil {
+				return nil, errors.New("delivery_phone es obligatorio para órdenes a domicilio")
+			}
+		}
+
+		// Si cambia a llevar o domicilio, forzar todos los items a is_takeout = true
+		if *editRequest.OrderType == "llevar" || *editRequest.OrderType == "domicilio" {
+			for i := range currentItems {
+				currentItems[i].IsTakeout = true
+			}
+		}
+	}
+
+	if editRequest.DeliveryAddress != nil {
+		orderUpdates["delivery_address"] = *editRequest.DeliveryAddress
+	}
+
+	if editRequest.DeliveryPhone != nil {
+		orderUpdates["delivery_phone"] = *editRequest.DeliveryPhone
+	}
+
+	if editRequest.DeliveryNotes != nil {
+		orderUpdates["delivery_notes"] = *editRequest.DeliveryNotes
+	}
+
+	if editRequest.TableNumber != nil {
+		// Validar que la mesa exista
+		table, err := s.tableRepo.GetByNumber(*editRequest.TableNumber)
+		if err != nil {
+			return nil, errors.New("la mesa especificada no existe o no está activa")
+		}
+		orderUpdates["table_id"] = table.ID
+		orderUpdates["table_number"] = table.TableNumber
+	}
+
+	// Si la orden estaba rechazada, cambiarla a pendiente_aprobacion
+	if order.Status == "rechazado" {
+		orderUpdates["status"] = "pendiente_aprobacion"
+	}
+
+	// 10. Calcular nuevo total
+	var newTotal float64
+	for _, item := range currentItems {
+		newTotal += item.PriceAtOrder * float64(item.Quantity)
+	}
+	orderUpdates["total"] = newTotal
+
+	// 11. Guardar cambios en la base de datos
+	err = s.orderRepo.EditOrder(orderID, currentItems, orderUpdates)
+	if err != nil {
+		log.Printf("❌ [Service] Error guardando cambios en orden: %v", err)
+		return nil, err
+	}
+
+	// 12. Obtener la orden actualizada
+	updatedOrder, err := s.orderRepo.GetOrderByID(orderID)
+	if err != nil {
+		return nil, err
+	}
+
+	// 13. Notificar cambios por WebSocket
+	s.wsHub.BroadcastMessage("ORDER_EDITED", updatedOrder)
+	log.Printf("📡 [Service] Evento 'ORDER_EDITED' emitido para orden %s", orderID.String())
+
+	// Si la orden fue corregida y pasó a pendiente de aprobación, notificar
+	if order.Status == "rechazado" && updatedOrder.Status == "pendiente_aprobacion" {
+		s.wsHub.BroadcastMessage("ORDER_RESUBMITTED", updatedOrder)
+		log.Printf("📡 [Service] Evento 'ORDER_RESUBMITTED' emitido para orden %s", orderID.String())
+	}
+
+	return updatedOrder, nil
+}
+
+// contains es una función auxiliar para verificar si un string está en un slice
+func contains(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
+}
+

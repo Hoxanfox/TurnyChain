@@ -243,6 +243,7 @@ const CashierDashboard: React.FC = () => {
     ordersByTable: cashierLogic.ordersByTable,
     pendingVerificationCount: cashierLogic.pendingVerificationCount,
     isLoading: status === 'loading',
+    hasFailed: status === 'failed',
 
     // Notificaciones
     notification,
@@ -257,6 +258,7 @@ const CashierDashboard: React.FC = () => {
     onExportReport: cashierLogic.exportReport,
     onOpenPrintSettings: handleOpenPrintSettings,
     onCloseNotification: () => setNotification(null),
+    onRetryLoadOrders: () => dispatch(fetchActiveOrders()),
 
     // Handlers de acciones
     onStatusChange: handleStatusChange,

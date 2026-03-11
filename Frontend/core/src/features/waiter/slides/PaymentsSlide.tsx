@@ -18,6 +18,9 @@ const PaymentsSlide: React.FC<PaymentsSlideProps> = ({ onViewOrderDetails, onOpe
   const { myOrders, myOrdersStatus } = useSelector((state: RootState) => state.orders);
   const [filterStatus, setFilterStatus] = useState<'entregado' | 'por_verificar' | 'all' | 'cancelado'>('entregado');
 
+  // Estado para el modal de edición
+  const [selectedOrderForEdit, setSelectedOrderForEdit] = useState<Order | null>(null);
+
   useEffect(() => {
     if (myOrdersStatus === 'idle') {
       dispatch(fetchMyOrders());
@@ -27,6 +30,18 @@ const PaymentsSlide: React.FC<PaymentsSlideProps> = ({ onViewOrderDetails, onOpe
   // Función para abrir el modal de checkout
   const handleOpenCheckout = (orderId: string, total: number, tableNumber: number) => {
     onCheckout(orderId, total, tableNumber);
+  };
+
+  // Función para abrir el modal de edición
+  const handleOpenEditModal = (order: Order) => {
+    setSelectedOrderForEdit(order);
+  };
+
+  // Función para manejar el éxito de la edición
+  const handleEditSuccess = () => {
+    setSelectedOrderForEdit(null);
+    // Recargar las órdenes para mostrar el estado actualizado
+    dispatch(fetchMyOrders());
   };
 
   // Filtrar solo órdenes del día de hoy
@@ -180,6 +195,20 @@ const PaymentsSlide: React.FC<PaymentsSlideProps> = ({ onViewOrderDetails, onOpe
           </div>
         )}
 
+        {myOrdersStatus === 'failed' && (
+          <div className="text-center py-8">
+            <div className="text-red-600 text-5xl mb-2">⚠️</div>
+            <p className="text-red-600 font-semibold">Error al cargar las órdenes</p>
+            <p className="text-gray-500 text-sm mt-1">Verifica tu conexión o intenta nuevamente</p>
+            <button
+              onClick={() => dispatch(fetchMyOrders())}
+              className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+            >
+              🔄 Reintentar
+            </button>
+          </div>
+        )}
+
         {myOrdersStatus === 'succeeded' && filteredOrders.length === 0 && (
           <div className="text-center py-8">
             <div className="text-6xl mb-3">📭</div>
@@ -286,19 +315,29 @@ const PaymentsSlide: React.FC<PaymentsSlideProps> = ({ onViewOrderDetails, onOpe
             )}
 
             {/* Acciones */}
-            <div className="p-3 flex gap-2">
+            <div className="p-3 flex gap-2 flex-wrap">
               <button
                 onClick={() => onViewOrderDetails(order.id)}
-                className="flex-1 py-2 px-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium text-sm"
+                className="flex-1 min-w-[120px] py-2 px-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium text-sm"
               >
                 👁️ Ver Detalles
               </button>
+
+              {/* Botón para editar órdenes rechazadas o pendientes */}
+              {(order.status === 'rechazado' || order.status === 'pendiente_aprobacion') && (
+                <button
+                  onClick={() => handleOpenEditModal(order)}
+                  className="flex-1 min-w-[120px] py-2 px-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all font-bold text-sm shadow-md"
+                >
+                  ✏️ Modificar
+                </button>
+              )}
 
               {/* Botón para cobrar órdenes entregadas sin método de pago */}
               {order.status === 'entregado' && !order.payment_method && (
                 <button
                   onClick={() => handleOpenCheckout(order.id, order.total, order.table_number)}
-                  className="flex-1 py-2 px-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 transition-all font-bold text-sm shadow-md"
+                  className="flex-1 min-w-[120px] py-2 px-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 transition-all font-bold text-sm shadow-md"
                 >
                   💳 Cobrar
                 </button>
@@ -308,7 +347,7 @@ const PaymentsSlide: React.FC<PaymentsSlideProps> = ({ onViewOrderDetails, onOpe
               {(order.status === 'por_verificar' || (order.status === 'entregado' && order.payment_method)) && (
                 <button
                   onClick={() => handleOpenCheckout(order.id, order.total, order.table_number)}
-                  className="flex-1 py-2 px-3 bg-gradient-to-r from-orange-600 to-orange-700 text-white rounded-lg hover:from-orange-700 hover:to-orange-800 transition-all font-bold text-sm shadow-md"
+                  className="flex-1 min-w-[120px] py-2 px-3 bg-gradient-to-r from-orange-600 to-orange-700 text-white rounded-lg hover:from-orange-700 hover:to-orange-800 transition-all font-bold text-sm shadow-md"
                 >
                   🔄 Reintentar Pago
                 </button>
@@ -316,7 +355,7 @@ const PaymentsSlide: React.FC<PaymentsSlideProps> = ({ onViewOrderDetails, onOpe
 
               {/* Indicador visual para órdenes pagadas */}
               {order.status === 'pagado' && (
-                <div className="flex-1 py-2 px-3 bg-blue-100 text-blue-800 rounded-lg text-center font-medium text-sm">
+                <div className="flex-1 min-w-[120px] py-2 px-3 bg-blue-100 text-blue-800 rounded-lg text-center font-medium text-sm">
                   ✅ Pagado
                 </div>
               )}

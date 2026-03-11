@@ -2,7 +2,7 @@
 // ARCHIVO 2: /src/features/orders/ordersAPI.ts
 // =================================================================
 import axios from 'axios';
-import type { Order, NewOrderPayload } from '../../../../types/orders.ts';
+import type { Order, NewOrderPayload, EditOrderRequest } from '../../../../types/orders.ts';
 
 // Usamos rutas relativas. En desarrollo, Vite proxy redirige a localhost:8080
 // En producción, nginx redirige al backend
@@ -62,6 +62,7 @@ export const createOrder = async (
 };
 
 export const getOrders = async (token: string, status?: string, filterByWaiter?: boolean): Promise<Order[]> => {
+  console.log('🌐 [API] getOrders llamado con:', { status, filterByWaiter });
   const config = {
     headers: { Authorization: `Bearer ${token}` },
     params: {
@@ -69,8 +70,26 @@ export const getOrders = async (token: string, status?: string, filterByWaiter?:
       my_orders: filterByWaiter ? 'true' : undefined // Nuevo parámetro para filtrar por mesero
     }
   };
-  const response = await axios.get(API_URL, config);
-  return response.data;
+  console.log('📤 [API] Haciendo petición GET a:', API_URL, 'con params:', config.params);
+  try {
+    const response = await axios.get(API_URL, config);
+    console.log('📥 [API] Respuesta recibida:', {
+      status: response.status,
+      dataType: typeof response.data,
+      isArray: Array.isArray(response.data),
+      count: Array.isArray(response.data) ? response.data.length : 'N/A',
+      firstItem: Array.isArray(response.data) && response.data.length > 0 ? response.data[0] : null
+    });
+    return response.data;
+  } catch (error: any) {
+    console.error('❌ [API] Error en getOrders:', {
+      message: error.message,
+      status: error.response?.status,
+      data: error.response?.data,
+      config: error.config
+    });
+    throw error;
+  }
 };
 
 export const getOrderDetails = async (orderId: string, token: string): Promise<Order> => {
@@ -118,6 +137,32 @@ export const uploadPaymentProof = async (orderId: string, file: File, method: st
     orderId: response.data.id,
     status: response.data.status,
     payment_method: response.data.payment_method
+  });
+
+  return response.data;
+};
+
+// Editar orden de forma granular
+export const editOrder = async (orderId: string, editRequest: EditOrderRequest, token: string): Promise<Order> => {
+  console.log('✏️ [Frontend] Editando orden:', {
+    orderId,
+    editRequest
+  });
+
+  const config = {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    }
+  };
+
+  const response = await axios.patch(`${API_URL}/${orderId}/edit`, editRequest, config);
+
+  console.log('✅ [Frontend] Orden editada exitosamente:', {
+    orderId: response.data.id,
+    status: response.data.status,
+    itemsCount: response.data.items?.length || 0,
+    total: response.data.total
   });
 
   return response.data;

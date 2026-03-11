@@ -96,6 +96,8 @@ CREATE TABLE "orders" (
   "total" numeric(10, 2) NOT NULL,
   -- Tipo de orden: mesa (permite híbridos), llevar (todo empacado), domicilio (todo empacado + dirección)
   "order_type" varchar(20) NOT NULL DEFAULT 'mesa' CHECK (order_type IN ('mesa', 'llevar', 'domicilio')),
+  -- Nombre del cliente (obligatorio para llevar y domicilio, NULL para mesa)
+  "customer_name" varchar(255) NULL,
   -- Campos opcionales para domicilio (solo cuando order_type = 'domicilio')
   "delivery_address" text NULL,
   "delivery_phone" varchar(20) NULL,

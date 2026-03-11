@@ -45,6 +45,7 @@ interface CashierDashboardDesktopProps {
   sortedSelectedOrders: Order[];
   pendingVerificationCount: number;
   isLoading: boolean;
+  hasFailed: boolean;
 
   // Notificaciones
   notification: {
@@ -86,6 +87,7 @@ export const CashierDashboardDesktop: React.FC<CashierDashboardDesktopProps> = (
   sortedSelectedOrders,
   pendingVerificationCount,
   isLoading,
+  hasFailed,
   notification,
   onToggleStats,
   onFilterStatusChange,
@@ -197,6 +199,7 @@ export const CashierDashboardDesktop: React.FC<CashierDashboardDesktopProps> = (
             orders={sortedSelectedOrders}
             selectedTable={selectedTable}
             isLoading={isLoading}
+            hasFailed={hasFailed}
             onStatusChange={onStatusChange}
             onConfirmPayment={onConfirmPayment}
             onRejectPayment={onRejectPayment}

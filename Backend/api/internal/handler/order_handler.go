@@ -28,6 +28,7 @@ func NewOrderHandler(s service.OrderService) *OrderHandler {
 type CreateOrderPayload struct {
 	TableNumber     int                `json:"table_number"`
 	OrderType       string             `json:"order_type"`       // "mesa", "llevar", "domicilio"
+	CustomerName    *string            `json:"customer_name"`    // Requerido si order_type = "llevar" o "domicilio"
 	DeliveryAddress *string            `json:"delivery_address"` // Requerido si order_type = "domicilio"
 	DeliveryPhone   *string            `json:"delivery_phone"`   // Requerido si order_type = "domicilio"
 	DeliveryNotes   *string            `json:"delivery_notes"`   // Opcional
@@ -40,7 +41,7 @@ func (h *OrderHandler) CreateOrder(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse JSON"})
 	}
 	waiterID, _ := uuid.Parse(c.Locals("user_id").(string))
-	order, err := h.orderService.CreateOrder(waiterID, payload.TableNumber, payload.OrderType, payload.DeliveryAddress, payload.DeliveryPhone, payload.DeliveryNotes, payload.Items)
+	order, err := h.orderService.CreateOrder(waiterID, payload.TableNumber, payload.OrderType, payload.CustomerName, payload.DeliveryAddress, payload.DeliveryPhone, payload.DeliveryNotes, payload.Items)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -53,10 +54,15 @@ func (h *OrderHandler) GetOrders(c *fiber.Ctx) error {
 	status := c.Query("status")
 	myOrders := c.Query("my_orders") // Nuevo parámetro
 
+	log.Printf("📥 [GetOrders] Request - UserID: %s, Role: %s, Status: %s, MyOrders: %s", userID, userRole, status, myOrders)
+
 	orders, err := h.orderService.GetOrders(userRole, userID, status, myOrders)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not retrieve orders"})
+		log.Printf("❌ [GetOrders] Error: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not retrieve orders", "details": err.Error()})
 	}
+	
+	log.Printf("✅ [GetOrders] Returning %d orders", len(orders))
 	return c.JSON(orders)
 }
 
@@ -227,7 +233,7 @@ func (h *OrderHandler) CreateOrderWithPayment(c *fiber.Ctx) error {
 	}
 
 	// 4. Crear la orden primero
-	order, err := h.orderService.CreateOrder(waiterID, payload.TableNumber, payload.OrderType, payload.DeliveryAddress, payload.DeliveryPhone, payload.DeliveryNotes, payload.Items)
+	order, err := h.orderService.CreateOrder(waiterID, payload.TableNumber, payload.OrderType, payload.CustomerName, payload.DeliveryAddress, payload.DeliveryPhone, payload.DeliveryNotes, payload.Items)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -282,3 +288,27 @@ func (h *OrderHandler) CreateOrderWithPayment(c *fiber.Ctx) error {
 
 	return c.Status(fiber.StatusCreated).JSON(updatedOrder)
 }
+
+// EditOrder permite editar una orden de forma granular (agregar, modificar, eliminar items y cambiar metadatos)
+// Solo disponible para órdenes en estado "pendiente_aprobacion" o "rechazado"
+func (h *OrderHandler) EditOrder(c *fiber.Ctx) error {
+	orderID, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid order ID"})
+	}
+
+	userID, _ := uuid.Parse(c.Locals("user_id").(string))
+
+	payload := new(domain.EditOrderRequest)
+	if err := c.BodyParser(payload); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse JSON"})
+	}
+
+	updatedOrder, err := h.orderService.EditOrder(orderID, userID, *payload)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	return c.JSON(updatedOrder)
+}
+
