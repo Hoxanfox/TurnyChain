@@ -2,6 +2,7 @@
 // ARCHIVO 2: /src/features/waiter/components/CustomizeOrderItemModal.tsx (ACTUALIZADO)
 // =================================================================
 import React, { useState, useMemo } from 'react';
+import { formatMoney } from '../../../utils/formatUtils.ts';
 import type { MenuItem } from '../../../types/menu'; // CORRECCIÓN: Se elimina la importación de CartItem
 import type { Accompaniment } from '../../../types/accompaniments';
 import type { Ingredient } from '../../../types/ingredients';
@@ -132,9 +133,9 @@ const CustomizeOrderItemModal: React.FC<CustomizeOrderItemModalProps> = ({ item,
         <div className="mt-6 flex justify-between items-center">
           <div className="text-left">
             <p className="text-sm text-gray-600">
-              ${(finalPrice / quantity).toFixed(2)} × {quantity} {quantity === 1 ? 'unidad' : 'unidades'}
+              {formatMoney(finalPrice / quantity)} × {quantity} {quantity === 1 ? 'unidad' : 'unidades'}
             </p>
-            <span className="text-xl font-bold text-indigo-600">Total: ${finalPrice.toFixed(2)}</span>
+            <span className="text-xl font-bold text-indigo-600">Total: {formatMoney(finalPrice)}</span>
           </div>
           <div className="flex gap-2">
             <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">Cancelar</button>

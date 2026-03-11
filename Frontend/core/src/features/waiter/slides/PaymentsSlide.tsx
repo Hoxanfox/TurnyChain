@@ -5,23 +5,18 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchMyOrders } from '../../shared/orders/api/ordersSlice.ts';
 import type { AppDispatch, RootState } from '../../../app/store';
-import CheckoutModal from '../components/CheckoutModal';
+import { formatMoney } from '../../../utils/formatUtils.ts';
 
 interface PaymentsSlideProps {
   onViewOrderDetails: (orderId: string) => void;
+  onOpenColleagueOrders: () => void;
+  onCheckout: (orderId: string, total: number, tableNumber: number) => void;
 }
 
-const PaymentsSlide: React.FC<PaymentsSlideProps> = ({ onViewOrderDetails }) => {
+const PaymentsSlide: React.FC<PaymentsSlideProps> = ({ onViewOrderDetails, onOpenColleagueOrders, onCheckout }) => {
   const dispatch = useDispatch<AppDispatch>();
   const { myOrders, myOrdersStatus } = useSelector((state: RootState) => state.orders);
-  const [filterStatus, setFilterStatus] = useState<'entregado' | 'por_verificar' | 'all'>('entregado');
-
-  // Estado para el modal de checkout
-  const [selectedOrderForCheckout, setSelectedOrderForCheckout] = useState<{
-    id: string;
-    total: number;
-    table: number;
-  } | null>(null);
+  const [filterStatus, setFilterStatus] = useState<'entregado' | 'por_verificar' | 'all' | 'cancelado'>('entregado');
 
   useEffect(() => {
     if (myOrdersStatus === 'idle') {
@@ -31,14 +26,7 @@ const PaymentsSlide: React.FC<PaymentsSlideProps> = ({ onViewOrderDetails }) => 
 
   // Función para abrir el modal de checkout
   const handleOpenCheckout = (orderId: string, total: number, tableNumber: number) => {
-    setSelectedOrderForCheckout({ id: orderId, total, table: tableNumber });
-  };
-
-  // Función para manejar el éxito del pago
-  const handlePaymentSuccess = () => {
-    setSelectedOrderForCheckout(null);
-    // Recargar las órdenes para mostrar el estado actualizado
-    dispatch(fetchMyOrders());
+    onCheckout(orderId, total, tableNumber);
   };
 
   // Filtrar solo órdenes del día de hoy
@@ -64,6 +52,9 @@ const PaymentsSlide: React.FC<PaymentsSlideProps> = ({ onViewOrderDetails }) => 
       // En Verificación: solo las que están siendo verificadas
       return todayOrders.filter(order => order.status === 'por_verificar');
     }
+    if (filterStatus === 'cancelado') {
+      return todayOrders.filter(order => order.status === 'cancelado');
+    }
     return todayOrders.filter(order => order.status === filterStatus);
   }, [todayOrders, filterStatus]);
 
@@ -78,6 +69,7 @@ const PaymentsSlide: React.FC<PaymentsSlideProps> = ({ onViewOrderDetails }) => 
       // En Verificación: solo las que están siendo verificadas por el cajero
       por_verificar: todayOrders.filter(o => o.status === 'por_verificar').length,
       pagado: todayOrders.filter(o => o.status === 'pagado').length,
+      cancelado: todayOrders.filter(o => o.status === 'cancelado').length,
     };
   }, [todayOrders]);
 
@@ -89,6 +81,8 @@ const PaymentsSlide: React.FC<PaymentsSlideProps> = ({ onViewOrderDetails }) => 
         return 'bg-yellow-100 text-yellow-800 animate-pulse';
       case 'pagado':
         return 'bg-blue-100 text-blue-800';
+      case 'cancelado':
+        return 'bg-red-100 text-red-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -102,7 +96,7 @@ const PaymentsSlide: React.FC<PaymentsSlideProps> = ({ onViewOrderDetails }) => 
         <p className="text-sm text-gray-600">Órdenes de hoy pendientes de cobro</p>
 
         {/* Estadísticas rápidas */}
-        <div className="grid grid-cols-3 gap-2 mt-3">
+        <div className="grid grid-cols-4 gap-2 mt-3">
           <div className="bg-green-50 border border-green-200 rounded-lg p-2 text-center">
             <p className="text-xs text-green-600 font-medium">Por Cobrar</p>
             <p className="text-xl font-bold text-green-700">{counts.entregado}</p>
@@ -114,6 +108,10 @@ const PaymentsSlide: React.FC<PaymentsSlideProps> = ({ onViewOrderDetails }) => 
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 text-center">
             <p className="text-xs text-blue-600 font-medium">Pagadas</p>
             <p className="text-xl font-bold text-blue-700">{counts.pagado}</p>
+          </div>
+          <div className="bg-red-50 border border-red-200 rounded-lg p-2 text-center">
+            <p className="text-xs text-red-600 font-medium">Canceladas</p>
+            <p className="text-xl font-bold text-red-700">{counts.cancelado}</p>
           </div>
         </div>
       </div>
@@ -141,6 +139,16 @@ const PaymentsSlide: React.FC<PaymentsSlideProps> = ({ onViewOrderDetails }) => 
           En Verificación ({counts.por_verificar})
         </button>
         <button
+          onClick={() => setFilterStatus('cancelado')}
+          className={`px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all ${
+            filterStatus === 'cancelado'
+              ? 'bg-red-600 text-white shadow-lg'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          }`}
+        >
+          ❌ Canceladas ({counts.cancelado})
+        </button>
+        <button
           onClick={() => setFilterStatus('all')}
           className={`px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all ${
             filterStatus === 'all'
@@ -149,6 +157,17 @@ const PaymentsSlide: React.FC<PaymentsSlideProps> = ({ onViewOrderDetails }) => 
           }`}
         >
           Todas
+        </button>
+
+        {/* Separador visual */}
+        <div className="flex-shrink-0 w-px bg-gray-200 mx-1" />
+
+        {/* Botón: Ayudar a compañeros */}
+        <button
+          onClick={onOpenColleagueOrders}
+          className="px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all bg-gradient-to-r from-violet-500 to-purple-600 text-white shadow-md hover:from-violet-600 hover:to-purple-700 active:scale-95 flex items-center gap-1.5"
+        >
+          🤝 Cobrar a Compañeros
         </button>
       </div>
 
@@ -171,8 +190,17 @@ const PaymentsSlide: React.FC<PaymentsSlideProps> = ({ onViewOrderDetails }) => 
         {filteredOrders.map(order => (
           <div
             key={order.id}
-            className="bg-white rounded-lg shadow-md overflow-hidden border-2 border-gray-200 hover:border-indigo-400 transition-all"
+            className={`bg-white rounded-lg shadow-md overflow-hidden border-2 transition-all ${
+              order.status === 'cancelado'
+                ? 'border-red-300 hover:border-red-400'
+                : 'border-gray-200 hover:border-indigo-400'
+            }`}
           >
+            {order.status === 'cancelado' && (
+              <div className="bg-red-500 text-white text-xs font-bold text-center py-1">
+                ❌ ORDEN CANCELADA
+              </div>
+            )}
             {/* Header de la orden */}
             <div className="bg-gradient-to-r from-indigo-50 to-blue-50 p-3 border-b">
               <div className="flex justify-between items-start">
@@ -189,7 +217,7 @@ const PaymentsSlide: React.FC<PaymentsSlideProps> = ({ onViewOrderDetails }) => 
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-2xl font-bold text-indigo-600">${order.total.toFixed(2)}</p>
+                  <p className="text-2xl font-bold text-indigo-600">{formatMoney(order.total)}</p>
                   <div className="flex flex-col items-end gap-1">
                     <span className={`text-xs font-semibold px-2 py-1 rounded-full ${getStatusBadgeClass(order.status)}`}>
                       {order.status === 'por_verificar' && '⏳ '}
@@ -229,7 +257,7 @@ const PaymentsSlide: React.FC<PaymentsSlideProps> = ({ onViewOrderDetails }) => 
                 {(order.items || []).slice(0, 3).map((item, idx) => (
                   <div key={idx} className="flex justify-between text-xs text-gray-700">
                     <span>{item.quantity}x {item.menu_item_name}</span>
-                    <span className="font-semibold">${(item.quantity * item.price_at_order).toFixed(2)}</span>
+                    <span className="font-semibold">{formatMoney(item.quantity * item.price_at_order)}</span>
                   </div>
                 ))}
                 {(order.items?.length || 0) > 3 && (
@@ -292,21 +320,18 @@ const PaymentsSlide: React.FC<PaymentsSlideProps> = ({ onViewOrderDetails }) => 
                   ✅ Pagado
                 </div>
               )}
+
+              {/* Indicador visual para órdenes canceladas */}
+              {order.status === 'cancelado' && (
+                <div className="flex-1 py-2 px-3 bg-red-100 text-red-800 rounded-lg text-center font-medium text-sm">
+                  ❌ Cancelada
+                </div>
+              )}
             </div>
           </div>
         ))}
       </div>
 
-      {/* Modal de Checkout */}
-      {selectedOrderForCheckout && (
-        <CheckoutModal
-          orderId={selectedOrderForCheckout.id}
-          orderTotal={selectedOrderForCheckout.total}
-          tableNumber={selectedOrderForCheckout.table}
-          onClose={() => setSelectedOrderForCheckout(null)}
-          onSuccess={handlePaymentSuccess}
-        />
-      )}
     </div>
   );
 };

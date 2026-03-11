@@ -12,6 +12,7 @@ import { QuickActionsBar } from './components/QuickActionsBar';
 import { Notification } from '../../components/Notification';
 import LogoutButton from '../../components/LogoutButton';
 import OrderDetailModal from '../shared/orders/components/OrderDetailModal';
+import { formatMoney } from '../../utils/formatUtils.ts';
 
 interface CashierStatistics {
   totalPaid: number;
@@ -67,10 +68,11 @@ interface CashierDashboardMobileProps {
   onPrintCommand: (orderId: string) => void;
   onPrintFullCommand: (orderId: string) => void;
   onPreviewTickets: (orderId: string) => void;
+  onCancelOrder: (orderId: string) => void;
 }
 
 export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
-  showStats,
+  showStats: _showStats,
   filterStatus,
   paymentMethodFilter,
   searchQuery,
@@ -80,7 +82,7 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
   pendingVerificationCount,
   isLoading,
   notification,
-  onToggleStats,
+  onToggleStats: _onToggleStats,
   onFilterStatusChange,
   onPaymentMethodFilterChange,
   onSearchQueryChange,
@@ -95,11 +97,14 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
   onPrintCommand,
   onPrintFullCommand,
   onPreviewTickets,
+  onCancelOrder,
 }) => {
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [selectedTableNumber, setSelectedTableNumber] = useState<number | null>(null);
   const [selectedOrderIdForDetail, setSelectedOrderIdForDetail] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'tables' | 'urgent'>('tables');
+  const [showActionMenu, setShowActionMenu] = useState(false);
+  const [currentView, setCurrentView] = useState<'main' | 'statistics'>('main');
 
   // Obtener todas las órdenes
   const allOrders = Object.values(ordersByTable).flat();
@@ -150,7 +155,7 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 pb-24">
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 pb-24 text-gray-900" style={{ colorScheme: 'light' }}>
       {/* Notificaciones */}
       {notification && (
         <Notification
@@ -161,73 +166,95 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
         />
       )}
 
-      {/* Header fijo */}
-      <div className="sticky top-0 z-40 bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg">
-        <div className="p-4">
-          <div className="flex items-center justify-between mb-3 gap-2">
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="text-3xl flex-shrink-0">💰</span>
-              <div className="min-w-0">
-                <h1 className="text-2xl font-bold truncate">Caja</h1>
-                <p className="text-sm opacity-90 truncate">{allOrders.length} órdenes activas</p>
-              </div>
-            </div>
-            <div className="flex gap-1.5 flex-shrink-0 flex-wrap justify-end">
+      {/* ===== VISTA DE ESTADÍSTICAS ===== */}
+      {currentView === 'statistics' && (
+        <>
+          {/* Header vista estadísticas */}
+          <div className="sticky top-0 z-40 shadow-lg" style={{ background: 'linear-gradient(135deg, #6d28d9 0%, #7c3aed 40%, #4f46e5 100%)' }}>
+            <div className="px-4 pt-4 pb-4 flex items-center gap-3">
               <button
-                onClick={() => setShowFilterModal(true)}
-                className="relative p-2.5 bg-white bg-opacity-20 rounded-xl hover:bg-opacity-30 transition-all"
+                onClick={() => setCurrentView('main')}
+                className="w-10 h-10 bg-white bg-opacity-20 rounded-xl flex items-center justify-center active:scale-95 transition-all"
               >
-                <span className="text-xl">🔍</span>
-                {activeFiltersCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-4 h-4 flex items-center justify-center">
-                    {activeFiltersCount}
-                  </span>
-                )}
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
               </button>
-              <button
-                onClick={onToggleStats}
-                className="p-2.5 bg-white bg-opacity-20 rounded-xl hover:bg-opacity-30 transition-all"
-              >
-                <span className="text-xl">📊</span>
-              </button>
-              <button
-                onClick={onOpenPrintSettings}
-                className="p-2.5 bg-white bg-opacity-20 rounded-xl hover:bg-opacity-30 transition-all"
-                title="Configurar impresión"
-              >
-                <span className="text-xl">🖨️</span>
-              </button>
-              <button
-                onClick={onExportReport}
-                className="p-2.5 bg-white bg-opacity-20 rounded-xl hover:bg-opacity-30 transition-all"
-              >
-                <span className="text-xl">📥</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Botón de cerrar sesión - Nueva fila para mejor responsividad */}
-          <div className="flex justify-end">
-            <div className="bg-white bg-opacity-20 rounded-xl p-1">
-              <LogoutButton />
-            </div>
-          </div>
-
-          {/* Vista rápida de pendientes */}
-          {pendingVerificationCount > 0 && (
-            <div className="bg-red-500 bg-opacity-90 rounded-xl p-3 animate-pulse">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl">⚠️</span>
-                  <span className="font-bold">{pendingVerificationCount} pagos por verificar</span>
+              <div className="flex items-center gap-3 flex-1">
+                <div className="w-10 h-10 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
+                  <span className="text-xl">📊</span>
                 </div>
-                <button
-                  onClick={() => setViewMode('urgent')}
-                  className="px-3 py-1 bg-white text-red-600 rounded-lg font-semibold hover:bg-red-50 transition-colors"
-                >
-                  Ver
-                </button>
+                <div>
+                  <h1 className="text-lg font-bold text-white leading-tight">Estadísticas</h1>
+                  <p className="text-xs text-purple-200">Resumen del día</p>
+                </div>
               </div>
+              <button
+                onClick={() => { onExportReport(); }}
+                className="flex items-center gap-1.5 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-xl px-3 py-2 active:scale-95 transition-all"
+              >
+                <span className="text-sm">📥</span>
+                <span className="text-xs font-semibold text-white">Exportar</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Contenido de estadísticas */}
+          <div className="p-4">
+            <StatisticsCard stats={statsForCard} />
+          </div>
+        </>
+      )}
+
+      {/* ===== VISTA PRINCIPAL ===== */}
+      {currentView === 'main' && (
+        <>
+      <div className="sticky top-0 z-40 shadow-lg" style={{ background: 'linear-gradient(135deg, #6d28d9 0%, #7c3aed 40%, #4f46e5 100%)' }}>
+        <div className="px-4 pt-4 pb-3">
+          {/* Fila principal: título + botón menú */}
+          <div className="flex items-center justify-between gap-3">
+            {/* Lado izquierdo: icono + título */}
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 bg-white bg-opacity-20 rounded-xl flex items-center justify-center flex-shrink-0">
+                <span className="text-xl">💰</span>
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-lg font-bold leading-tight text-white">Caja</h1>
+                <p className="text-xs text-purple-200">
+                  {allOrders.length} órdenes activas
+                </p>
+              </div>
+            </div>
+
+            {/* Botón menú — fondo blanco sólido con ícono únicamente */}
+            <button
+              onClick={() => setShowActionMenu(true)}
+              className="relative flex items-center justify-center bg-white rounded-xl w-10 h-10 shadow-md active:scale-95 transition-all flex-shrink-0"
+            >
+              {(activeFiltersCount > 0 || pendingVerificationCount > 0) && (
+                <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center shadow">
+                  {activeFiltersCount + (pendingVerificationCount > 0 ? 1 : 0)}
+                </span>
+              )}
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Alerta de pagos pendientes */}
+          {pendingVerificationCount > 0 && (
+            <div className="mt-3 bg-red-500 rounded-xl px-3 py-2.5 flex items-center justify-between shadow-inner">
+              <div className="flex items-center gap-2">
+                <span className="text-base">⚠️</span>
+                <span className="font-semibold text-sm text-white">{pendingVerificationCount} pagos por verificar</span>
+              </div>
+              <button
+                onClick={() => setViewMode('urgent')}
+                className="px-3 py-1 bg-white text-red-600 rounded-lg text-xs font-bold shadow active:scale-95 transition-all"
+              >
+                Ver →
+              </button>
             </div>
           )}
         </div>
@@ -236,20 +263,20 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
         <div className="px-4 pb-3 flex gap-2">
           <button
             onClick={() => setViewMode('tables')}
-            className={`flex-1 px-4 py-3 rounded-xl font-semibold transition-all ${
+            className={`flex-1 py-2.5 rounded-xl font-semibold text-sm transition-all ${
               viewMode === 'tables'
-                ? 'bg-white text-purple-600 shadow-lg'
-                : 'bg-white bg-opacity-20 text-white'
+                ? 'bg-white text-purple-700 shadow-lg'
+                : 'bg-purple-800 bg-opacity-60 text-purple-100 border border-purple-400 border-opacity-30'
             }`}
           >
-            🪑 Por Mesas ({sortedTableNumbers.length})
+            🪑 Mesas ({sortedTableNumbers.length})
           </button>
           <button
             onClick={() => setViewMode('urgent')}
-            className={`flex-1 px-4 py-3 rounded-xl font-semibold transition-all ${
+            className={`flex-1 py-2.5 rounded-xl font-semibold text-sm transition-all ${
               viewMode === 'urgent'
-                ? 'bg-white text-purple-600 shadow-lg'
-                : 'bg-white bg-opacity-20 text-white'
+                ? 'bg-white text-purple-700 shadow-lg'
+                : 'bg-purple-800 bg-opacity-60 text-purple-100 border border-purple-400 border-opacity-30'
             }`}
           >
             ⚠️ Urgentes ({urgentOrders.length})
@@ -257,12 +284,110 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
         </div>
       </div>
 
-      {/* Estadísticas */}
-      {showStats && (
-        <div className="p-4">
-          <StatisticsCard stats={statsForCard} />
-        </div>
+      {/* === MENÚ DESPLEGABLE (Bottom Sheet) === */}
+      {showActionMenu && (
+        <>
+          {/* Overlay difuminado para cerrar al tocar fuera */}
+          <div
+            className="fixed inset-0 z-50 backdrop-blur-sm bg-black bg-opacity-20"
+            onClick={() => setShowActionMenu(false)}
+          />
+
+          {/* Panel inferior */}
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-3xl shadow-2xl safe-area-pb animate-slide-up">
+            {/* Handle */}
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="w-10 h-1 bg-gray-300 rounded-full" />
+            </div>
+
+            {/* Título del menú */}
+            <div className="px-6 py-3 border-b border-gray-100">
+              <p className="text-center text-sm font-semibold text-gray-500 uppercase tracking-wider">Opciones</p>
+            </div>
+
+            {/* Acciones */}
+            <div className="px-4 py-3 space-y-2">
+              {/* Filtros */}
+              <button
+                onClick={() => { setShowActionMenu(false); setShowFilterModal(true); }}
+                className="w-full flex items-center gap-4 px-4 py-4 rounded-2xl bg-purple-50 hover:bg-purple-100 active:scale-98 transition-all"
+              >
+                <span className="text-2xl w-8 text-center">🔍</span>
+                <div className="flex-1 text-left">
+                  <p className="font-semibold text-gray-800">Buscar y Filtrar</p>
+                  <p className="text-xs text-gray-500">Filtra por estado, método de pago y más</p>
+                </div>
+                {activeFiltersCount > 0 && (
+                  <span className="bg-purple-600 text-white text-xs font-bold rounded-full px-2 py-0.5">
+                    {activeFiltersCount}
+                  </span>
+                )}
+              </button>
+
+              {/* Estadísticas */}
+              <button
+                onClick={() => { setShowActionMenu(false); setCurrentView('statistics'); }}
+                className="w-full flex items-center gap-4 px-4 py-4 rounded-2xl bg-blue-50 hover:bg-blue-100 active:scale-98 transition-all"
+              >
+                <span className="text-2xl w-8 text-center">📊</span>
+                <div className="flex-1 text-left">
+                  <p className="font-semibold text-gray-800">Estadísticas del Día</p>
+                  <p className="text-xs text-gray-500">Resumen de ingresos y órdenes</p>
+                </div>
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+
+              {/* Impresión */}
+              <button
+                onClick={() => { setShowActionMenu(false); onOpenPrintSettings(); }}
+                className="w-full flex items-center gap-4 px-4 py-4 rounded-2xl bg-indigo-50 hover:bg-indigo-100 active:scale-98 transition-all"
+              >
+                <span className="text-2xl w-8 text-center">🖨️</span>
+                <div className="flex-1 text-left">
+                  <p className="font-semibold text-gray-800">Configurar Impresión</p>
+                  <p className="text-xs text-gray-500">Ajusta impresoras y formato de comandas</p>
+                </div>
+              </button>
+
+              {/* Exportar */}
+              <button
+                onClick={() => { setShowActionMenu(false); onExportReport(); }}
+                className="w-full flex items-center gap-4 px-4 py-4 rounded-2xl bg-green-50 hover:bg-green-100 active:scale-98 transition-all"
+              >
+                <span className="text-2xl w-8 text-center">📥</span>
+                <div className="flex-1 text-left">
+                  <p className="font-semibold text-gray-800">Exportar Reporte</p>
+                  <p className="text-xs text-gray-500">Descarga el reporte en formato CSV</p>
+                </div>
+              </button>
+
+              {/* Cerrar sesión */}
+              <div className="px-4 py-3 rounded-2xl bg-red-50 flex items-center gap-4">
+                <span className="text-2xl w-8 text-center">🚪</span>
+                <div className="flex-1 text-left">
+                  <p className="font-semibold text-gray-800">Cerrar Sesión</p>
+                  <p className="text-xs text-gray-500">Salir de tu cuenta actual</p>
+                </div>
+                <LogoutButton />
+              </div>
+            </div>
+
+            {/* Botón cancelar */}
+            <div className="px-4 pb-6 pt-1">
+              <button
+                onClick={() => setShowActionMenu(false)}
+                className="w-full py-3.5 rounded-2xl bg-gray-100 hover:bg-gray-200 font-semibold text-gray-700 transition-all"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </>
       )}
+
+      {/* Estadísticas */}
 
       {/* Contenido principal */}
       <div className="p-4">
@@ -311,13 +436,13 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="text-2xl">🪑</span>
-                          <h3 className="text-xl font-bold">Mesa {order.table_number}</h3>
+                          <h3 className="text-xl font-bold text-gray-900">Mesa {order.table_number}</h3>
                         </div>
                         <p className="text-sm text-gray-600 mt-1">Orden #{order.id.slice(0, 8)}</p>
                         <p className="text-sm text-gray-600">Mesero: {order.waiter_name || 'N/A'}</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-2xl font-bold text-green-600">${order.total.toFixed(2)}</p>
+                        <p className="text-2xl font-bold text-green-600">{formatMoney(order.total)}</p>
                         <p className="text-xs text-gray-500">{order.payment_method}</p>
                       </div>
                     </div>
@@ -387,6 +512,7 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
         onPrintCommand={onPrintCommand}
         onPrintFullCommand={onPrintFullCommand}
         onPreviewTickets={onPreviewTickets}
+        onCancelOrder={onCancelOrder}
       />
 
       {/* Modal de Detalle de Orden */}
@@ -396,6 +522,8 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
           onClose={() => setSelectedOrderIdForDetail(null)}
           editable={false}
         />
+      )}
+        </>
       )}
     </div>
   );

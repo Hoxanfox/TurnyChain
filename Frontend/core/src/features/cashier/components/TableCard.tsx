@@ -1,5 +1,6 @@
 import React from 'react';
 import type { Order } from '../../../types/orders';
+import { formatMoney } from '../../../utils/formatUtils';
 
 interface TableCardProps {
   tableNumber: number;
@@ -13,10 +14,12 @@ export const TableCard: React.FC<TableCardProps> = ({ tableNumber, orders, onVie
   const pendingVerification = orders.filter(o => o.status === 'por_verificar').length;
   const paid = orders.filter(o => o.status === 'pagado').length;
   const delivered = orders.filter(o => o.status === 'entregado').length;
+  const cancelled = orders.filter(o => o.status === 'cancelado').length;
 
   // Determinar el estado predominante de la mesa
   const getTableStatus = () => {
     if (pendingVerification > 0) return 'warning';
+    if (cancelled > 0 && paid === orders.length - cancelled) return 'cancelled';
     if (paid === orders.length) return 'success';
     if (delivered > 0) return 'info';
     return 'default';
@@ -25,10 +28,11 @@ export const TableCard: React.FC<TableCardProps> = ({ tableNumber, orders, onVie
   const status = getTableStatus();
 
   const statusStyles = {
-    warning: 'from-orange-500 to-red-500 animate-pulse',
-    success: 'from-green-500 to-emerald-600',
-    info: 'from-blue-500 to-indigo-600',
-    default: 'from-gray-400 to-gray-600',
+    warning:   'from-orange-500 to-red-500 animate-pulse',
+    cancelled: 'from-red-400 to-rose-500',
+    success:   'from-green-500 to-emerald-600',
+    info:      'from-blue-500 to-indigo-600',
+    default:   'from-gray-400 to-gray-600',
   };
 
   return (
@@ -63,7 +67,7 @@ export const TableCard: React.FC<TableCardProps> = ({ tableNumber, orders, onVie
             <span className="text-2xl">💰</span>
             <span className="font-semibold text-gray-700">Total</span>
           </div>
-          <span className="text-2xl font-bold text-green-600">${totalAmount.toFixed(2)}</span>
+          <span className="text-2xl font-bold text-green-600">{formatMoney(totalAmount)}</span>
         </div>
 
         {/* Estado de órdenes */}
@@ -84,6 +88,12 @@ export const TableCard: React.FC<TableCardProps> = ({ tableNumber, orders, onVie
             <div className="bg-green-50 rounded-lg p-2 text-center">
               <p className="text-2xl">💳</p>
               <p className="text-xs font-semibold text-green-700">{paid} Pagado</p>
+            </div>
+          )}
+          {cancelled > 0 && (
+            <div className="bg-red-50 rounded-lg p-2 text-center">
+              <p className="text-2xl">❌</p>
+              <p className="text-xs font-semibold text-red-700">{cancelled} Cancelado</p>
             </div>
           )}
         </div>

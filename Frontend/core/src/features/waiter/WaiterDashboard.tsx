@@ -11,7 +11,8 @@ import OrderDetailModal from '../shared/orders/components/OrderDetailModal.tsx';
 import MyOrdersModal from './components/MyOrdersModal';
 import CheckoutModal from './components/CheckoutModal';
 import CheckoutBeforeSendModal from './components/CheckoutBeforeSendModal';
-import LogoutButton from '../../components/LogoutButton';
+import ColleagueOrdersModal from './components/ColleagueOrdersModal';
+import WaiterProfileMenu from './components/WaiterProfileMenu';
 import CustomizeOrderItemModal from './components/CustomizeOrderItemModal';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import type { Swiper as SwiperType } from 'swiper';
@@ -41,6 +42,7 @@ import {
   type CustomizationData
 } from './utils/waiterUtils.ts';
 
+import { formatMoney } from '../../utils/formatUtils.ts';
 // Importar el modal de delivery
 import DeliveryInfoModal from './components/DeliveryInfoModal';
 // Importar toast y confetti
@@ -69,6 +71,7 @@ const WaiterDashboard: React.FC = () => {
   const [viewingOrderId, setViewingOrderId] = useState<string | null>(null);
   const [isMyOrdersModalOpen, setIsMyOrdersModalOpen] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [isColleagueModalOpen, setIsColleagueModalOpen] = useState(false);
   const [activeSlide, setActiveSlide] = useState(0);
   const [checkoutOrderId, setCheckoutOrderId] = useState<string | null>(null);
   const [checkoutOrderTotal, setCheckoutOrderTotal] = useState<number>(0);
@@ -316,7 +319,7 @@ const WaiterDashboard: React.FC = () => {
     const total = cart.reduce((sum, item) => sum + item.finalPrice, 0);
     const selectedTable = findTableById(tables, tableId);
     toast.success(
-      `🎉 ¡Orden enviada!\nMesa ${selectedTable?.table_number || 'N/A'} • $${total.toFixed(2)}\n${cart.length} productos`,
+      `🎉 ¡Orden enviada!\nMesa ${selectedTable?.table_number || 'N/A'} • ${formatMoney(total)}\n${cart.length} productos`,
       {
         duration: 4000,
         style: {
@@ -361,7 +364,7 @@ const WaiterDashboard: React.FC = () => {
             >
               📋
             </button>
-            <LogoutButton />
+            <WaiterProfileMenu />
           </div>
         </header>
 
@@ -429,6 +432,8 @@ const WaiterDashboard: React.FC = () => {
             <SwiperSlide>
               <PaymentsSlide
                 onViewOrderDetails={(orderId) => setViewingOrderId(orderId)}
+                onOpenColleagueOrders={() => setIsColleagueModalOpen(true)}
+                onCheckout={(orderId, total, tableNumber) => handleCheckout(orderId, total, tableNumber)}
               />
             </SwiperSlide>
           </Swiper>
@@ -533,6 +538,19 @@ const WaiterDashboard: React.FC = () => {
         <DeliveryInfoModal
           onClose={() => setShowDeliveryModal(false)}
           onConfirm={handleDeliveryInfoConfirm}
+        />
+      )}
+      {isColleagueModalOpen && (
+        <ColleagueOrdersModal
+          onClose={() => setIsColleagueModalOpen(false)}
+          onCheckout={(orderId, total, tableNumber) => {
+            setIsColleagueModalOpen(false);
+            handleCheckout(orderId, total, tableNumber);
+          }}
+          onViewDetails={(orderId) => {
+            setIsColleagueModalOpen(false);
+            setViewingOrderId(orderId);
+          }}
         />
       )}
     </>
