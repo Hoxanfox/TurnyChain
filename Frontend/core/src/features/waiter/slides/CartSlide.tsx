@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import CurrentOrder from '../components/CurrentOrder';
+import TableMapModal from '../components/TableMapModal';
 import type { CartItem } from '../../../types/menu';
 import type { Table } from '../../../types/tables';
 
@@ -36,48 +37,54 @@ const CartSlide: React.FC<CartSlideProps> = ({
   onNavigateToMenu,
   onNavigateBack
 }) => {
-  // Calcular total de items (sumando cantidades)
-  const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
-  const totalPrice = cart.reduce((sum, item) => sum + item.finalPrice, 0);
+  const [showTableMap, setShowTableMap] = useState(false);
+
+  // Obtener nombre de la mesa activa
+  const activeTable = tables.find(t => t.id === tableId);
+  const tableName = activeTable
+    ? `Mesa ${activeTable.table_number}`
+    : orderType === 'llevar'
+    ? 'Para Llevar'
+    : orderType === 'domicilio'
+    ? 'Domicilio'
+    : 'Sin mesa';
 
   return (
-    <div className="h-full flex flex-col bg-white overflow-hidden">
-      {/* Header del Slide - OPTIMIZADO MÓVIL */}
-      <div className="flex-shrink-0 bg-white shadow-sm p-3 border-b border-gray-200">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            {onNavigateBack && (
-              <button
-                onClick={onNavigateBack}
-                className="flex items-center gap-1 text-gray-600 hover:text-gray-800 transition-colors p-1"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
-            )}
-            <h2 className="text-xl font-bold text-gray-800">🛒 Comanda</h2>
+    <div className="h-full flex flex-col bg-gray-50 overflow-hidden relative">
+      {/* Header principal */}
+      <div className="flex-shrink-0 bg-white px-4 pt-4 pb-3 border-b border-gray-100 shadow-sm">
+        <div className="flex items-center gap-3">
+          {onNavigateBack && (
+            <button
+              onClick={onNavigateBack}
+              className="text-gray-500 hover:text-gray-800 transition-colors p-1 -ml-1"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+          )}
+          <div className="flex-1 min-w-0">
+            <h2 className="text-xl font-bold text-gray-900 truncate">{tableName}</h2>
+            <p className="text-xs text-gray-400 uppercase tracking-wide mt-0.5">Comanda activa</p>
           </div>
-
-          {/* Contador compacto */}
-          {cart.length > 0 && (
-            <div className="flex items-center gap-2 text-sm">
-              <span className="text-gray-600">{cart.length}p</span>
-              <span className="text-gray-400">•</span>
-              <span className="text-gray-600">{totalItems}u</span>
-              <span className="text-gray-400">•</span>
-              <span className="font-bold text-green-600">${totalPrice.toFixed(2)}</span>
-            </div>
+          {orderType === 'mesa' && (
+            <button
+              onClick={() => setShowTableMap(true)}
+              className="px-3 py-1.5 bg-indigo-50 border border-indigo-200 text-indigo-600 hover:bg-indigo-100 transition-colors text-sm font-semibold rounded-lg whitespace-nowrap"
+            >
+              Cambiar Mesa
+            </button>
           )}
         </div>
 
         {cart.length === 0 && (
-          <div className="bg-yellow-50 border border-yellow-200 rounded p-2 mt-2">
-            <p className="text-xs text-yellow-800 text-center">
+          <div className="mt-3 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            <p className="text-xs text-amber-700 text-center">
               Carrito vacío.{' '}
               <button
                 onClick={onNavigateToMenu}
-                className="underline font-semibold hover:text-yellow-900"
+                className="underline font-semibold hover:text-amber-900"
               >
                 Ir al menú
               </button>
@@ -86,7 +93,7 @@ const CartSlide: React.FC<CartSlideProps> = ({
         )}
       </div>
 
-      {/* Contenedor con scroll - OPTIMIZADO PARA MÓVILES */}
+      {/* Contenedor con scroll */}
       <div className="flex-1 overflow-y-auto overscroll-contain px-4">
         <CurrentOrder
           cart={cart}
@@ -103,6 +110,18 @@ const CartSlide: React.FC<CartSlideProps> = ({
           onToggleTakeout={onToggleTakeout}
         />
       </div>
+
+      {/* Mapa de mesas — absolute dentro del slide (relative) */}
+      <TableMapModal
+        isOpen={showTableMap}
+        onClose={() => setShowTableMap(false)}
+        tables={tables}
+        selectedTableId={tableId}
+        onSelectTable={(id) => {
+          onTableChange(id);
+          setShowTableMap(false);
+        }}
+      />
     </div>
   );
 };

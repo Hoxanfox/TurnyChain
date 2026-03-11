@@ -6,12 +6,13 @@ import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { addNewOrder } from '../shared/orders/api/ordersSlice.ts';
 import { fetchTables } from '../admin/components/tables/api/tablesSlice.ts';
+import { formatMoney } from '../../utils/formatUtils.ts';
 import type { AppDispatch, RootState } from '../../app/store';
 import type { MenuItem, CartItem } from '../../types/menu';
 import OrderDetailModal from '../shared/orders/components/OrderDetailModal.tsx';
 import MyOrdersModal from './components/MyOrdersModal';
 import CheckoutBeforeSendModal from './components/CheckoutBeforeSendModal';
-import LogoutButton from '../../components/LogoutButton';
+import WaiterProfileMenu from './components/WaiterProfileMenu';
 import CustomizeOrderItemModal from './components/CustomizeOrderItemModal';
 import MenuDisplay from './components/MenuDisplay';
 import CurrentOrder from './components/CurrentOrder';
@@ -178,7 +179,10 @@ const WaiterDashboardDesktop: React.FC = () => {
     }
   };
 
-  const handleSendOrder = () => {
+  // Estado para notas de checkout en orden para llevar
+  const [checkoutTakeoutNotes, setCheckoutTakeoutNotes] = useState<string>("");
+
+  const handleSendOrder = (notes?: string) => {
     if (!canSendOrder(cart, tableId)) return;
 
     // Si es domicilio y no hay datos de entrega, mostrar modal
@@ -193,10 +197,15 @@ const WaiterDashboardDesktop: React.FC = () => {
 
     if (!selectedTable) return;
 
-    // Abrir modal de checkout antes de enviar
+    // Guardar notas para llevar si aplica (ahora se pasa por argumento)
     setCheckoutOrderTotal(total);
     setCheckoutTableNumber(selectedTable.table_number);
     setIsCheckoutBeforeSend(true);
+    if (orderType === 'llevar' && notes) {
+      setCheckoutTakeoutNotes(notes);
+    } else {
+      setCheckoutTakeoutNotes("");
+    }
   };
 
   const handleDeliveryInfoConfirm = (data: {
@@ -214,8 +223,13 @@ const WaiterDashboardDesktop: React.FC = () => {
     setIsCheckoutBeforeSend(false);
 
     // Ahora sí enviar la orden con los datos de pago
-    const payload = buildOrderPayload(cart, tableId, tables, orderType, deliveryData || undefined);
+    let payload = buildOrderPayload(cart, tableId, tables, orderType, deliveryData || undefined);
     if (!payload) return;
+
+    // Agregar delivery_notes si es para llevar y hay notas
+    if (orderType === 'llevar' && checkoutTakeoutNotes) {
+      payload.delivery_notes = checkoutTakeoutNotes;
+    }
 
     console.log("Enviando payload de la orden al backend con datos de pago:", {
       orderData: payload,
@@ -239,7 +253,7 @@ const WaiterDashboardDesktop: React.FC = () => {
     const total = cart.reduce((sum, item) => sum + item.finalPrice, 0);
     const selectedTable = findTableById(tables, tableId);
     toast.success(
-      `🎉 ¡Orden enviada!\nMesa ${selectedTable?.table_number || 'N/A'} • $${total.toFixed(2)}\n${cart.length} productos`,
+      `🎉 ¡Orden enviada!\nMesa ${selectedTable?.table_number || 'N/A'} • ${formatMoney(total)}\n${cart.length} productos`,
       {
         duration: 4000,
         style: {
@@ -289,7 +303,7 @@ const WaiterDashboardDesktop: React.FC = () => {
             >
               Historial
             </button>
-            <LogoutButton />
+            <WaiterProfileMenu />
           </div>
         </header>
 

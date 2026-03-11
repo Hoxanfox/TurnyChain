@@ -30,6 +30,7 @@ type KitchenTicketItem struct {
 	Notes          string          `json:"notes,omitempty"`
 	Customizations *Customizations `json:"customizations,omitempty"`
 	IsTakeout      bool            `json:"is_takeout"`
+	Price          int             `json:"price"` // Precio unitario en moneda local
 }
 
 // StationTicketsResponse agrupa todos los tickets por estación para una orden

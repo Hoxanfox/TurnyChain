@@ -38,9 +38,7 @@ if (token) {
       user = {
         id: decodedToken.sub,
         role: decodedToken.role,
-        // Si el backend no incluye el username en el token, lo dejamos en blanco.
-        // Lo ideal es que el backend lo incluya para no tener que pedirlo de nuevo.
-        username: decodedToken.username || 'Usuario', 
+        username: decodedToken.username || localStorage.getItem('username') || 'Usuario',
       };
     } else {
       // Si el token ha expirado, lo eliminamos.
@@ -108,6 +106,13 @@ export const authSlice = createSlice({
       localStorage.removeItem('username');
       console.log('👋 Logout exitoso');
     },
+    // Actualizar nombre de usuario localmente tras edición de perfil
+    updateUsername: (state, action: PayloadAction<string>) => {
+      if (state.user) {
+        state.user.username = action.payload;
+        localStorage.setItem('username', action.payload);
+      }
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -127,5 +132,5 @@ export const authSlice = createSlice({
   },
 });
 
-export const { logout } = authSlice.actions;
+export const { logout, updateUsername } = authSlice.actions;
 export default authSlice.reducer;

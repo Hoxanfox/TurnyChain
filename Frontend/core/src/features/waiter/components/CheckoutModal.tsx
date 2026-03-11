@@ -28,6 +28,71 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
   // Referencia oculta para el input de archivo
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Clave única para localStorage basada en el orderId
+  const storageKey = `payment_proof_${orderId}`;
+
+  // Cargar imagen desde localStorage al montar el componente
+  React.useEffect(() => {
+    const savedImageData = localStorage.getItem(storageKey);
+    if (savedImageData) {
+      console.log('[CheckoutModal] Imagen encontrada en localStorage:', savedImageData);
+      try {
+        const { base64, fileName, fileType } = JSON.parse(savedImageData);
+        // Convertir base64 de vuelta a File
+        fetch(base64)
+          .then(res => res.blob())
+          .then(blob => {
+            const file = new File([blob], fileName, { type: fileType });
+            setProofImage(file);
+            setPreviewUrl(base64);
+            console.log('[CheckoutModal] Imagen restaurada en estado');
+          })
+          .catch(err => {
+            console.error('[CheckoutModal] Error al recuperar imagen guardada:', err);
+            localStorage.removeItem(storageKey);
+          });
+      } catch (err) {
+        console.error('[CheckoutModal] Error al parsear imagen guardada:', err);
+        localStorage.removeItem(storageKey);
+      }
+    } else {
+      console.log('[CheckoutModal] No hay imagen guardada en localStorage');
+    }
+  }, [orderId, storageKey]);
+
+  // Recuperar imagen guardada cada vez que se selecciona transferencia
+  React.useEffect(() => {
+    if (paymentMethod === 'transferencia') {
+      const savedImageData = localStorage.getItem(storageKey);
+      console.log('[CheckoutModal] Intentando recuperar imagen de localStorage:', savedImageData);
+      console.log('[CheckoutModal] Estado completo de localStorage:', {...localStorage});
+      if (savedImageData) {
+        try {
+          const { base64, fileName, fileType } = JSON.parse(savedImageData);
+          fetch(base64)
+            .then(res => res.blob())
+            .then(blob => {
+              const file = new File([blob], fileName, { type: fileType });
+              setProofImage(file);
+              setPreviewUrl(base64);
+              console.log('[CheckoutModal] Imagen restaurada en estado');
+            })
+            .catch(err => {
+              console.error('[CheckoutModal] Error al recuperar imagen guardada:', err);
+              localStorage.removeItem(storageKey);
+            });
+        } catch (err) {
+          console.error('[CheckoutModal] Error al parsear imagen guardada:', err);
+          localStorage.removeItem(storageKey);
+        }
+      } else {
+        setProofImage(null);
+        setPreviewUrl(null);
+        console.log('[CheckoutModal] No hay imagen guardada para transferencia');
+      }
+    }
+  }, [paymentMethod, storageKey]);
+
   // Formateador de moneda
   const formatMoney = (amount: number) =>
     new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(amount);
@@ -49,10 +114,25 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
       const url = URL.createObjectURL(file);
       setPreviewUrl(url);
       setError(null);
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = reader.result as string;
+        const imageData = {
+          base64,
+          fileName: file.name,
+          fileType: file.type
+        };
+        console.log('[CheckoutModal] Guardando imagen en localStorage:', { storageKey, imageData });
+        localStorage.setItem(storageKey, JSON.stringify(imageData));
+        console.log('[CheckoutModal] Imagen guardada en localStorage:', localStorage.getItem(storageKey));
+        console.log('[CheckoutModal] Estado completo de localStorage:', {...localStorage});
+      };
+      reader.readAsDataURL(file);
     }
   };
 
-  // Limpiar foto si quedó mal
+  // Log al limpiar imagen
   const handleRemovePhoto = () => {
     setProofImage(null);
     if (previewUrl) {
@@ -60,6 +140,10 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
     }
     setPreviewUrl(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
+    // Limpiar de localStorage
+    localStorage.removeItem(storageKey);
+    console.log('[CheckoutModal] Imagen eliminada manualmente');
+    console.log('[CheckoutModal] Estado completo de localStorage tras eliminar:', {...localStorage});
   };
 
   const handleSubmit = async () => {
@@ -82,6 +166,10 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
       const fileToUpload = proofImage || new File([''], 'efectivo.txt', { type: 'text/plain' });
 
       await uploadPaymentProof(orderId, fileToUpload, paymentMethod, token);
+      
+      // ✅ SOLO LIMPIAR LOCALSTORAGE DESPUÉS DEL ÉXITO
+      localStorage.removeItem(storageKey);
+      
       onSuccess();
     } catch (err: any) {
       setError(err.response?.data?.message || 'Error al procesar el pago. Intente nuevamente.');

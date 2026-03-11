@@ -42,19 +42,45 @@ const (
 	CMD_LINE_FEED = "\n"
 )
 
+// Helper para abreviar precios (ej: 15000 -> 15k)
+func formatPriceShort(price int) string {
+	if price >= 1000 {
+		if price%1000 == 0 {
+			return fmt.Sprintf("%dk", price/1000)
+		}
+		return fmt.Sprintf("%.1fk", float64(price)/1000)
+	}
+	return fmt.Sprintf("%d", price)
+}
+
+// Helper para convertir timestamp a hora de Colombia (UTC-5)
+func toColombiaTime(t time.Time) time.Time {
+	// Cargar la zona horaria de Colombia (America/Bogota)
+	loc, err := time.LoadLocation("America/Bogota")
+	if err != nil {
+		// Si falla, usar UTC-5 manualmente
+		loc = time.FixedZone("COT", -5*60*60) // Colombia Time (UTC-5)
+	}
+	return t.In(loc)
+}
+
 // ESCPOSPrinter maneja la conexión y comandos de impresora ESC/POS
 type ESCPOSPrinter struct {
-	host    string
-	port    int
-	timeout time.Duration
+	host          string
+	port          int
+	timeout       time.Duration
+	retryAttempts int
+	retryDelay    time.Duration
 }
 
 // NewESCPOSPrinter crea una nueva instancia del printer
 func NewESCPOSPrinter(host string, port int) *ESCPOSPrinter {
 	return &ESCPOSPrinter{
-		host:    host,
-		port:    port,
-		timeout: 5 * time.Second,
+		host:          host,
+		port:          port,
+		timeout:       10 * time.Second, // Timeout aumentado a 10 segundos
+		retryAttempts: 3,                // 3 intentos de reintento
+		retryDelay:    500 * time.Millisecond,
 	}
 }
 
@@ -85,25 +111,35 @@ func (p *ESCPOSPrinter) buildTicketContent(ticket domain.KitchenTicket) string {
 	builder.WriteString(CMD_LINE_FEED)
 
 	// Información de la orden
-	builder.WriteString(CMD_ALIGN_LEFT)
+	builder.WriteString(CMD_ALIGN_CENTER)
 	builder.WriteString(CMD_BOLD_ON)
 	builder.WriteString(fmt.Sprintf("ORDEN: %s", ticket.OrderNumber))
 	builder.WriteString(CMD_LINE_FEED)
 	builder.WriteString(CMD_BOLD_OFF)
 
-	builder.WriteString(fmt.Sprintf("Mesa: %d", ticket.TableNumber))
+	// Tipo de orden resaltado
+	builder.WriteString(CMD_ALIGN_CENTER)
+	builder.WriteString(CMD_DOUBLE_ON)
+	builder.WriteString(CMD_BOLD_ON)
+	var tipoOrden string
+	if ticket.TableNumber == 9999 {
+		tipoOrden = "LLEVAR"
+	} else if ticket.TableNumber == 9998 {
+		tipoOrden = "DOMICILIO"
+	} else {
+		tipoOrden = strings.ToUpper(ticket.OrderType)
+	}
+	builder.WriteString(tipoOrden)
+	builder.WriteString(CMD_BOLD_OFF)
+	builder.WriteString(CMD_DOUBLE_OFF)
 	builder.WriteString(CMD_LINE_FEED)
 
-	builder.WriteString(fmt.Sprintf("Mesero: %s", ticket.WaiterName))
+	builder.WriteString(CMD_ALIGN_CENTER)
+	// Convertir la hora a zona horaria de Colombia antes de formatear
+	colombiaTime := toColombiaTime(ticket.CreatedAt)
+	builder.WriteString(fmt.Sprintf("Hora: %s", colombiaTime.Format("15:04:05")))
 	builder.WriteString(CMD_LINE_FEED)
 
-	builder.WriteString(fmt.Sprintf("Tipo: %s", ticket.OrderType))
-	builder.WriteString(CMD_LINE_FEED)
-
-	builder.WriteString(fmt.Sprintf("Hora: %s", ticket.CreatedAt.Format("15:04:05")))
-	builder.WriteString(CMD_LINE_FEED)
-
-	// Línea separadora
 	builder.WriteString(p.line("-", 42))
 	builder.WriteString(CMD_LINE_FEED)
 
@@ -112,83 +148,106 @@ func (p *ESCPOSPrinter) buildTicketContent(ticket domain.KitchenTicket) string {
 	builder.WriteString("ITEMS:")
 	builder.WriteString(CMD_BOLD_OFF)
 	builder.WriteString(CMD_LINE_FEED)
-	builder.WriteString(CMD_LINE_FEED)
 
 	for _, item := range ticket.Items {
-		// Cantidad y nombre del item
-		builder.WriteString(CMD_BOLD_ON)
-		builder.WriteString(CMD_DOUBLE_ON)
-		builder.WriteString(fmt.Sprintf("%dx %s", item.Quantity, item.MenuItemName))
-		builder.WriteString(CMD_DOUBLE_OFF)
-		builder.WriteString(CMD_BOLD_OFF)
+		// 1. Línea superior divisoria por ítem
+		builder.WriteString(p.line("-", 42))
 		builder.WriteString(CMD_LINE_FEED)
 
-		// Para llevar
+		builder.WriteString(CMD_DOUBLE_ON)
+		builder.WriteString(CMD_BOLD_ON)
+
+		// 2. Cantidad y Nombre del Item (con su respectivo salto de línea)
+		builder.WriteString(fmt.Sprintf("%dx %s", item.Quantity, item.MenuItemName))
+		builder.WriteString(CMD_LINE_FEED)
+
+		// 3. Precios justo debajo
+		unitPrice := formatPriceShort(item.Price)
+		subtotal := formatPriceShort(item.Price * item.Quantity)
+		builder.WriteString(fmt.Sprintf("   $%s c/u -> $%s", unitPrice, subtotal))
+
+		builder.WriteString(CMD_BOLD_OFF)
+		builder.WriteString(CMD_DOUBLE_OFF)
+		builder.WriteString(CMD_LINE_FEED)
+
+		// 4. Customizaciones y Notas (si existen)
 		if item.IsTakeout {
-			builder.WriteString(CMD_BOLD_ON)
-			builder.WriteString("   >>> PARA LLEVAR <<<")
-			builder.WriteString(CMD_BOLD_OFF)
-			builder.WriteString(CMD_LINE_FEED)
+			builder.WriteString("   >>> PARA LLEVAR <<<" + CMD_LINE_FEED)
 		}
 
-		// Customizaciones
 		if item.Customizations != nil {
-			// Ingredientes activos (los que SÍ lleva el platillo)
 			if len(item.Customizations.ActiveIngredients) > 0 {
 				builder.WriteString("   CON: ")
-				ingredients := make([]string, len(item.Customizations.ActiveIngredients))
-				for i, ing := range item.Customizations.ActiveIngredients {
-					ingredients[i] = ing.Name
+				ings := []string{}
+				for _, ing := range item.Customizations.ActiveIngredients {
+					ings = append(ings, ing.Name)
 				}
-				builder.WriteString(strings.Join(ingredients, ", "))
-				builder.WriteString(CMD_LINE_FEED)
+				builder.WriteString(strings.Join(ings, ", ") + CMD_LINE_FEED)
 			}
-
-			// Acompañamientos seleccionados
 			if len(item.Customizations.SelectedAccompaniments) > 0 {
 				builder.WriteString("   ACOMP: ")
-				accompaniments := make([]string, len(item.Customizations.SelectedAccompaniments))
-				for i, acc := range item.Customizations.SelectedAccompaniments {
-					accompaniments[i] = acc.Name
+				accs := []string{}
+				for _, acc := range item.Customizations.SelectedAccompaniments {
+					accs = append(accs, acc.Name)
 				}
-				builder.WriteString(strings.Join(accompaniments, ", "))
-				builder.WriteString(CMD_LINE_FEED)
+				builder.WriteString(strings.Join(accs, ", ") + CMD_LINE_FEED)
 			}
 		}
 
-		// Notas del item
 		if item.Notes != "" {
-			builder.WriteString(CMD_UNDERLINE_ON)
-			builder.WriteString(fmt.Sprintf("   NOTA: %s", item.Notes))
-			builder.WriteString(CMD_UNDERLINE_OFF)
-			builder.WriteString(CMD_LINE_FEED)
+			builder.WriteString(CMD_UNDERLINE_ON + "   NOTA: " + item.Notes + CMD_UNDERLINE_OFF + CMD_LINE_FEED)
 		}
 
+		// 5. Línea inferior divisoria por ítem
+		builder.WriteString(p.line("-", 42))
 		builder.WriteString(CMD_LINE_FEED)
+
+		// Un pequeño espacio extra entre ítems para que respire el diseño
+		builder.WriteString(CMD_LINE_FEED)
+	}
+
+	// === TOTAL PARA CAJA ===
+	// Si la estación contiene "CAJA", calculamos el total de los items presentes en este ticket
+	if strings.Contains(strings.ToUpper(ticket.StationName), "CAJA") {
+		totalTicket := 0
+		for _, item := range ticket.Items {
+			totalTicket += (item.Price * item.Quantity)
+		}
+
+		builder.WriteString(p.line("=", 42) + CMD_LINE_FEED)
+		builder.WriteString(CMD_ALIGN_RIGHT)
+		builder.WriteString(CMD_DOUBLE_ON + CMD_BOLD_ON)
+		builder.WriteString(fmt.Sprintf("TOTAL ORDEN: $%s", formatPriceShort(totalTicket))) // Formato abreviado con "k"
+		builder.WriteString(CMD_BOLD_OFF + CMD_DOUBLE_OFF + CMD_LINE_FEED)
+		builder.WriteString(CMD_ALIGN_LEFT)
 	}
 
 	// Notas especiales de la orden
 	if ticket.SpecialNotes != "" {
-		builder.WriteString(p.line("-", 42))
-		builder.WriteString(CMD_LINE_FEED)
-		builder.WriteString(CMD_BOLD_ON)
-		builder.WriteString("NOTA ESPECIAL:")
-		builder.WriteString(CMD_BOLD_OFF)
-		builder.WriteString(CMD_LINE_FEED)
-		builder.WriteString(ticket.SpecialNotes)
-		builder.WriteString(CMD_LINE_FEED)
+		builder.WriteString(p.line("-", 42) + CMD_LINE_FEED)
+		builder.WriteString(CMD_BOLD_ON + "NOTA ESPECIAL:" + CMD_BOLD_OFF + CMD_LINE_FEED)
+		builder.WriteString(ticket.SpecialNotes + CMD_LINE_FEED)
 	}
 
-	// Línea final
-	builder.WriteString(p.line("=", 42))
-	builder.WriteString(CMD_LINE_FEED)
+	builder.WriteString(p.line("=", 42) + CMD_LINE_FEED)
 
-	// Espacios antes del corte
-	builder.WriteString(CMD_LINE_FEED)
-	builder.WriteString(CMD_LINE_FEED)
-	builder.WriteString(CMD_LINE_FEED)
+	// Pie de ticket: Mesero y Mesa
+	builder.WriteString(CMD_ALIGN_LEFT)
+	builder.WriteString(CMD_DOUBLE_ON)
+	mesaLabel := ""
+	switch ticket.TableNumber {
+	case 9999:
+		mesaLabel = "LLEVAR"
+	case 9998:
+		mesaLabel = "DOMICILIO"
+	default:
+		mesaLabel = fmt.Sprintf("Mesa: %d", ticket.TableNumber)
+	}
+	builder.WriteString(fmt.Sprintf("Mesero: %s\n%s", ticket.WaiterName, mesaLabel))
+	builder.WriteString(CMD_DOUBLE_OFF + CMD_LINE_FEED)
 
-	// Cortar papel
+	builder.WriteString(p.line("-", 42) + CMD_LINE_FEED)
+	builder.WriteString(CMD_LINE_FEED + CMD_LINE_FEED + CMD_LINE_FEED)
 	builder.WriteString(CMD_CUT_PARTIAL)
 
 	return builder.String()
@@ -199,28 +258,46 @@ func (p *ESCPOSPrinter) line(char string, length int) string {
 	return strings.Repeat(char, length)
 }
 
-// sendToNetwork envía los datos a la impresora vía TCP/IP
+// sendToNetwork envía los datos a la impresora vía TCP/IP con reintentos
 func (p *ESCPOSPrinter) sendToNetwork(data string) error {
-	// Construir la dirección
 	address := fmt.Sprintf("%s:%d", p.host, p.port)
+	var lastErr error
 
-	// Conectar a la impresora
-	conn, err := net.DialTimeout("tcp", address, p.timeout)
-	if err != nil {
-		return fmt.Errorf("error al conectar con la impresora en %s: %w", address, err)
+	// Intentar múltiples veces en caso de que la impresora esté ocupada
+	for attempt := 1; attempt <= p.retryAttempts; attempt++ {
+		if attempt > 1 {
+			// Esperar antes de reintentar
+			time.Sleep(p.retryDelay)
+			fmt.Printf("⚠️  Reintentando conexión a %s (intento %d/%d)...\n", address, attempt, p.retryAttempts)
+		}
+
+		// Conectar a la impresora
+		conn, err := net.DialTimeout("tcp", address, p.timeout)
+		if err != nil {
+			lastErr = err
+			continue // Intentar de nuevo
+		}
+
+		// Establecer timeout de escritura
+		conn.SetWriteDeadline(time.Now().Add(p.timeout))
+		conn.SetReadDeadline(time.Now().Add(p.timeout))
+
+		// Enviar datos
+		_, err = conn.Write([]byte(data))
+		conn.Close() // Cerrar inmediatamente después de enviar
+
+		if err != nil {
+			lastErr = err
+			continue // Intentar de nuevo
+		}
+
+		// Éxito
+		return nil
 	}
-	defer conn.Close()
 
-	// Establecer timeout de escritura
-	conn.SetWriteDeadline(time.Now().Add(p.timeout))
-
-	// Enviar datos
-	_, err = conn.Write([]byte(data))
-	if err != nil {
-		return fmt.Errorf("error al enviar datos a la impresora: %w", err)
-	}
-
-	return nil
+	// Si llegamos aquí, todos los intentos fallaron
+	return fmt.Errorf("error al conectar con la impresora en %s después de %d intentos: %w",
+		address, p.retryAttempts, lastErr)
 }
 
 // TestConnection prueba la conexión con la impresora enviando un ticket de prueba

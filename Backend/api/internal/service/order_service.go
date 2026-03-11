@@ -25,13 +25,14 @@ type OrderService interface {
 }
 
 type orderService struct {
-	orderRepo         repository.OrderRepository
-	tableRepo         repository.TableRepository
-	menuRepo          repository.MenuRepository
-	ingredientRepo    repository.IngredientRepository
-	accompanimentRepo repository.AccompanimentRepository
-	wsHub             *wshub.Hub
-	blockchain        BlockchainService
+orderRepo         repository.OrderRepository
+tableRepo         repository.TableRepository
+menuRepo          repository.MenuRepository
+ingredientRepo    repository.IngredientRepository
+accompanimentRepo repository.AccompanimentRepository
+wsHub             *wshub.Hub
+blockchain        BlockchainService
+kitchenTicketService *KitchenTicketService
 }
 
 func NewOrderService(
@@ -42,15 +43,17 @@ func NewOrderService(
 	accompanimentRepo repository.AccompanimentRepository,
 	wsHub *wshub.Hub,
 	bc BlockchainService,
+	kitchenTicketService *KitchenTicketService,
 ) OrderService {
 	return &orderService{
-		orderRepo:         orderRepo,
-		tableRepo:         tableRepo,
-		menuRepo:          menuRepo,
-		ingredientRepo:    ingredientRepo,
-		accompanimentRepo: accompanimentRepo,
-		wsHub:             wsHub,
-		blockchain:        bc,
+		 orderRepo:         orderRepo,
+		 tableRepo:         tableRepo,
+		 menuRepo:          menuRepo,
+		 ingredientRepo:    ingredientRepo,
+		 accompanimentRepo: accompanimentRepo,
+		 wsHub:             wsHub,
+		 blockchain:        bc,
+		 kitchenTicketService: kitchenTicketService,
 	}
 }
 
@@ -84,50 +87,42 @@ func (s *orderService) CreateOrder(waiterID uuid.UUID, tableNumber int, orderTyp
 		}
 	}
 
-	// 3. Determinar mesa según tipo de orden
+	// 3. Determinar mesa según tipo de orden (Manejo de mesas virtuales)
 	var table *domain.Table
 	var err error
 
 	if orderType == "domicilio" {
-		// Usar mesa virtual 9998 para domicilios
 		table, err = s.tableRepo.GetByNumber(9998)
 		if err != nil {
 			return nil, errors.New("mesa virtual para domicilios no está configurada")
 		}
 	} else if orderType == "llevar" {
-		// Usar mesa virtual 9999 para llevar
 		table, err = s.tableRepo.GetByNumber(9999)
 		if err != nil {
 			return nil, errors.New("mesa virtual para llevar no está configurada")
 		}
 	} else {
-		// Para "mesa", usar el número de mesa proporcionado
 		table, err = s.tableRepo.GetByNumber(tableNumber)
 		if err != nil {
 			return nil, errors.New("la mesa seleccionada no es válida o no está activa")
 		}
 	}
 
-	// 4. Forzar is_takeout según el tipo de orden
+	// 4. Forzar is_takeout y procesar customizaciones
 	for i := range items {
 		if orderType == "llevar" || orderType == "domicilio" {
-			items[i].IsTakeout = true // FORZAR A TRUE
+			items[i].IsTakeout = true
 		}
-		// Si es "mesa", respetar el valor que viene del frontend
-	}
 
-	// Procesar customizaciones para cada item
-	for i := range items {
-		// Obtener todos los ingredientes y acompañantes del menu item
+		// Obtener detalles para inyectar ingredientes/acompañantes
 		allIngredients, allAccompaniments, err := s.menuRepo.GetMenuItemDetails(items[i].MenuItemID)
 		if err != nil {
-			log.Printf("⚠️ Error obteniendo detalles del menu item %s: %v", items[i].MenuItemID, err)
+			log.Printf("⚠️ Error detalles menu item %s: %v", items[i].MenuItemID, err)
 			allIngredients = []domain.Ingredient{}
 			allAccompaniments = []domain.Accompaniment{}
 		}
 
 		if items[i].CustomizationsInput != nil {
-			// Crear mapas para búsqueda rápida de IDs removidos/no seleccionados
 			removedIngredientsMap := make(map[uuid.UUID]bool)
 			for _, id := range items[i].CustomizationsInput.RemovedIngredientIDs {
 				removedIngredientsMap[id] = true
@@ -138,7 +133,6 @@ func (s *orderService) CreateOrder(waiterID uuid.UUID, tableNumber int, orderTyp
 				unselectedAccompanimentsMap[id] = true
 			}
 
-			// Filtrar ingredientes ACTIVOS (todos menos los removidos)
 			activeIngredients := []domain.Ingredient{}
 			for _, ingredient := range allIngredients {
 				if !removedIngredientsMap[ingredient.ID] {
@@ -146,7 +140,6 @@ func (s *orderService) CreateOrder(waiterID uuid.UUID, tableNumber int, orderTyp
 				}
 			}
 
-			// Filtrar acompañamientos SELECCIONADOS (todos menos los no seleccionados)
 			selectedAccompaniments := []domain.Accompaniment{}
 			for _, accompaniment := range allAccompaniments {
 				if !unselectedAccompanimentsMap[accompaniment.ID] {
@@ -154,13 +147,11 @@ func (s *orderService) CreateOrder(waiterID uuid.UUID, tableNumber int, orderTyp
 				}
 			}
 
-			// Construir el objeto Customizations con solo lo que SÍ lleva el plato
 			items[i].Customizations = domain.Customizations{
 				ActiveIngredients:      activeIngredients,
 				SelectedAccompaniments: selectedAccompaniments,
 			}
 		} else {
-			// Si no hay customizaciones, devolver todo (sin filtros)
 			items[i].Customizations = domain.Customizations{
 				ActiveIngredients:      allIngredients,
 				SelectedAccompaniments: allAccompaniments,
@@ -168,6 +159,7 @@ func (s *orderService) CreateOrder(waiterID uuid.UUID, tableNumber int, orderTyp
 		}
 	}
 
+	// 5. Calcular total y persistir orden
 	var total float64
 	for _, item := range items {
 		total += item.PriceAtOrder * float64(item.Quantity)
@@ -192,7 +184,26 @@ func (s *orderService) CreateOrder(waiterID uuid.UUID, tableNumber int, orderTyp
 		return nil, err
 	}
 
+	// =================================================================
+	// INTEGRACIÓN DE IMPRESIÓN (MODIFICADO)
+	// =================================================================
+	if s.kitchenTicketService != nil {
+		// Ejecutamos en una Goroutine para no bloquear la respuesta del API
+		go func(orderID uuid.UUID) {
+			log.Printf("🖨️ Iniciando flujo de impresión para Orden: %s", orderID)
+			_, printErr := s.kitchenTicketService.PrintOrderAllDestinations(orderID)
+			if printErr != nil {
+				log.Printf("❌ Error en PrintOrderAllDestinations: %v", printErr)
+			} else {
+				log.Printf("✅ Impresión enviada con éxito (Estaciones + Caja) para Orden: %s", orderID)
+			}
+		}(createdOrder.ID)
+	}
+	// =================================================================
+
+	// Notificar vía WebSockets
 	s.wsHub.BroadcastMessage("NEW_PENDING_ORDER", createdOrder)
+	
 	return createdOrder, nil
 }
 

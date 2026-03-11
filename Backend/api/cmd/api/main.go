@@ -58,15 +58,14 @@ func main() {
 	authService := service.NewAuthService(userRepo)
 	menuService := service.NewMenuService(menuRepo, wsHub)
 
-	// MODIFICADO: Pasamos blockchainService, menuRepo, ingredientRepo y accompanimentRepo
-	orderService := service.NewOrderService(orderRepo, tableRepo, menuRepo, ingredientRepo, accompanimentRepo, wsHub, blockchainService)
+	kitchenTicketService := service.NewKitchenTicketService(orderRepo, printerRepo, stationRepo)
+	orderService := service.NewOrderService(orderRepo, tableRepo, menuRepo, ingredientRepo, accompanimentRepo, wsHub, blockchainService, kitchenTicketService)
 	tableService := service.NewTableService(tableRepo)
 	categoryService := service.NewCategoryService(categoryRepo)
 	ingredientService := service.NewIngredientService(ingredientRepo)
 	accompanimentService := service.NewAccompanimentService(accompanimentRepo)
 	stationService := service.NewStationService(stationRepo)
 	printerService := service.NewPrinterService(printerRepo)
-	kitchenTicketService := service.NewKitchenTicketService(orderRepo, printerRepo, stationRepo)
 
 	// Handlers
 	userHandler := handler.NewUserHandler(userService)

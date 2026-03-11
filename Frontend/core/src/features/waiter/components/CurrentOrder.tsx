@@ -2,10 +2,8 @@
 // ARCHIVO 2: /src/features/waiter/components/CurrentOrder.tsx (MEJORADO)
 // =================================================================
 import React, { useState } from 'react';
-import { FaMapMarkedAlt } from 'react-icons/fa';
 import type { CartItem } from '../../../types/menu';
 import type { Table } from '../../../types/tables';
-import TableMapModal from './TableMapModal';
 
 interface CurrentOrderProps {
   cart: CartItem[];
@@ -14,7 +12,7 @@ interface CurrentOrderProps {
   orderType: string; // "mesa" | "llevar" | "domicilio"
   onTableChange: (value: string) => void;
   onCartAction: (item: CartItem, action: 'delete') => void;
-  onSendOrder: () => void;
+  onSendOrder: (takeoutNotes?: string) => void;
   onEditItem: (item: CartItem) => void;
   onUpdateItemPrice?: (cartItemId: string, newPrice: number) => void;
   onIncrementQuantity?: (cartItemId: string) => void; // Nueva función
@@ -25,9 +23,9 @@ interface CurrentOrderProps {
 const CurrentOrder: React.FC<CurrentOrderProps> = ({
   cart,
   tableId,
-  tables,
+  tables: _tables,
   orderType,
-  onTableChange,
+  onTableChange: _onTableChange,
   onCartAction,
   onSendOrder,
   onEditItem,
@@ -38,25 +36,10 @@ const CurrentOrder: React.FC<CurrentOrderProps> = ({
 }) => {
   const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
   const [tempPrice, setTempPrice] = useState<number>(0);
-  // 🆕 MEJORA UX #2: Estado para colapsar/expandir detalles (Reducir Carga Cognitiva)
-  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
-  // 🆕 MEJORA UX #6: Estado para modal de mapa de mesas
-  const [showTableMap, setShowTableMap] = useState(false);
+  // Estado para notas adicionales en pedidos para llevar
+  const [takeoutNotes, setTakeoutNotes] = useState("");
 
   const total = cart.reduce((sum, item) => sum + item.finalPrice, 0);
-
-
-  const toggleExpand = (cartItemId: string) => {
-    setExpandedItems(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(cartItemId)) {
-        newSet.delete(cartItemId);
-      } else {
-        newSet.add(cartItemId);
-      }
-      return newSet;
-    });
-  };
 
   const handleStartEditPrice = (item: CartItem) => {
     setEditingPriceId(item.cartItemId);
@@ -78,296 +61,202 @@ const CurrentOrder: React.FC<CurrentOrderProps> = ({
 
   return (
     <div className="pb-4 flex flex-col h-full">
-      <h2 className="text-xl font-bold mb-4 text-gray-800">Nueva Orden</h2>
-
-      {/* 🆕 MEJORA UX #6: Selector compacto de mesa en una línea con modal */}
-      {orderType === 'mesa' && (
-        <div className="mb-4 flex items-center gap-2">
-          {tableId ? (
-            // Mesa seleccionada - mostrar badge compacto
-            <div className="flex-1 flex items-center justify-between bg-green-50 border-2 border-green-300 rounded-lg px-3 py-2">
-              <span className="text-green-700 font-semibold text-sm flex items-center gap-2">
-                ✓ Mesa {tables.find(t => t.id === tableId)?.table_number}
-              </span>
-              <button
-                onClick={() => onTableChange('')}
-                className="text-xs text-red-600 hover:text-red-700 font-medium"
-              >
-                Cambiar
-              </button>
-            </div>
-          ) : (
-            // No hay mesa seleccionada - mostrar mensaje
-            <div className="flex-1 bg-yellow-50 border-2 border-yellow-300 rounded-lg px-3 py-2">
-              <span className="text-yellow-800 text-sm font-medium">
-                ⚠️ Selecciona una mesa
-              </span>
-            </div>
+      {/* Encabezado de sección */}
+      <div className="flex items-center justify-between mb-4 mt-1">
+        <h2 className="text-base font-bold text-gray-800 uppercase tracking-wide">Pedido Actual</h2>
+        {cart.length > 0 && (
+          <span className="bg-indigo-100 text-indigo-700 text-xs font-bold px-2.5 py-1 rounded-full">
+            {cart.reduce((s, i) => s + i.quantity, 0)} Items
+          </span>
+        )}
+      </div>
+      {/* Campo de notas obligatorias para llevar */}
+      {orderType === 'llevar' && (
+        <div className="mb-4">
+          <label htmlFor="takeoutNotes" className="block text-sm font-semibold text-red-700 mb-2">Notas especiales para llevar <span className="text-red-500">(obligatorio)</span></label>
+          <textarea
+            id="takeoutNotes"
+            value={takeoutNotes}
+            onChange={e => setTakeoutNotes(e.target.value)}
+            placeholder="Ej: Nombre para reclamar, instrucciones, etc."
+            rows={2}
+            className="w-full px-4 py-2 border-2 border-red-300 rounded-xl focus:outline-none focus:border-red-500 focus:ring-2 focus:ring-red-200 transition-all"
+            required
+          />
+          {takeoutNotes.trim() === '' && (
+            <p className="text-xs text-red-600 mt-1">Debes ingresar una nota especial para pedidos para llevar.</p>
           )}
-
-          {/* Botón para abrir mapa de mesas */}
-          <button
-            onClick={() => setShowTableMap(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all font-semibold shadow-md hover:shadow-lg"
-            title="Abrir mapa de mesas"
-          >
-            <FaMapMarkedAlt className="text-lg" />
-            <span className="hidden sm:inline">Mapa</span>
-          </button>
         </div>
       )}
 
-      {/* Modal de Mapa de Mesas */}
-      <TableMapModal
-        isOpen={showTableMap}
-        onClose={() => setShowTableMap(false)}
-        tables={tables}
-        selectedTableId={tableId}
-        onSelectTable={onTableChange}
-      />
+      {/* Aviso si no hay mesa seleccionada */}
+      {orderType === 'mesa' && !tableId && (
+        <div className="mb-4 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">
+          <p className="text-xs text-amber-700 font-medium text-center">
+            ⚠️ Toca «Cambiar Mesa» arriba para elegir una mesa
+          </p>
+        </div>
+      )}
 
-      <div className="flex-grow space-y-2 mb-4 overflow-y-auto">
-        {cart.length === 0 && <p className="text-gray-500 text-center mt-10">El carrito está vacío</p>}
-        {cart.map((item, index) => {
-          // Ingredientes que vienen originalmente con el plato
-          const originalIngredients = item.ingredients || [];
-          const isExpanded = expandedItems.has(item.cartItemId);
+<div className="flex-grow space-y-3 mb-4 overflow-y-auto">
+        {cart.length === 0 && (
+          <p className="text-gray-400 text-sm text-center mt-10">El carrito está vacío</p>
+        )}
+        {cart.map((item) => {
+          const removedIngredients = item.removedIngredients || [];
+          const selectedAccompaniments = item.selectedAccompaniments || [];
+
+          // Línea de personalización visible
+          const customParts: string[] = [];
+          if (removedIngredients.length > 0)
+            customParts.push(`Sin ${removedIngredients.map(r => r.name).join(', ')}`);
+          if (selectedAccompaniments.length > 0)
+            customParts.push(selectedAccompaniments.map(a => a.name).join(', '));
+          if (item.notes) customParts.push(item.notes);
+          const customSummary = customParts.join(' · ');
 
           return (
-            <div key={item.cartItemId} className="relative p-2 bg-white rounded border border-gray-200">
-              {/* Badge de número de item - COMPACTO */}
-              <div className="absolute -top-2 -left-2 z-10">
-                <div className="bg-green-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shadow">
-                  {index + 1}
+            <div
+              key={item.cartItemId}
+              className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
+            >
+              <div className="flex items-start p-3 gap-3">
+                {/* Imagen del producto */}
+                <div className="flex-shrink-0 w-16 h-16 rounded-xl overflow-hidden bg-gray-100">
+                  {item.image_url ? (
+                    <img
+                      src={item.image_url}
+                      alt={item.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-2xl">
+                      🍽️
+                    </div>
+                  )}
                 </div>
-              </div>
 
-              <div className="flex gap-2">
-                <div className="flex-1 ml-4">
-                  {/* INFORMACIÓN SIEMPRE VISIBLE */}
-                  <div className="flex items-start justify-between">
-                    <p className="font-bold text-sm text-gray-800 flex-1">{item.name}</p>
-                    <button
-                      onClick={() => toggleExpand(item.cartItemId)}
-                      className="text-gray-500 hover:text-gray-700 p-1 ml-2"
-                      title={isExpanded ? "Ocultar detalles" : "Ver detalles"}
-                    >
-                      {isExpanded ? '▲' : '▼'}
-                    </button>
+                {/* Info central */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-sm text-gray-900 truncate">{item.name}</p>
+                      {customSummary && (
+                        <p className="text-xs text-gray-400 truncate mt-0.5">{customSummary}</p>
+                      )}
+                    </div>
+                    {/* Precio */}
+                    {editingPriceId === item.cartItemId ? (
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <span className="text-xs text-gray-500">$</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={tempPrice}
+                          onChange={(e) => setTempPrice(parseFloat(e.target.value))}
+                          className="w-20 px-2 py-0.5 border rounded text-sm"
+                          autoFocus
+                        />
+                        <button onClick={() => handleSavePrice(item)} className="text-green-600 text-sm font-bold">✓</button>
+                        <button onClick={handleCancelEditPrice} className="text-red-500 text-sm font-bold">✕</button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => onUpdateItemPrice && handleStartEditPrice(item)}
+                        className={`flex-shrink-0 text-right ${onUpdateItemPrice ? 'cursor-pointer hover:opacity-75' : 'cursor-default'}`}
+                        disabled={!onUpdateItemPrice}
+                      >
+                        <span className="text-sm font-bold text-indigo-600">
+                          ${item.finalPrice.toLocaleString('es-CO', { minimumFractionDigits: 2 })}
+                        </span>
+                      </button>
+                    )}
                   </div>
 
-                  {/* Controles de Cantidad - SIEMPRE VISIBLE */}
-                  {onIncrementQuantity && onDecrementQuantity && (
-                    <div className="flex items-center gap-2 mt-2">
-                      <span className="text-xs text-gray-600">Cant:</span>
-                      <div className="flex items-center border border-gray-300 rounded overflow-hidden">
+                  {/* Controles de cantidad + botones acción */}
+                  <div className="flex items-center justify-between mt-2">
+                    {/* Cantidad */}
+                    {onIncrementQuantity && onDecrementQuantity ? (
+                      <div className="flex items-center rounded-lg border border-gray-200 overflow-hidden bg-gray-50">
                         <button
                           onClick={() => onDecrementQuantity(item.cartItemId)}
                           disabled={item.quantity <= 1}
-                          className="px-2 py-1 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed text-sm font-bold"
+                          className="w-7 h-7 flex items-center justify-center text-gray-600 hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed text-base font-bold transition-colors"
                         >
                           −
                         </button>
-                        <div className="px-3 py-1 text-sm font-bold border-x border-gray-300 min-w-[2.5rem] text-center">
+                        <span className="px-2.5 text-sm font-bold text-gray-800 min-w-[1.75rem] text-center">
                           {item.quantity}
-                        </div>
+                        </span>
                         <button
                           onClick={() => onIncrementQuantity(item.cartItemId)}
-                          className="px-2 py-1 hover:bg-gray-100 text-sm font-bold"
+                          className="w-7 h-7 flex items-center justify-center text-gray-600 hover:bg-gray-200 text-base font-bold transition-colors"
                         >
                           +
                         </button>
                       </div>
-                    </div>
-                  )}
+                    ) : (
+                      <span className="text-xs text-gray-500">x{item.quantity}</span>
+                    )}
 
-                  {/* PRECIO - SIEMPRE VISIBLE */}
-                  {editingPriceId === item.cartItemId ? (
-                    <div className="flex items-center gap-2 mt-2">
-                      <span className="text-sm font-medium">$</span>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={tempPrice}
-                        onChange={(e) => setTempPrice(parseFloat(e.target.value))}
-                        className="w-20 px-2 py-1 border rounded text-sm"
-                        autoFocus
-                      />
-                      <button
-                        onClick={() => handleSavePrice(item)}
-                        className="text-green-600 hover:text-green-700 text-sm font-medium"
-                      >
-                        ✓
-                      </button>
-                      <button
-                        onClick={handleCancelEditPrice}
-                        className="text-red-600 hover:text-red-700 text-sm font-medium"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="mt-2 flex items-center justify-between">
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-lg font-bold text-green-600">
-                          ${item.finalPrice.toFixed(2)}
-                        </span>
-                        {item.quantity > 1 && (
-                          <span className="text-xs text-gray-500">
-                            (${(item.finalPrice / item.quantity).toFixed(2)} c/u)
-                          </span>
-                        )}
-                      </div>
-                      {onUpdateItemPrice && (
+                    {/* Botones editar + eliminar */}
+                    <div className="flex items-center gap-1">
+                      {/* Toggle llevar/aquí */}
+                      {orderType === 'mesa' && onToggleTakeout && (
                         <button
-                          onClick={() => handleStartEditPrice(item)}
-                          className="text-blue-500 hover:text-blue-700 p-1"
-                          title="Editar precio"
+                          onClick={() => onToggleTakeout(item.cartItemId)}
+                          className={`text-xs px-2 py-1 rounded-lg border font-medium transition-colors ${
+                            item.is_takeout
+                              ? 'bg-green-50 border-green-200 text-green-700'
+                              : 'bg-blue-50 border-blue-200 text-blue-700'
+                          }`}
+                          title="Cambiar tipo"
                         >
-                          <span className="text-sm">✎</span>
+                          {item.is_takeout ? '🥡' : '🍽️'}
                         </button>
                       )}
+                      <button
+                        onClick={() => onEditItem(item)}
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                        title="Editar"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h10" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() => onCartAction(item, 'delete')}
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                        title="Eliminar"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
                     </div>
-                  )}
-
-                  {/* DETALLES COLAPSABLES */}
-                  {isExpanded && (
-                    <div className="mt-3 space-y-2 border-t pt-2">
-                      {/* Toggle Para Llevar/Mesa - 🆕 MEJORA UX #4: Solo si tipo = mesa */}
-                      {orderType === 'mesa' && onToggleTakeout && (
-                        <div>
-                          <button
-                            onClick={() => onToggleTakeout(item.cartItemId)}
-                            className={`flex items-center gap-1 px-2 py-1 rounded border text-xs font-semibold transition-colors ${
-                              item.is_takeout
-                                ? 'bg-green-50 border-green-300 text-green-700 hover:bg-green-100'
-                                : 'bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100'
-                            }`}
-                          >
-                            <span>{item.is_takeout ? '🥡' : '🍽️'}</span>
-                            <span>{item.is_takeout ? 'P/Llevar' : 'Aquí'}</span>
-                          </button>
-                        </div>
-                      )}
-
-                      {/* Badge para llevar o domicilio */}
-                      {(orderType === 'llevar' || orderType === 'domicilio') && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-green-50 border border-green-200 text-green-700 text-xs font-semibold">
-                          🥡 P/Llevar
-                        </span>
-                      )}
-
-                      {/* Notas */}
-                      {item.notes && (
-                        <div className="p-2 bg-yellow-50 rounded border border-yellow-200">
-                          <p className="text-xs italic text-gray-700">
-                            📝 {item.notes}
-                          </p>
-                        </div>
-                      )}
-
-                      {/* CUSTOMIZACIONES */}
-                      {(() => {
-                        const activeIngredients = originalIngredients.filter(
-                          ing => !item.removedIngredients.find(removed => removed.id === ing.id)
-                        );
-                        const selectedAccompaniments = item.selectedAccompaniments;
-                        const hasCustomizations = activeIngredients.length > 0 || selectedAccompaniments.length > 0;
-
-                        if (!hasCustomizations) return null;
-
-                        return (
-                          <div className="space-y-1">
-                            {/* INGREDIENTES */}
-                            {activeIngredients.length > 0 && (
-                              <div className="p-1.5 bg-green-50 rounded border border-green-200">
-                                <p className="text-xs font-semibold text-green-700 mb-1">🥬 Ingredientes:</p>
-                                <div className="flex flex-wrap gap-1">
-                                  {activeIngredients.map(ing => (
-                                    <span key={ing.id} className="text-xs bg-white px-1.5 py-0.5 rounded border border-green-200 text-green-700">
-                                      {ing.name}
-                                    </span>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-
-                            {/* ACOMPAÑANTES */}
-                            {selectedAccompaniments.length > 0 && (
-                              <div className="p-1.5 bg-blue-50 rounded border border-blue-200">
-                                <p className="text-xs font-semibold text-blue-700 mb-1">🍽️ Acompañantes:</p>
-                                <div className="flex flex-wrap gap-1">
-                                  {selectedAccompaniments.map(acc => (
-                                    <span key={acc.id} className="text-xs bg-white px-1.5 py-0.5 rounded border border-blue-200 text-blue-700">
-                                      {acc.name}
-                                    </span>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })()}
-                    </div>
-                  )}
-                </div>
-
-                {/* Botones de acción - COMPACTO */}
-                <div className="flex flex-col gap-1">
-                  <button
-                    onClick={() => onEditItem(item)}
-                    className="text-blue-600 hover:text-blue-700 p-1.5 rounded hover:bg-blue-50"
-                    title="Editar"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                  </button>
-                  <button
-                    onClick={() => onCartAction(item, 'delete')}
-                    className="text-red-600 hover:text-red-700 p-1.5 rounded hover:bg-red-50"
-                    title="Eliminar"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
+                  </div>
                 </div>
               </div>
             </div>
           );
         })}
       </div>
-      <div className="pt-3 border-t border-gray-200 bg-white">
-        {/* Total compacto */}
-        <div className="mb-3 p-3 bg-gray-50 rounded border border-gray-200">
-          <div className="flex justify-between items-center">
-            <div>
-              <p className="text-xs text-gray-600">Total</p>
-              <p className="text-2xl font-bold text-gray-800">${total.toFixed(2)}</p>
-            </div>
-            {cart.length > 0 && (
-              <div className="text-right text-xs text-gray-500">
-                <p>{cart.length} prod.</p>
-                <p>{cart.reduce((sum, item) => sum + item.quantity, 0)} unid.</p>
-              </div>
-            )}
-          </div>
-        </div>
 
-        {/* Recordatorio compacto */}
-        <div className="mb-3 p-2 bg-blue-50 border border-blue-200 rounded">
-          <p className="text-xs text-blue-700 text-center font-medium">
-            💳 Cobra primero, luego envía
-          </p>
+      {/* Footer: Total + Botón */}
+      <div className="flex-shrink-0 bg-white border-t border-gray-100 px-4 py-3 space-y-3">
+        <div className="flex items-center justify-between">
+          <span className="text-base font-bold text-gray-800">Total</span>
+          <span className="text-xl font-extrabold text-indigo-600">
+            ${total.toLocaleString('es-CO', { minimumFractionDigits: 2 })}
+          </span>
         </div>
 
         <button
-          onClick={onSendOrder}
-          className="w-full bg-gradient-to-r from-green-600 to-green-700 text-white py-3 rounded-lg hover:from-green-700 hover:to-green-800 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all font-bold shadow-lg disabled:shadow-none"
-          disabled={!tableId || cart.length === 0}
+          onClick={() => onSendOrder(orderType === 'llevar' ? takeoutNotes : undefined)}
+          className="mt-2 w-full bg-indigo-600 text-white py-3 rounded-2xl hover:bg-indigo-700 active:bg-indigo-800 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all font-bold text-sm shadow-md disabled:shadow-none"
+          disabled={!tableId || cart.length === 0 || (orderType === 'llevar' && takeoutNotes.trim() === '')}
         >
-          💰 Cobrar y Enviar Orden
+          Cobrar y Enviar Orden
         </button>
       </div>
     </div>

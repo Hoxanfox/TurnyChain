@@ -51,6 +51,7 @@ export interface Order {
   delivery_address?: string;
   delivery_phone?: string;
   delivery_notes?: string;
+  customer_name?: string; // Nuevo: nombre del cliente para llevar/domicilio
 }
 
 // ============================================

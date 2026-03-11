@@ -5,6 +5,7 @@ import React, { useEffect, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchMyOrders } from '../../shared/orders/api/ordersSlice.ts';
 import type { AppDispatch, RootState } from '../../../app/store';
+import { formatMoney } from '../../../utils/formatUtils.ts';
 
 interface MyOrdersListProps {
   onSelectOrder: (orderId: string) => void;
@@ -78,7 +79,7 @@ const MyOrdersList: React.FC<MyOrdersListProps> = ({ onSelectOrder, onCheckout, 
             >
               <div className="flex justify-between font-semibold">
                 <span>Mesa {order.table_number}</span>
-                <span>${order.total.toFixed(2)}</span>
+                <span>{formatMoney(order.total)}</span>
               </div>
               <div className="text-sm text-gray-600 flex items-center gap-2">
                 <span className={`px-2 py-0.5 rounded text-xs ${
