@@ -12,6 +12,7 @@ import { QuickActionsBar } from './components/QuickActionsBar';
 import { Notification } from '../../components/Notification';
 import LogoutButton from '../../components/LogoutButton';
 import OrderDetailModal from '../shared/orders/components/OrderDetailModal';
+import { formatMoney } from '../../utils/formatUtils.ts';
 
 interface CashierStatistics {
   totalPaid: number;
@@ -67,10 +68,11 @@ interface CashierDashboardMobileProps {
   onPrintCommand: (orderId: string) => void;
   onPrintFullCommand: (orderId: string) => void;
   onPreviewTickets: (orderId: string) => void;
+  onCancelOrder: (orderId: string) => void;
 }
 
 export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
-  showStats,
+  showStats: _showStats,
   filterStatus,
   paymentMethodFilter,
   searchQuery,
@@ -80,7 +82,7 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
   pendingVerificationCount,
   isLoading,
   notification,
-  onToggleStats,
+  onToggleStats: _onToggleStats,
   onFilterStatusChange,
   onPaymentMethodFilterChange,
   onSearchQueryChange,
@@ -95,12 +97,14 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
   onPrintCommand,
   onPrintFullCommand,
   onPreviewTickets,
+  onCancelOrder,
 }) => {
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [selectedTableNumber, setSelectedTableNumber] = useState<number | null>(null);
   const [selectedOrderIdForDetail, setSelectedOrderIdForDetail] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'tables' | 'urgent'>('tables');
   const [showActionMenu, setShowActionMenu] = useState(false);
+  const [currentView, setCurrentView] = useState<'main' | 'statistics'>('main');
 
   // Obtener todas las órdenes
   const allOrders = Object.values(ordersByTable).flat();
@@ -151,7 +155,7 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 pb-24">
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 pb-24 text-gray-900" style={{ colorScheme: 'light' }}>
       {/* Notificaciones */}
       {notification && (
         <Notification
@@ -162,7 +166,49 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
         />
       )}
 
-      {/* Header fijo */}
+      {/* ===== VISTA DE ESTADÍSTICAS ===== */}
+      {currentView === 'statistics' && (
+        <>
+          {/* Header vista estadísticas */}
+          <div className="sticky top-0 z-40 shadow-lg" style={{ background: 'linear-gradient(135deg, #6d28d9 0%, #7c3aed 40%, #4f46e5 100%)' }}>
+            <div className="px-4 pt-4 pb-4 flex items-center gap-3">
+              <button
+                onClick={() => setCurrentView('main')}
+                className="w-10 h-10 bg-white bg-opacity-20 rounded-xl flex items-center justify-center active:scale-95 transition-all"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <div className="flex items-center gap-3 flex-1">
+                <div className="w-10 h-10 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
+                  <span className="text-xl">📊</span>
+                </div>
+                <div>
+                  <h1 className="text-lg font-bold text-white leading-tight">Estadísticas</h1>
+                  <p className="text-xs text-purple-200">Resumen del día</p>
+                </div>
+              </div>
+              <button
+                onClick={() => { onExportReport(); }}
+                className="flex items-center gap-1.5 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-xl px-3 py-2 active:scale-95 transition-all"
+              >
+                <span className="text-sm">📥</span>
+                <span className="text-xs font-semibold text-white">Exportar</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Contenido de estadísticas */}
+          <div className="p-4">
+            <StatisticsCard stats={statsForCard} />
+          </div>
+        </>
+      )}
+
+      {/* ===== VISTA PRINCIPAL ===== */}
+      {currentView === 'main' && (
+        <>
       <div className="sticky top-0 z-40 shadow-lg" style={{ background: 'linear-gradient(135deg, #6d28d9 0%, #7c3aed 40%, #4f46e5 100%)' }}>
         <div className="px-4 pt-4 pb-3">
           {/* Fila principal: título + botón menú */}
@@ -180,18 +226,17 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
               </div>
             </div>
 
-            {/* Botón menú — fondo blanco sólido con texto oscuro */}
+            {/* Botón menú — fondo blanco sólido con ícono únicamente */}
             <button
               onClick={() => setShowActionMenu(true)}
-              className="relative flex items-center gap-2 bg-white rounded-xl px-3 py-2 shadow-md active:scale-95 transition-all flex-shrink-0"
+              className="relative flex items-center justify-center bg-white rounded-xl w-10 h-10 shadow-md active:scale-95 transition-all flex-shrink-0"
             >
               {(activeFiltersCount > 0 || pendingVerificationCount > 0) && (
                 <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center shadow">
                   {activeFiltersCount + (pendingVerificationCount > 0 ? 1 : 0)}
                 </span>
               )}
-              <span className="text-sm font-semibold text-purple-700">Menú</span>
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
@@ -281,15 +326,17 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
 
               {/* Estadísticas */}
               <button
-                onClick={() => { setShowActionMenu(false); onToggleStats(); }}
+                onClick={() => { setShowActionMenu(false); setCurrentView('statistics'); }}
                 className="w-full flex items-center gap-4 px-4 py-4 rounded-2xl bg-blue-50 hover:bg-blue-100 active:scale-98 transition-all"
               >
                 <span className="text-2xl w-8 text-center">📊</span>
                 <div className="flex-1 text-left">
-                  <p className="font-semibold text-gray-800">{showStats ? 'Ocultar' : 'Mostrar'} Estadísticas</p>
-                  <p className="text-xs text-gray-500">Resumen de ingresos y órdenes del día</p>
+                  <p className="font-semibold text-gray-800">Estadísticas del Día</p>
+                  <p className="text-xs text-gray-500">Resumen de ingresos y órdenes</p>
                 </div>
-                <div className={`w-2 h-2 rounded-full ${showStats ? 'bg-blue-500' : 'bg-gray-300'}`} />
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
               </button>
 
               {/* Impresión */}
@@ -341,11 +388,6 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
       )}
 
       {/* Estadísticas */}
-      {showStats && (
-        <div className="p-4">
-          <StatisticsCard stats={statsForCard} />
-        </div>
-      )}
 
       {/* Contenido principal */}
       <div className="p-4">
@@ -394,13 +436,13 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="text-2xl">🪑</span>
-                          <h3 className="text-xl font-bold">Mesa {order.table_number}</h3>
+                          <h3 className="text-xl font-bold text-gray-900">Mesa {order.table_number}</h3>
                         </div>
                         <p className="text-sm text-gray-600 mt-1">Orden #{order.id.slice(0, 8)}</p>
                         <p className="text-sm text-gray-600">Mesero: {order.waiter_name || 'N/A'}</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-2xl font-bold text-green-600">${order.total.toFixed(2)}</p>
+                        <p className="text-2xl font-bold text-green-600">{formatMoney(order.total)}</p>
                         <p className="text-xs text-gray-500">{order.payment_method}</p>
                       </div>
                     </div>
@@ -470,6 +512,7 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
         onPrintCommand={onPrintCommand}
         onPrintFullCommand={onPrintFullCommand}
         onPreviewTickets={onPreviewTickets}
+        onCancelOrder={onCancelOrder}
       />
 
       {/* Modal de Detalle de Orden */}
@@ -479,6 +522,8 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
           onClose={() => setSelectedOrderIdForDetail(null)}
           editable={false}
         />
+      )}
+        </>
       )}
     </div>
   );

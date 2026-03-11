@@ -6,6 +6,7 @@ import React, { useState, useMemo } from 'react';
 import type { CartItem } from '../../../types/menu';
 import type { Accompaniment } from '../../../types/accompaniments';
 import type { Ingredient } from '../../../types/ingredients';
+import { formatMoney } from '../../../utils/formatUtils.ts';
 
 interface EditCartItemModalProps {
   item: CartItem;
@@ -119,7 +120,7 @@ const EditCartItemModal: React.FC<EditCartItemModalProps> = ({ item, onConfirm, 
                           : 'bg-gray-200 text-gray-600'
                       }`}
                     >
-                      {acc.name} {acc.price > 0 && `(+$${acc.price.toFixed(2)})`}
+                      {acc.name} {acc.price > 0 && `(+${formatMoney(acc.price)})`}
                     </button>
                   );
                 })}
@@ -145,7 +146,7 @@ const EditCartItemModal: React.FC<EditCartItemModalProps> = ({ item, onConfirm, 
         <div className="mt-6 pt-4 border-t">
           <div className="flex justify-between items-center mb-4">
             <span className="text-lg font-semibold text-gray-700">Precio total del ítem:</span>
-            <span className="text-2xl font-bold text-green-600">${finalPrice.toFixed(2)}</span>
+            <span className="text-2xl font-bold text-green-600">{formatMoney(finalPrice)}</span>
           </div>
           <div className="flex gap-2">
             <button

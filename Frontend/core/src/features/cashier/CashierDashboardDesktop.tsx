@@ -71,6 +71,7 @@ interface CashierDashboardDesktopProps {
   onPrintFullCommand: (orderId: string) => void;
   onPreviewTickets: (orderId: string) => void;
   onViewProof: () => void;
+  onCancelOrder: (orderId: string) => void;
 }
 
 export const CashierDashboardDesktop: React.FC<CashierDashboardDesktopProps> = ({
@@ -102,6 +103,7 @@ export const CashierDashboardDesktop: React.FC<CashierDashboardDesktopProps> = (
   onPrintCommand,
   onPrintFullCommand,
   onPreviewTickets,
+  onCancelOrder,
 }) => {
   const [selectedProofOrder, setSelectedProofOrder] = useState<Order | null>(null);
   const [selectedOrderIdForDetail, setSelectedOrderIdForDetail] = useState<string | null>(null);
@@ -203,6 +205,7 @@ export const CashierDashboardDesktop: React.FC<CashierDashboardDesktopProps> = (
             onPrintCommand={onPrintCommand}
             onPrintFullCommand={onPrintFullCommand}
             onPreviewTickets={onPreviewTickets}
+            onCancelOrder={onCancelOrder}
           />
         </div>
 

@@ -6,12 +6,13 @@ import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { addNewOrder } from '../shared/orders/api/ordersSlice.ts';
 import { fetchTables } from '../admin/components/tables/api/tablesSlice.ts';
+import { formatMoney } from '../../utils/formatUtils.ts';
 import type { AppDispatch, RootState } from '../../app/store';
 import type { MenuItem, CartItem } from '../../types/menu';
 import OrderDetailModal from '../shared/orders/components/OrderDetailModal.tsx';
 import MyOrdersModal from './components/MyOrdersModal';
 import CheckoutBeforeSendModal from './components/CheckoutBeforeSendModal';
-import LogoutButton from '../../components/LogoutButton';
+import WaiterProfileMenu from './components/WaiterProfileMenu';
 import CustomizeOrderItemModal from './components/CustomizeOrderItemModal';
 import MenuDisplay from './components/MenuDisplay';
 import CurrentOrder from './components/CurrentOrder';
@@ -252,7 +253,7 @@ const WaiterDashboardDesktop: React.FC = () => {
     const total = cart.reduce((sum, item) => sum + item.finalPrice, 0);
     const selectedTable = findTableById(tables, tableId);
     toast.success(
-      `🎉 ¡Orden enviada!\nMesa ${selectedTable?.table_number || 'N/A'} • $${total.toFixed(2)}\n${cart.length} productos`,
+      `🎉 ¡Orden enviada!\nMesa ${selectedTable?.table_number || 'N/A'} • ${formatMoney(total)}\n${cart.length} productos`,
       {
         duration: 4000,
         style: {
@@ -302,7 +303,7 @@ const WaiterDashboardDesktop: React.FC = () => {
             >
               Historial
             </button>
-            <LogoutButton />
+            <WaiterProfileMenu />
           </div>
         </header>
 

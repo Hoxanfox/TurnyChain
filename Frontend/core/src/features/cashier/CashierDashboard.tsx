@@ -3,7 +3,7 @@
 // =================================================================
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchActiveOrders, changeOrderStatus, fetchOrderDetails } from '../shared/orders/api/ordersSlice';
+import { fetchActiveOrders, changeOrderStatus, fetchOrderDetails, cancelOrderAsAdmin } from '../shared/orders/api/ordersSlice';
 import type { AppDispatch, RootState } from '../../app/store';
 import { useCashierWebSocket } from '../../hooks/useCashierWebSocket';
 import { useIsDesktop } from '../../hooks/useMediaQuery';
@@ -150,6 +150,13 @@ const CashierDashboard: React.FC = () => {
   const handleRejectPayment = (orderId: string) => {
     if (confirm('¿Rechazar este comprobante? La orden volverá a "entregado".')) {
       dispatch(changeOrderStatus({ orderId, status: 'entregado' }));
+    }
+  };
+
+  const handleCancelOrder = (orderId: string) => {
+    if (confirm('¿Cancelar esta orden? La acción no se puede deshacer fácilmente.')) {
+      dispatch(cancelOrderAsAdmin(orderId));
+      setNotification({ title: '❌ Orden Cancelada', message: 'La orden fue marcada como cancelada.', type: 'warning' });
     }
   };
 
@@ -320,6 +327,7 @@ const CashierDashboard: React.FC = () => {
     onPrintCommand: handlePrintCommand,
     onPrintFullCommand: handlePrintFullCommand,
     onPreviewTickets: handlePreviewTickets,
+    onCancelOrder: handleCancelOrder,
   };
 
   // Renderizar vista según el dispositivo

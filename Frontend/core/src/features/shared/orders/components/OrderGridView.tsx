@@ -3,6 +3,18 @@
 // =================================================================
 import React from 'react';
 import type { Order } from '../../../../types/orders.ts';
+import { formatMoney } from '../../../../utils/formatUtils.ts';
+
+const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
+  pendiente_aprobacion: { label: '⏳ Pendiente', className: 'bg-gray-100 text-gray-700' },
+  recibido:             { label: '📥 Recibido', className: 'bg-sky-100 text-sky-700' },
+  en_preparacion:       { label: '👨‍🍳 En Preparación', className: 'bg-orange-100 text-orange-700' },
+  listo_para_servir:    { label: '🍽️ Listo para servir', className: 'bg-indigo-100 text-indigo-700' },
+  entregado:            { label: '✅ Entregado', className: 'bg-teal-100 text-teal-700' },
+  por_verificar:        { label: '🔍 Por Verificar', className: 'bg-yellow-100 text-yellow-800 animate-pulse' },
+  pagado:               { label: '💰 Pagado', className: 'bg-green-100 text-green-700' },
+  cancelado:            { label: '❌ Cancelado', className: 'bg-red-100 text-red-700' },
+};
 
 interface OrderGridViewProps {
   orders: Order[];
@@ -11,9 +23,9 @@ interface OrderGridViewProps {
 
 const OrderGridView: React.FC<OrderGridViewProps> = ({ orders, renderActions }) => {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4" style={{ colorScheme: 'light' }}>
       {Array.isArray(orders) && orders.map(order => (
-        <div key={order.id} className="bg-white p-4 rounded-lg shadow-md border border-gray-200 relative">
+        <div key={order.id} className="bg-white p-4 rounded-lg shadow-md border border-gray-200 relative text-gray-900">
           {/* Indicador de pago con comprobante */}
           {order.payment_method && (
             <div className="absolute top-2 right-2">
@@ -27,14 +39,15 @@ const OrderGridView: React.FC<OrderGridViewProps> = ({ orders, renderActions }) 
           )}
 
           <div className="flex justify-between items-center mb-2">
-            <p className="font-bold text-lg">Mesa: {order.table_number}</p>
-            <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
-              order.status === 'por_verificar' 
-                ? 'bg-yellow-100 text-yellow-800 animate-pulse' 
-                : 'bg-blue-100 text-blue-800'
-            }`}>
-              {order.status}
-            </span>
+            <p className="font-bold text-lg text-gray-900">Mesa: {order.table_number}</p>
+            {(() => {
+              const cfg = STATUS_CONFIG[order.status] ?? { label: order.status, className: 'bg-blue-100 text-blue-800' };
+              return (
+                <span className={`text-xs font-semibold px-2 py-1 rounded-full ${cfg.className}`}>
+                  {cfg.label}
+                </span>
+              );
+            })()}
           </div>
 
           {/* ID de orden corto */}
@@ -57,7 +70,7 @@ const OrderGridView: React.FC<OrderGridViewProps> = ({ orders, renderActions }) 
             })}
           </p>
 
-          <p className="text-gray-800 text-2xl font-bold mt-2">${order.total.toFixed(2)}</p>
+          <p className="text-gray-800 text-2xl font-bold mt-2">{formatMoney(order.total)}</p>
 
           {/* Info de pago compacta */}
           {order.payment_method && (
