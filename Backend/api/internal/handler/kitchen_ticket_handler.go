@@ -74,3 +74,61 @@ func (h *KitchenTicketHandler) PrintKitchenTickets(c *fiber.Ctx) error {
 
 	return c.JSON(response)
 }
+
+// GetTicketsPreviewByStation obtiene la comanda de una estación específica para una orden
+// GET /api/orders/:orderId/kitchen-tickets/preview/station/:stationId
+func (h *KitchenTicketHandler) GetTicketsPreviewByStation(c *fiber.Ctx) error {
+	orderID, err := uuid.Parse(c.Params("orderId"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Order ID inválido",
+		})
+	}
+
+	stationID, err := uuid.Parse(c.Params("stationId"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Station ID inválido",
+		})
+	}
+
+	ticket, err := h.service.GetTicketsPreviewByStation(orderID, stationID)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return c.JSON(ticket)
+}
+
+// PrintKitchenTicketsByStation imprime la comanda de una sola estación
+// POST /api/orders/:orderId/kitchen-tickets/print/station/:stationId
+func (h *KitchenTicketHandler) PrintKitchenTicketsByStation(c *fiber.Ctx) error {
+	orderID, err := uuid.Parse(c.Params("orderId"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Order ID inválido",
+		})
+	}
+
+	stationID, err := uuid.Parse(c.Params("stationId"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Station ID inválido",
+		})
+	}
+
+	response, err := h.service.PrintKitchenTicketsByStation(orderID, stationID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Error al imprimir ticket: " + err.Error(),
+		})
+	}
+
+	if !response.Success {
+		return c.Status(fiber.StatusMultiStatus).JSON(response)
+	}
+
+	return c.JSON(response)
+}

@@ -1,7 +1,7 @@
 // =================================================================
 // ARCHIVO: /src/features/waiter/slides/PaymentsSlide.tsx
 // =================================================================
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchMyOrders } from '../../shared/orders/api/ordersSlice.ts';
 import type { AppDispatch, RootState } from '../../../app/store';
@@ -9,14 +9,27 @@ import { formatMoney } from '../../../utils/formatUtils.ts';
 
 interface PaymentsSlideProps {
   onViewOrderDetails: (orderId: string) => void;
-  onOpenColleagueOrders: () => void;
   onCheckout: (orderId: string, total: number, tableNumber: number) => void;
 }
 
-const PaymentsSlide: React.FC<PaymentsSlideProps> = ({ onViewOrderDetails, onOpenColleagueOrders, onCheckout }) => {
+const FILTER_OPTIONS: Array<{ key: 'entregado' | 'por_verificar' | 'cancelado' | 'all'; label: (counts: Record<string, number>) => string; activeClass: string }> = [
+  { key: 'entregado', label: (c) => `Por Cobrar (${c.entregado})`, activeClass: 'bg-green-600 text-white shadow-lg' },
+  { key: 'por_verificar', label: (c) => `En Verificación (${c.por_verificar})`, activeClass: 'bg-yellow-600 text-white shadow-lg' },
+  { key: 'cancelado', label: (c) => `❌ Canceladas (${c.cancelado})`, activeClass: 'bg-red-600 text-white shadow-lg' },
+  { key: 'all', label: () => 'Todas', activeClass: 'bg-indigo-600 text-white shadow-lg' },
+];
+
+const PaymentsSlide: React.FC<PaymentsSlideProps> = ({ onViewOrderDetails, onCheckout }) => {
   const dispatch = useDispatch<AppDispatch>();
   const { myOrders, myOrdersStatus } = useSelector((state: RootState) => state.orders);
   const [filterStatus, setFilterStatus] = useState<'entregado' | 'por_verificar' | 'all' | 'cancelado'>('entregado');
+  const filterScrollRef = useRef<HTMLDivElement>(null);
+
+  const scrollFilters = (direction: 'left' | 'right') => {
+    if (filterScrollRef.current) {
+      filterScrollRef.current.scrollBy({ left: direction === 'left' ? -130 : 130, behavior: 'smooth' });
+    }
+  };
 
   useEffect(() => {
     if (myOrdersStatus === 'idle') {
@@ -116,58 +129,45 @@ const PaymentsSlide: React.FC<PaymentsSlideProps> = ({ onViewOrderDetails, onOpe
         </div>
       </div>
 
-      {/* Filtros - Fijo */}
-      <div className="flex-shrink-0 bg-white shadow-sm px-4 py-3 flex gap-2 overflow-x-auto">
+      {/* Filtros - Fijo con navegación por botones (sin scroll táctil) */}
+      <div className="flex-shrink-0 bg-white shadow-sm px-2 py-3 flex items-center gap-1">
+        {/* Botón izquierda */}
         <button
-          onClick={() => setFilterStatus('entregado')}
-          className={`px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all ${
-            filterStatus === 'entregado'
-              ? 'bg-green-600 text-white shadow-lg'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
+          onClick={() => scrollFilters('left')}
+          className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 active:bg-gray-300 text-gray-700 flex items-center justify-center text-base font-bold transition-all select-none"
+          aria-label="Desplazar filtros a la izquierda"
         >
-          Por Cobrar ({counts.entregado})
-        </button>
-        <button
-          onClick={() => setFilterStatus('por_verificar')}
-          className={`px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all ${
-            filterStatus === 'por_verificar'
-              ? 'bg-yellow-600 text-white shadow-lg'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
-        >
-          En Verificación ({counts.por_verificar})
-        </button>
-        <button
-          onClick={() => setFilterStatus('cancelado')}
-          className={`px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all ${
-            filterStatus === 'cancelado'
-              ? 'bg-red-600 text-white shadow-lg'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
-        >
-          ❌ Canceladas ({counts.cancelado})
-        </button>
-        <button
-          onClick={() => setFilterStatus('all')}
-          className={`px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all ${
-            filterStatus === 'all'
-              ? 'bg-indigo-600 text-white shadow-lg'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
-        >
-          Todas
+          ‹
         </button>
 
-        {/* Separador visual */}
-        <div className="flex-shrink-0 w-px bg-gray-200 mx-1" />
-
-        {/* Botón: Ayudar a compañeros */}
-        <button
-          onClick={onOpenColleagueOrders}
-          className="px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all bg-gradient-to-r from-violet-500 to-purple-600 text-white shadow-md hover:from-violet-600 hover:to-purple-700 active:scale-95 flex items-center gap-1.5"
+        {/* Contenedor de filtros: overflow-hidden + sin touch scroll */}
+        <div
+          ref={filterScrollRef}
+          className="flex-1 flex gap-2 overflow-hidden"
+          style={{ touchAction: 'none', userSelect: 'none' }}
         >
-          🤝 Cobrar a Compañeros
+          {FILTER_OPTIONS.map(opt => (
+            <button
+              key={opt.key}
+              onClick={() => setFilterStatus(opt.key)}
+              className={`px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all flex-shrink-0 ${
+                filterStatus === opt.key
+                  ? opt.activeClass
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              {opt.label(counts)}
+            </button>
+          ))}
+        </div>
+
+        {/* Botón derecha */}
+        <button
+          onClick={() => scrollFilters('right')}
+          className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 active:bg-gray-300 text-gray-700 flex items-center justify-center text-base font-bold transition-all select-none"
+          aria-label="Desplazar filtros a la derecha"
+        >
+          ›
         </button>
       </div>
 

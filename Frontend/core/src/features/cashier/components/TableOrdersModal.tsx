@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import type { Order } from '../../../types/orders';
 import OrderGridView from '../../shared/orders/components/OrderGridView';
 import { QuickProofView } from './QuickProofView';
+import { StationPrintModal } from './StationPrintModal';
 import { formatMoney } from '../../../utils/formatUtils';
 
 interface TableOrdersModalProps {
@@ -13,7 +14,6 @@ interface TableOrdersModalProps {
   onConfirmPayment: (orderId: string) => void;
   onRejectPayment: (orderId: string) => void;
   onViewDetail: (orderId: string) => void;
-  onPrintCommand: (orderId: string) => void;
   onPrintFullCommand?: (orderId: string) => void;
   onPreviewTickets?: (orderId: string) => void;
   onCancelOrder: (orderId: string) => void;
@@ -28,13 +28,13 @@ export const TableOrdersModal: React.FC<TableOrdersModalProps> = ({
   onConfirmPayment,
   onRejectPayment,
   onViewDetail,
-  onPrintCommand,
   onPrintFullCommand,
   onPreviewTickets,
   onCancelOrder,
 }) => {
   const [selectedProofOrder, setSelectedProofOrder] = useState<Order | null>(null);
   const [filterTab, setFilterTab] = useState<'all' | 'pending' | 'paid' | 'cancelled'>('all');
+  const [stationPrintOrderId, setStationPrintOrderId] = useState<string | null>(null);
 
   if (!isOpen || !tableNumber) return null;
 
@@ -188,6 +188,37 @@ export const TableOrdersModal: React.FC<TableOrdersModalProps> = ({
                           <span className="text-lg">📋</span>
                           <span>Ver Detalle Completo</span>
                         </button>
+                        {/* Sección de Impresión */}
+                        <div className="border-t-2 border-gray-200 pt-2 mt-1">
+                          <p className="text-xs text-gray-600 font-semibold mb-2 text-center">🖨️ OPCIONES DE IMPRESIÓN</p>
+                          {onPreviewTickets && (
+                            <button
+                              onClick={() => onPreviewTickets(order.id)}
+                              className="w-full px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 mb-2"
+                            >
+                              <span className="text-lg">🎫</span>
+                              <span className="text-sm">Vista Previa Tickets</span>
+                            </button>
+                          )}
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              onClick={() => setStationPrintOrderId(order.id)}
+                              className="px-3 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:from-purple-700 hover:to-pink-700 font-semibold shadow-md hover:shadow-lg transition-all flex flex-col items-center justify-center gap-1"
+                            >
+                              <span className="text-lg">🏪</span>
+                              <span className="text-xs leading-tight">Tickets Cocina</span>
+                            </button>
+                            {onPrintFullCommand && (
+                              <button
+                                onClick={() => onPrintFullCommand(order.id)}
+                                className="px-3 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl hover:from-orange-600 hover:to-red-600 font-semibold shadow-md hover:shadow-lg transition-all flex flex-col items-center justify-center gap-1"
+                              >
+                                <span className="text-lg">📄</span>
+                                <span className="text-xs leading-tight">Comanda Completa</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
                       </>
                     ) : order.status === 'pagado' ? (
                       <>
@@ -219,7 +250,7 @@ export const TableOrdersModal: React.FC<TableOrdersModalProps> = ({
 
                             <div className="grid grid-cols-2 gap-2">
                               <button
-                                onClick={() => onPrintCommand(order.id)}
+                                onClick={() => setStationPrintOrderId(order.id)}
                                 className="px-3 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:from-purple-700 hover:to-pink-700 font-semibold shadow-md hover:shadow-lg transition-all flex flex-col items-center justify-center gap-1"
                               >
                                 <span className="text-lg">🏪</span>
@@ -273,6 +304,37 @@ export const TableOrdersModal: React.FC<TableOrdersModalProps> = ({
                           <span className="text-lg">📋</span>
                           <span>Ver Detalle Completo</span>
                         </button>
+                        {/* Sección de Impresión */}
+                        <div className="border-t-2 border-gray-200 pt-2 mt-1">
+                          <p className="text-xs text-gray-600 font-semibold mb-2 text-center">🖨️ OPCIONES DE IMPRESIÓN</p>
+                          {onPreviewTickets && (
+                            <button
+                              onClick={() => onPreviewTickets(order.id)}
+                              className="w-full px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 mb-2"
+                            >
+                              <span className="text-lg">🎫</span>
+                              <span className="text-sm">Vista Previa Tickets</span>
+                            </button>
+                          )}
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              onClick={() => setStationPrintOrderId(order.id)}
+                              className="px-3 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:from-purple-700 hover:to-pink-700 font-semibold shadow-md hover:shadow-lg transition-all flex flex-col items-center justify-center gap-1"
+                            >
+                              <span className="text-lg">🏪</span>
+                              <span className="text-xs leading-tight">Tickets Cocina</span>
+                            </button>
+                            {onPrintFullCommand && (
+                              <button
+                                onClick={() => onPrintFullCommand(order.id)}
+                                className="px-3 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl hover:from-orange-600 hover:to-red-600 font-semibold shadow-md hover:shadow-lg transition-all flex flex-col items-center justify-center gap-1"
+                              >
+                                <span className="text-lg">📄</span>
+                                <span className="text-xs leading-tight">Comanda Completa</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
                         <button
                           onClick={() => onCancelOrder(order.id)}
                           className="w-full px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-xl font-semibold transition-all border border-red-200"
@@ -288,6 +350,13 @@ export const TableOrdersModal: React.FC<TableOrdersModalProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Modal de Impresión por Estación */}
+      <StationPrintModal
+        isOpen={stationPrintOrderId !== null}
+        orderId={stationPrintOrderId}
+        onClose={() => setStationPrintOrderId(null)}
+      />
 
       {/* Modal de Comprobante */}
       {selectedProofOrder && (

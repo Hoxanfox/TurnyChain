@@ -27,8 +27,22 @@ export interface KitchenTicket {
   special_notes?: string;
 }
 
+export interface KitchenTicketStationSummary {
+  station_id: string;
+  station_name: string;
+  unique_items: number;
+  total_quantity: number;
+}
+
 export interface KitchenTicketsPreview {
   order_id: string;
+  order_number: string;
+  table_number?: number;
+  waiter_name: string;
+  order_type: string;
+  total_stations: number;
+  total_items: number;
+  summary: KitchenTicketStationSummary[];
   tickets: KitchenTicket[];
 }
 

@@ -353,16 +353,106 @@ func (s *KitchenTicketService) sendToPrinter(printer domain.Printer, ticket doma
 	}
 }
 
-// GetTicketsPreview obtiene una vista previa de los tickets sin imprimirlos
+// GetTicketsPreview obtiene una vista previa enriquecida de los tickets sin imprimirlos
 func (s *KitchenTicketService) GetTicketsPreview(orderID uuid.UUID) (*domain.StationTicketsResponse, error) {
+	// Obtener la orden para llenar los campos de cabecera
+	order, err := s.orderRepo.GetOrderByID(orderID)
+	if err != nil {
+		return nil, fmt.Errorf("error al obtener orden: %w", err)
+	}
+	if order == nil {
+		return nil, fmt.Errorf("orden no encontrada")
+	}
+
 	tickets, err := s.GenerateKitchenTickets(orderID)
 	if err != nil {
 		return nil, err
 	}
 
+	// Construir summary y totales
+	totalItems := 0
+	summary := make([]domain.StationSummary, 0, len(tickets))
+	for _, t := range tickets {
+		stationQty := 0
+		for _, item := range t.Items {
+			stationQty += item.Quantity
+			totalItems += item.Quantity
+		}
+		summary = append(summary, domain.StationSummary{
+			StationID:     t.StationID,
+			StationName:   t.StationName,
+			UniqueItems:   len(t.Items),
+			TotalQuantity: stationQty,
+		})
+	}
+
+	orderNumber := fmt.Sprintf("ORD-%s", orderID.String()[:8])
+
 	return &domain.StationTicketsResponse{
-		OrderID: orderID,
-		Tickets: tickets,
+		OrderID:       orderID,
+		OrderNumber:   orderNumber,
+		TableNumber:   order.TableNumber,
+		WaiterName:    order.WaiterName,
+		OrderType:     order.OrderType,
+		TotalStations: len(tickets),
+		TotalItems:    totalItems,
+		Summary:       summary,
+		Tickets:       tickets,
+	}, nil
+}
+
+// GetTicketsPreviewByStation obtiene la vista previa de la comanda de una sola estación
+func (s *KitchenTicketService) GetTicketsPreviewByStation(orderID uuid.UUID, stationID uuid.UUID) (*domain.KitchenTicket, error) {
+	tickets, err := s.GenerateKitchenTickets(orderID)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, t := range tickets {
+		if t.StationID == stationID {
+			return &t, nil
+		}
+	}
+
+	return nil, fmt.Errorf("esta orden no tiene items asignados a la estación indicada")
+}
+
+// PrintKitchenTicketsByStation imprime solo la comanda de una estación específica
+func (s *KitchenTicketService) PrintKitchenTicketsByStation(orderID uuid.UUID, stationID uuid.UUID) (*domain.PrintResponse, error) {
+	ticket, err := s.GetTicketsPreviewByStation(orderID, stationID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Obtener impresoras de la estación
+	printers, err := s.printerRepo.GetByStationIDs([]uuid.UUID{stationID})
+	if err != nil || len(printers) == 0 {
+		return &domain.PrintResponse{
+			Success:     false,
+			Message:     "No hay impresoras configuradas para esta estación",
+			TicketsSent: 0,
+			Tickets:     []domain.KitchenTicket{*ticket},
+		}, nil
+	}
+
+	err = s.sendToPrinter(printers[0], *ticket)
+	if err != nil {
+		return &domain.PrintResponse{
+			Success:     false,
+			Message:     fmt.Sprintf("Error al imprimir en %s: %s", printers[0].Name, err.Error()),
+			TicketsSent: 0,
+			FailedPrints: []domain.FailedPrintInfo{
+				{StationName: ticket.StationName, PrinterName: printers[0].Name, Error: err.Error()},
+			},
+			Tickets: []domain.KitchenTicket{*ticket},
+		}, nil
+	}
+
+	return &domain.PrintResponse{
+		Success:     true,
+		Message:     fmt.Sprintf("Ticket impreso en %s correctamente", ticket.StationName),
+		TicketsSent: 1,
+		Tickets:     []domain.KitchenTicket{*ticket},
 	}, nil
 }
 

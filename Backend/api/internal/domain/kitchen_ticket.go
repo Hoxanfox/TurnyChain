@@ -33,10 +33,25 @@ type KitchenTicketItem struct {
 	Price          int             `json:"price"` // Precio unitario en moneda local
 }
 
+// StationSummary es el resumen de una estación dentro de una orden
+type StationSummary struct {
+	StationID     uuid.UUID `json:"station_id"`
+	StationName   string    `json:"station_name"`
+	UniqueItems   int       `json:"unique_items"`   // Tipos de platillos distintos
+	TotalQuantity int       `json:"total_quantity"` // Suma de cantidades en esa estación
+}
+
 // StationTicketsResponse agrupa todos los tickets por estación para una orden
 type StationTicketsResponse struct {
-	OrderID uuid.UUID       `json:"order_id"`
-	Tickets []KitchenTicket `json:"tickets"`
+	OrderID       uuid.UUID        `json:"order_id"`
+	OrderNumber   string           `json:"order_number"`
+	TableNumber   int              `json:"table_number"`
+	WaiterName    string           `json:"waiter_name"`
+	OrderType     string           `json:"order_type"`
+	TotalStations int              `json:"total_stations"`
+	TotalItems    int              `json:"total_items"` // Suma total de cantidades
+	Summary       []StationSummary `json:"summary"`
+	Tickets       []KitchenTicket  `json:"tickets"`
 }
 
 // PrintRequest es el payload para solicitar impresión de tickets

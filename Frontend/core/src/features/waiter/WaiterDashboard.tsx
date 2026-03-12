@@ -351,7 +351,7 @@ const WaiterDashboard: React.FC = () => {
         {/* Header - Compacto */}
         <header className="bg-gradient-to-r from-indigo-600 to-indigo-700 shadow-md px-4 py-2 flex justify-between items-center">
           <h1 className="text-lg font-bold text-white">Mesero</h1>
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
             <button
               onClick={() => setIsMyOrdersModalOpen(true)}
               className="bg-white text-indigo-700 px-3 py-1.5 rounded-lg shadow-sm hover:bg-gray-50 transition-colors text-sm font-medium"
@@ -363,6 +363,13 @@ const WaiterDashboard: React.FC = () => {
               className="bg-indigo-800 text-white px-3 py-1.5 rounded-lg shadow-sm hover:bg-indigo-900 transition-colors text-sm font-medium"
             >
               📋
+            </button>
+            <button
+              onClick={() => setIsColleagueModalOpen(true)}
+              className="bg-violet-600 hover:bg-violet-700 active:bg-violet-800 text-white px-3 py-1.5 rounded-lg shadow-sm transition-colors text-sm font-medium flex items-center gap-1"
+              title="Cobrar a Compañeros"
+            >
+              🤝
             </button>
             <WaiterProfileMenu />
           </div>
@@ -432,7 +439,6 @@ const WaiterDashboard: React.FC = () => {
             <SwiperSlide>
               <PaymentsSlide
                 onViewOrderDetails={(orderId) => setViewingOrderId(orderId)}
-                onOpenColleagueOrders={() => setIsColleagueModalOpen(true)}
                 onCheckout={(orderId, total, tableNumber) => handleCheckout(orderId, total, tableNumber)}
               />
             </SwiperSlide>

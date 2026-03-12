@@ -304,6 +304,8 @@ const CashierDashboard: React.FC = () => {
     statistics: cashierLogic.statistics,
     ordersByTable: cashierLogic.ordersByTable,
     pendingVerificationCount: cashierLogic.pendingVerificationCount,
+    deliveredCount: cashierLogic.deliveredCount,
+    paidCount: cashierLogic.paidCount,
     isLoading: status === 'loading',
 
     // Notificaciones

@@ -43,6 +43,8 @@ interface CashierDashboardMobileProps {
   statistics: CashierStatistics;
   ordersByTable: Record<number, Order[]>;
   pendingVerificationCount: number;
+  deliveredCount: number;
+  paidCount: number;
   isLoading: boolean;
 
   // Notificaciones
@@ -80,6 +82,8 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
   statistics,
   ordersByTable,
   pendingVerificationCount,
+  deliveredCount,
+  paidCount,
   isLoading,
   notification,
   onToggleStats: _onToggleStats,
@@ -94,7 +98,6 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
   onStatusChange,
   onConfirmPayment,
   onRejectPayment,
-  onPrintCommand,
   onPrintFullCommand,
   onPreviewTickets,
   onCancelOrder,
@@ -111,7 +114,6 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
 
   // Órdenes por categoría
   const urgentOrders = allOrders.filter(o => o.status === 'por_verificar');
-  const deliveredOrders = allOrders.filter(o => o.status === 'entregado');
   const paidOrders = allOrders.filter(o => o.status === 'pagado');
 
   // Datos para StatisticsCard
@@ -149,9 +151,12 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
       return a - b;
     });
 
-  const handleQuickFilterByStatus = (status: 'por_verificar' | 'entregado' | 'pagado') => {
-    onFilterStatusChange(status);
-    setViewMode('tables');
+  const handleQuickNavigateByStatus = (status: 'por_verificar' | 'entregado' | 'pagado') => {
+    if (status === 'por_verificar') {
+      setViewMode('urgent');
+    } else {
+      setViewMode('tables');
+    }
   };
 
   return (
@@ -478,10 +483,10 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
 
       {/* Barra de acciones rápidas */}
       <QuickActionsBar
-        pendingCount={urgentOrders.length}
-        deliveredCount={deliveredOrders.length}
-        paidCount={paidOrders.length}
-        onFilterByStatus={handleQuickFilterByStatus}
+        pendingCount={pendingVerificationCount}
+        deliveredCount={deliveredCount}
+        paidCount={paidCount}
+        onNavigate={handleQuickNavigateByStatus}
       />
 
       {/* Modal de filtros */}
@@ -509,7 +514,6 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
         onConfirmPayment={onConfirmPayment}
         onRejectPayment={onRejectPayment}
         onViewDetail={(orderId) => setSelectedOrderIdForDetail(orderId)}
-        onPrintCommand={onPrintCommand}
         onPrintFullCommand={onPrintFullCommand}
         onPreviewTickets={onPreviewTickets}
         onCancelOrder={onCancelOrder}

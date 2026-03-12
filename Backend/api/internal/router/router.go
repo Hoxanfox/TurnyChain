@@ -100,5 +100,7 @@ func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *
 
 	// Rutas de Tickets de Cocina (anidadas bajo orders)
 	orders.Get("/:orderId/kitchen-tickets/preview", kitchenTicketHandler.GetTicketsPreview)
+	orders.Get("/:orderId/kitchen-tickets/preview/station/:stationId", kitchenTicketHandler.GetTicketsPreviewByStation)
 	orders.Post("/:orderId/kitchen-tickets/print", kitchenTicketHandler.PrintKitchenTickets)
+	orders.Post("/:orderId/kitchen-tickets/print/station/:stationId", kitchenTicketHandler.PrintKitchenTicketsByStation)
 }

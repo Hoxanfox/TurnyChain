@@ -106,15 +106,31 @@ export const useCashierLogic = (activeOrders: Order[]) => {
     return stats;
   }, [activeOrders]);
 
-  // Conteo de órdenes por verificar (solo del día actual)
+  // Conteos de órdenes por estado (sin filtro, solo del día actual)
   const pendingVerificationCount = useMemo(() => {
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
     return activeOrders.filter((order) => {
       const orderDate = new Date(order.created_at);
-      const isToday = orderDate >= todayStart;
-      return isToday && order.status === 'por_verificar';
+      return orderDate >= todayStart && order.status === 'por_verificar';
+    }).length;
+  }, [activeOrders]);
+
+  const deliveredCount = useMemo(() => {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return activeOrders.filter((order) => {
+      const orderDate = new Date(order.created_at);
+      return orderDate >= todayStart && order.status === 'entregado';
+    }).length;
+  }, [activeOrders]);
+
+  const paidCount = useMemo(() => {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return activeOrders.filter((order) => {
+      const orderDate = new Date(order.created_at);
+      return orderDate >= todayStart && order.status === 'pagado';
     }).length;
   }, [activeOrders]);
 
@@ -239,6 +255,8 @@ export const useCashierLogic = (activeOrders: Order[]) => {
     // Datos calculados
     statistics,
     pendingVerificationCount,
+    deliveredCount,
+    paidCount,
     filteredOrders,
     sortedOrders,
     ordersByTable,
