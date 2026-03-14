@@ -60,82 +60,13 @@ const CashierDashboard: React.FC = () => {
   const handleConfirmPayment = async (orderId: string) => {
     if (confirm('¿Confirmar que el pago es válido?')) {
       try {
-        // 1. Cambiar estado a pagado
+        // Cambiar estado a pagado sin imprimir automáticamente.
         await dispatch(changeOrderStatus({ orderId, status: 'pagado' })).unwrap();
-
-        // 2. Obtener detalles completos de la orden
-        const orderDetails = await dispatch(fetchOrderDetails(orderId)).unwrap();
-
-        // 3. Obtener configuración de impresión
-        const printSettings = getPrintSettings();
-
-        // 4. Imprimir tickets según configuración
-        if (printSettings.ticketPrintMethod === 'backend') {
-          // Método Backend: usar API
-          try {
-            console.log('🖨️ Imprimiendo tickets de cocina usando BACKEND...');
-            const printResult = await kitchenTicketsAPI.print(orderId, false);
-
-            if (printResult.success) {
-              const ticketsCount = printResult.tickets_sent;
-              const failedCount = printResult.failed_prints?.length || 0;
-
-              if (failedCount > 0) {
-                const failedStations = printResult.failed_prints.map(f => f.station_name).join(', ');
-                setNotification({
-                  title: '⚠️ Pago Confirmado con Advertencias',
-                  message: `Mesa ${orderDetails.table_number} - ${ticketsCount} tickets enviados, pero ${failedCount} fallaron (${failedStations}). Revisa las impresoras.`,
-                  type: 'warning',
-                });
-              } else {
-                setNotification({
-                  title: '✅ Pago Confirmado',
-                  message: `Mesa ${orderDetails.table_number} - ${ticketsCount} ticket(s) de cocina enviados correctamente (Backend)`,
-                  type: 'success',
-                });
-              }
-            } else {
-              throw new Error(printResult.message || 'Error al imprimir tickets');
-            }
-          } catch (printError) {
-            console.error('Error al imprimir con backend:', printError);
-            // Fallback a impresión local
-            console.log('⚠️ Intentando impresión frontend como fallback...');
-            const printed = await printKitchenTicketsFrontend(orderDetails);
-
-            if (printed) {
-              setNotification({
-                title: '⚠️ Pago Confirmado (Frontend)',
-                message: `Mesa ${orderDetails.table_number} - Tickets impresos desde el navegador (fallback)`,
-                type: 'warning',
-              });
-            } else {
-              setNotification({
-                title: '⚠️ Pago Confirmado',
-                message: `Mesa ${orderDetails.table_number} - El pago fue confirmado pero no se pudo imprimir. Imprime manualmente.`,
-                type: 'warning',
-              });
-            }
-          }
-        } else {
-          // Método Frontend: imprimir desde navegador
-          console.log('🌐 Imprimiendo tickets de cocina usando FRONTEND...');
-          const printed = await printKitchenTicketsFrontend(orderDetails);
-
-          if (printed) {
-            setNotification({
-              title: '✅ Pago Confirmado',
-              message: `Mesa ${orderDetails.table_number} - Tickets de cocina impresos desde el navegador`,
-              type: 'success',
-            });
-          } else {
-            setNotification({
-              title: '⚠️ Pago Confirmado',
-              message: `Mesa ${orderDetails.table_number} - El pago fue confirmado pero la impresión fue cancelada`,
-              type: 'warning',
-            });
-          }
-        }
+        setNotification({
+          title: '✅ Pago Confirmado',
+          message: 'El pago fue confirmado correctamente. Usa los botones de impresión para imprimir comandas si lo necesitas.',
+          type: 'success',
+        });
       } catch (error) {
         console.error('Error al confirmar pago:', error);
         setNotification({
