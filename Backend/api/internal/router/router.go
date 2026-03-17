@@ -10,7 +10,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *handler.UserHandler, menuHandler *handler.MenuHandler, orderHandler *handler.OrderHandler, tableHandler *handler.TableHandler, categoryHandler *handler.CategoryHandler, ingredientHandler *handler.IngredientHandler, accompanimentHandler *handler.AccompanimentHandler, wsHandler *handler.WebSocketHandler, stationHandler *handler.StationHandler, printerHandler *handler.PrinterHandler, kitchenTicketHandler *handler.KitchenTicketHandler) {
+func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *handler.UserHandler, menuHandler *handler.MenuHandler, orderHandler *handler.OrderHandler, tableHandler *handler.TableHandler, categoryHandler *handler.CategoryHandler, ingredientHandler *handler.IngredientHandler, accompanimentHandler *handler.AccompanimentHandler, wsHandler *handler.WebSocketHandler, stationHandler *handler.StationHandler, printerHandler *handler.PrinterHandler, kitchenTicketHandler *handler.KitchenTicketHandler, backupHandler *handler.BackupHandler) {
 	// Ruta pública para WebSockets
 	app.Get("/ws", websocket.New(wsHandler.HandleConnection))
 
@@ -103,4 +103,8 @@ func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *
 	orders.Get("/:orderId/kitchen-tickets/preview/station/:stationId", kitchenTicketHandler.GetTicketsPreviewByStation)
 	orders.Post("/:orderId/kitchen-tickets/print", kitchenTicketHandler.PrintKitchenTickets)
 	orders.Post("/:orderId/kitchen-tickets/print/station/:stationId", kitchenTicketHandler.PrintKitchenTicketsByStation)
+
+	// Rutas de Backup (sin incluir órdenes)
+	backup := protected.Group("/backup")
+	backup.Get("/catalog", backupHandler.ExportCatalogBackup)
 }

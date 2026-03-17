@@ -7,8 +7,10 @@ import (
 	"database/sql"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/handler"
+	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/middleware"
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/repository"
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/router"
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/service"
@@ -66,6 +68,7 @@ func main() {
 	accompanimentService := service.NewAccompanimentService(accompanimentRepo)
 	stationService := service.NewStationService(stationRepo)
 	printerService := service.NewPrinterService(printerRepo)
+	backupService := service.NewBackupService(db)
 
 	// Handlers
 	userHandler := handler.NewUserHandler(userService)
@@ -80,6 +83,7 @@ func main() {
 	stationHandler := handler.NewStationHandler(stationService)
 	printerHandler := handler.NewPrinterHandler(printerService)
 	kitchenTicketHandler := handler.NewKitchenTicketHandler(kitchenTicketService)
+	backupHandler := handler.NewBackupHandler(backupService)
 
 	app := fiber.New()
 	app.Use(cors.New())
@@ -91,7 +95,19 @@ func main() {
 	}
 	app.Static("/api/static", uploadsDir)
 
-	router.SetupRoutes(app, authHandler, userHandler, menuHandler, orderHandler, tableHandler, categoryHandler, ingredientHandler, accompanimentHandler, wsHandler, stationHandler, printerHandler, kitchenTicketHandler)
+	router.SetupRoutes(app, authHandler, userHandler, menuHandler, orderHandler, tableHandler, categoryHandler, ingredientHandler, accompanimentHandler, wsHandler, stationHandler, printerHandler, kitchenTicketHandler, backupHandler)
+
+	// Alias explícitos para compatibilidad de rutas de backup.
+	app.Get("/api/backups/catalog", middleware.Protected(), backupHandler.ExportCatalogBackup)
+	app.Post("/api/backups/catalog/import", middleware.Protected(), backupHandler.ImportCatalogBackup)
+	app.Post("/api/backup/catalog/import", middleware.Protected(), backupHandler.ImportCatalogBackup)
+	app.Post("/api/backup/catalog", middleware.Protected(), backupHandler.ImportCatalogBackup)
+
+	for _, route := range app.GetRoutes() {
+		if strings.Contains(route.Path, "backup") {
+			log.Printf("[route] %s %s", route.Method, route.Path)
+		}
+	}
 
 	log.Println("Iniciando servidor en el puerto 8080...")
 	if err := app.Listen(":8080"); err != nil {

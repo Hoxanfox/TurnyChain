@@ -3,7 +3,7 @@
 // =================================================================
 import React, { useState } from 'react';
 import { useSelector } from 'react-redux';
-import { FaUsers, FaClipboardList, FaTable, FaUtensils, FaTags, FaLeaf, FaBreadSlice, FaChevronDown, FaChevronUp, FaPrint } from 'react-icons/fa';
+import { FaUsers, FaClipboardList, FaTable, FaUtensils, FaTags, FaLeaf, FaBreadSlice, FaChevronDown, FaChevronUp, FaPrint, FaDatabase } from 'react-icons/fa';
 import { useIsDesktop } from '../../hooks/useMediaQuery';
 import LogoutButton from '../../components/LogoutButton';
 import StatisticsCards from './components/StatisticsCards';
@@ -16,10 +16,11 @@ import IngredientManagement from './components/ingredients/IngredientManagement.
 import AccompanimentManagement from './components/accompaniments/AccompanimentManagement.tsx';
 import StationManagement from './components/stations/StationManagement.tsx';
 import PrinterManagement from './components/printers/PrinterManagement.tsx';
+import BackupManagement from './components/backup/BackupManagement';
 import DataExchangeButton from './components/shared/DataExchangeButton';
 import type { RootState } from '../../app/store';
 
-type AdminTab = 'users' | 'orders' | 'tables' | 'menu' | 'categories' | 'ingredients' | 'accompaniments' | 'stations' | 'printers';
+type AdminTab = 'users' | 'orders' | 'tables' | 'menu' | 'categories' | 'ingredients' | 'accompaniments' | 'stations' | 'printers' | 'backup';
 
 interface TabConfig {
   id: AdminTab;
@@ -49,6 +50,7 @@ const AdminDashboard: React.FC = () => {
     { id: 'accompaniments', label: 'Acompañantes', icon: FaBreadSlice, color: 'amber' },
     { id: 'stations', label: 'Estaciones', icon: FaUtensils, color: 'indigo' },
     { id: 'printers', label: 'Impresoras', icon: FaPrint, color: 'teal' },
+    { id: 'backup', label: 'Backup', icon: FaDatabase, color: 'slate' },
   ];
 
   const getTabClasses = (tab: TabConfig) => {
@@ -198,6 +200,7 @@ const AdminDashboard: React.FC = () => {
             {activeTab === 'accompaniments' && <AccompanimentManagement />}
             {activeTab === 'stations' && <StationManagement />}
             {activeTab === 'printers' && <PrinterManagement />}
+            {activeTab === 'backup' && <BackupManagement />}
           </div>
         </main>
       </div>
