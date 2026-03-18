@@ -135,6 +135,8 @@ export const buildOrderPayload = (
   tableId: string,
   tables: Table[],
   orderType: string = 'mesa',
+  parentOrderId?: string,
+  customerName?: string,
   deliveryData?: {
     address: string;
     phone: string;
@@ -183,6 +185,14 @@ export const buildOrderPayload = (
     order_type: orderType,
     items: orderItems
   };
+
+  if (parentOrderId) {
+    payload.parent_order_id = parentOrderId;
+  }
+
+  if (customerName && customerName.trim() !== '') {
+    payload.customer_name = customerName.trim();
+  }
 
   // Agregar campos de domicilio si es necesario
   if (orderType === 'domicilio' && deliveryData) {

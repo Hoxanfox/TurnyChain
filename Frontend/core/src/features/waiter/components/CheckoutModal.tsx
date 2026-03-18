@@ -9,6 +9,7 @@ import { uploadPaymentProof } from '../../shared/orders/api/ordersAPI.ts';
 
 interface CheckoutModalProps {
   orderId: string;
+  groupOrderIds?: string[];
   orderTotal: number;
   tableNumber: number;
   onClose: () => void;
@@ -16,7 +17,7 @@ interface CheckoutModalProps {
 }
 
 const CheckoutModal: React.FC<CheckoutModalProps> = ({
-  orderId, orderTotal, tableNumber, onClose, onSuccess
+  orderId, groupOrderIds, orderTotal, tableNumber, onClose, onSuccess
 }) => {
   const token = useSelector((state: RootState) => state.auth.token);
   const [paymentMethod, setPaymentMethod] = useState<'efectivo' | 'transferencia'>('efectivo');
@@ -24,6 +25,8 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const targetOrderIds = groupOrderIds && groupOrderIds.length > 0 ? groupOrderIds : [orderId];
+  const isGlobalCheckout = targetOrderIds.length > 1;
 
   // Referencia oculta para el input de archivo
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -165,7 +168,9 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
       // Si es efectivo, crear un archivo vacío para el backend
       const fileToUpload = proofImage || new File([''], 'efectivo.txt', { type: 'text/plain' });
 
-      await uploadPaymentProof(orderId, fileToUpload, paymentMethod, token);
+      for (const targetOrderId of targetOrderIds) {
+        await uploadPaymentProof(targetOrderId, fileToUpload, paymentMethod, token);
+      }
       
       // ✅ SOLO LIMPIAR LOCALSTORAGE DESPUÉS DEL ÉXITO
       localStorage.removeItem(storageKey);
@@ -194,7 +199,9 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
         <div className="bg-gradient-to-r from-gray-900 to-gray-800 text-white p-5 flex justify-between items-center">
           <div>
             <h2 className="text-xl font-bold">💳 Cobrar Mesa {tableNumber}</h2>
-            <p className="text-gray-400 text-sm">Total a recibir</p>
+            <p className="text-gray-400 text-sm">
+              {isGlobalCheckout ? `Pago global para ${targetOrderIds.length} comandas` : 'Total a recibir'}
+            </p>
           </div>
           <button
             onClick={onClose}
@@ -210,6 +217,9 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
           <span className="text-4xl font-black text-gray-800 tracking-tight">
             {formatMoney(orderTotal)}
           </span>
+          {isGlobalCheckout && (
+            <p className="text-xs text-indigo-700 font-semibold mt-2">Total global del grupo</p>
+          )}
         </div>
 
         {/* SELECCIÓN DE MÉTODO (TABS) */}

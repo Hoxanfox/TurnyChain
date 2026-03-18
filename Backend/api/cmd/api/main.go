@@ -32,6 +32,10 @@ func main() {
 	}
 	defer db.Close()
 
+	if err := applyOrderSchemaMigrations(db); err != nil {
+		log.Fatalf("Error aplicando migraciones de órdenes: %v", err)
+	}
+
 	wsHub := wshub.NewHub()
 	go wsHub.Run()
 
@@ -113,4 +117,21 @@ func main() {
 	if err := app.Listen(":8080"); err != nil {
 		log.Fatalf("Error al iniciar el servidor: %v", err)
 	}
+}
+
+func applyOrderSchemaMigrations(db *sql.DB) error {
+	statements := []string{
+		`ALTER TABLE orders ADD COLUMN IF NOT EXISTS parent_order_id uuid REFERENCES orders(id) ON DELETE SET NULL`,
+		`ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_name varchar(255) NULL`,
+		`CREATE INDEX IF NOT EXISTS orders_parent_order_id_idx ON orders (parent_order_id)`,
+	}
+
+	for _, stmt := range statements {
+		if _, err := db.Exec(stmt); err != nil {
+			return err
+		}
+	}
+
+	log.Println("Migraciones de órdenes verificadas: parent_order_id/customer_name")
+	return nil
 }

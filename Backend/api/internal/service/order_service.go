@@ -6,6 +6,7 @@ package service
 import (
 	"errors"
 	"log"
+	"sort"
 
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/domain"
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/repository"
@@ -14,9 +15,11 @@ import (
 )
 
 type OrderService interface {
-	CreateOrder(waiterID uuid.UUID, tableNumber int, orderType string, deliveryAddress, deliveryPhone, deliveryNotes *string, items []domain.OrderItem) (*domain.Order, error)
-	GetOrders(userRole string, userID uuid.UUID, status string, myOrders string) ([]domain.Order, error)
+	CreateOrder(waiterID uuid.UUID, tableNumber int, orderType string, customerName, deliveryAddress, deliveryPhone, deliveryNotes *string, items []domain.OrderItem, parentOrderID *uuid.UUID) (*domain.Order, error)
+	GetOrders(userRole string, userID uuid.UUID, status string, myOrders string, teamOrders string) ([]domain.Order, error)
 	GetOrderByID(orderID uuid.UUID) (*domain.Order, error)
+	EditOrder(orderID, userID uuid.UUID, editReq domain.EditOrderRequest) (*domain.Order, error)
+	LinkOrderToParent(orderID, parentOrderID uuid.UUID) (*domain.Order, error)
 	UpdateOrderStatus(orderID, userID uuid.UUID, newStatus string) (*domain.Order, error)
 	UpdateOrderItems(orderID uuid.UUID, items []domain.OrderItem) (*domain.Order, error)
 	ManageOrderAsAdmin(orderID uuid.UUID, status *string, newWaiterID *uuid.UUID) (*domain.Order, error)
@@ -56,9 +59,18 @@ func NewOrderService(
 	}
 }
 
-func (s *orderService) CreateOrder(waiterID uuid.UUID, tableNumber int, orderType string, deliveryAddress, deliveryPhone, deliveryNotes *string, items []domain.OrderItem) (*domain.Order, error) {
+func (s *orderService) CreateOrder(waiterID uuid.UUID, tableNumber int, orderType string, customerName, deliveryAddress, deliveryPhone, deliveryNotes *string, items []domain.OrderItem, parentOrderID *uuid.UUID) (*domain.Order, error) {
 	if len(items) == 0 {
 		return nil, errors.New("la orden no puede estar vacía")
+	}
+
+	var parentOrder *domain.Order
+	if parentOrderID != nil {
+		var err error
+		parentOrder, err = s.orderRepo.GetOrderByID(*parentOrderID)
+		if err != nil {
+			return nil, errors.New("la orden padre no existe")
+		}
 	}
 
 	// 1. Validar order_type
@@ -68,14 +80,24 @@ func (s *orderService) CreateOrder(waiterID uuid.UUID, tableNumber int, orderTyp
 	if orderType != "mesa" && orderType != "llevar" && orderType != "domicilio" {
 		return nil, errors.New("order_type inválido. Debe ser: mesa, llevar o domicilio")
 	}
+	if parentOrder != nil && parentOrder.OrderType != orderType {
+		return nil, errors.New("la orden adicional debe tener el mismo order_type que la orden padre")
+	}
 
 	// 2. Validar campos obligatorios para domicilio
 	if orderType == "domicilio" {
+		if customerName == nil || *customerName == "" {
+			return nil, errors.New("customer_name es obligatorio para órdenes a domicilio")
+		}
 		if deliveryAddress == nil || *deliveryAddress == "" {
 			return nil, errors.New("delivery_address es obligatorio para órdenes a domicilio")
 		}
 		if deliveryPhone == nil || *deliveryPhone == "" {
 			return nil, errors.New("delivery_phone es obligatorio para órdenes a domicilio")
+		}
+	} else if orderType == "llevar" {
+		if customerName == nil || *customerName == "" {
+			return nil, errors.New("customer_name es obligatorio para órdenes para llevar")
 		}
 	}
 
@@ -94,10 +116,17 @@ func (s *orderService) CreateOrder(waiterID uuid.UUID, tableNumber int, orderTyp
 			return nil, errors.New("mesa virtual para llevar no está configurada")
 		}
 	} else {
+		if parentOrder != nil {
+			tableNumber = parentOrder.TableNumber
+		}
 		table, err = s.tableRepo.GetByNumber(tableNumber)
 		if err != nil {
 			return nil, errors.New("la mesa seleccionada no es válida o no está activa")
 		}
+	}
+
+	if parentOrder != nil && parentOrder.TableNumber != table.TableNumber {
+		return nil, errors.New("la orden adicional debe estar asociada a la misma mesa que la orden padre")
 	}
 
 	// 4. Forzar is_takeout y procesar customizaciones
@@ -158,6 +187,7 @@ func (s *orderService) CreateOrder(waiterID uuid.UUID, tableNumber int, orderTyp
 	}
 
 	order := &domain.Order{
+		ParentOrderID:  parentOrderID,
 		WaiterID:        waiterID,
 		TableID:         table.ID,
 		TableNumber:     table.TableNumber,
@@ -165,6 +195,7 @@ func (s *orderService) CreateOrder(waiterID uuid.UUID, tableNumber int, orderTyp
 		Total:           total,
 		Items:           items,
 		OrderType:       orderType,
+		CustomerName:    customerName,
 		DeliveryAddress: deliveryAddress,
 		DeliveryPhone:   deliveryPhone,
 		DeliveryNotes:   deliveryNotes,
@@ -198,7 +229,39 @@ func (s *orderService) CreateOrder(waiterID uuid.UUID, tableNumber int, orderTyp
 	return createdOrder, nil
 }
 
-func (s *orderService) GetOrders(userRole string, userID uuid.UUID, status string, myOrders string) ([]domain.Order, error) {
+func (s *orderService) LinkOrderToParent(orderID, parentOrderID uuid.UUID) (*domain.Order, error) {
+	if orderID == parentOrderID {
+		return nil, errors.New("la orden no puede enlazarse consigo misma")
+	}
+
+	order, err := s.orderRepo.GetOrderByID(orderID)
+	if err != nil {
+		return nil, errors.New("la orden hija no existe")
+	}
+
+	parentOrder, err := s.orderRepo.GetOrderByID(parentOrderID)
+	if err != nil {
+		return nil, errors.New("la orden padre no existe")
+	}
+
+	if order.TableNumber != parentOrder.TableNumber {
+		return nil, errors.New("solo se pueden enlazar órdenes de la misma mesa")
+	}
+
+	if order.OrderType != parentOrder.OrderType {
+		return nil, errors.New("solo se pueden enlazar órdenes con el mismo order_type")
+	}
+
+	linkedOrder, err := s.orderRepo.LinkOrderToParent(orderID, parentOrderID)
+	if err != nil {
+		return nil, err
+	}
+
+	s.wsHub.BroadcastMessage("ORDER_UPDATED", linkedOrder)
+	return linkedOrder, nil
+}
+
+func (s *orderService) GetOrders(userRole string, userID uuid.UUID, status string, myOrders string, teamOrders string) ([]domain.Order, error) {
 	filters := make(map[string]interface{})
 	if status != "" {
 		filters["status"] = status
@@ -207,6 +270,8 @@ func (s *orderService) GetOrders(userRole string, userID uuid.UUID, status strin
 	// Si my_orders=true, filtrar por waiter_id independientemente del rol
 	if myOrders == "true" {
 		filters["waiter_id"] = userID
+	} else if userRole == "mesero" && teamOrders == "true" {
+		// team_orders permite a meseros ver órdenes del equipo (sin filtrar por waiter)
 	} else if userRole == "mesero" {
 		// Si es mesero y no se especifica my_orders, filtrar por defecto
 		filters["waiter_id"] = userID
@@ -217,6 +282,77 @@ func (s *orderService) GetOrders(userRole string, userID uuid.UUID, status strin
 
 func (s *orderService) GetOrderByID(orderID uuid.UUID) (*domain.Order, error) {
 	return s.orderRepo.GetOrderByID(orderID)
+}
+
+func (s *orderService) EditOrder(orderID, userID uuid.UUID, editReq domain.EditOrderRequest) (*domain.Order, error) {
+	order, err := s.orderRepo.GetOrderByID(orderID)
+	if err != nil {
+		return nil, errors.New("orden no encontrada")
+	}
+
+	if order.WaiterID != userID {
+		return nil, errors.New("no tienes permisos para editar esta orden")
+	}
+
+	if order.Status != "pendiente_aprobacion" && order.Status != "rechazado" {
+		return nil, errors.New("solo se pueden editar órdenes en estado pendiente_aprobacion o rechazado")
+	}
+
+	items := make([]domain.OrderItem, len(order.Items))
+	copy(items, order.Items)
+
+	if len(editReq.RemoveItems) > 0 {
+		sort.Slice(editReq.RemoveItems, func(i, j int) bool {
+			return editReq.RemoveItems[i] > editReq.RemoveItems[j]
+		})
+
+		for _, idx := range editReq.RemoveItems {
+			if idx < 0 || idx >= len(items) {
+				return nil, errors.New("índice inválido en remove_items")
+			}
+			items = append(items[:idx], items[idx+1:]...)
+		}
+	}
+
+	for _, op := range editReq.UpdateItems {
+		if op.Index < 0 || op.Index >= len(items) {
+			return nil, errors.New("índice inválido en update_items")
+		}
+
+		if op.Quantity != nil {
+			if *op.Quantity <= 0 {
+				return nil, errors.New("la cantidad debe ser mayor a 0")
+			}
+			items[op.Index].Quantity = *op.Quantity
+		}
+
+		if op.Notes != nil {
+			items[op.Index].Notes = op.Notes
+		}
+
+		if op.IsTakeout != nil {
+			items[op.Index].IsTakeout = *op.IsTakeout
+		}
+	}
+
+	for _, addItem := range editReq.AddItems {
+		if addItem.Quantity <= 0 {
+			return nil, errors.New("todos los ítems agregados deben tener cantidad mayor a 0")
+		}
+		items = append(items, addItem)
+	}
+
+	if len(items) == 0 {
+		return nil, errors.New("la orden no puede quedar vacía")
+	}
+
+	if order.OrderType == "llevar" || order.OrderType == "domicilio" {
+		for i := range items {
+			items[i].IsTakeout = true
+		}
+	}
+
+	return s.UpdateOrderItems(orderID, items)
 }
 
 func (s *orderService) UpdateOrderStatus(orderID, userID uuid.UUID, newStatus string) (*domain.Order, error) {

@@ -12,7 +12,8 @@ interface CurrentOrderProps {
   orderType: string; // "mesa" | "llevar" | "domicilio"
   onTableChange: (value: string) => void;
   onCartAction: (item: CartItem, action: 'delete') => void;
-  onSendOrder: (takeoutNotes?: string) => void;
+  onSendOrderWithoutCharge: (takeoutNotes?: string) => void;
+  onChargeAndSendOrder: (takeoutNotes?: string) => void;
   onEditItem: (item: CartItem) => void;
   onUpdateItemPrice?: (cartItemId: string, newPrice: number) => void;
   onIncrementQuantity?: (cartItemId: string) => void; // Nueva función
@@ -27,7 +28,8 @@ const CurrentOrder: React.FC<CurrentOrderProps> = ({
   orderType,
   onTableChange: _onTableChange,
   onCartAction,
-  onSendOrder,
+  onSendOrderWithoutCharge,
+  onChargeAndSendOrder,
   onEditItem,
   onUpdateItemPrice,
   onIncrementQuantity,
@@ -251,13 +253,22 @@ const CurrentOrder: React.FC<CurrentOrderProps> = ({
           </span>
         </div>
 
-        <button
-          onClick={() => onSendOrder(orderType === 'llevar' ? takeoutNotes : undefined)}
-          className="mt-2 w-full bg-indigo-600 text-white py-3 rounded-2xl hover:bg-indigo-700 active:bg-indigo-800 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all font-bold text-sm shadow-md disabled:shadow-none"
-          disabled={!tableId || cart.length === 0 || (orderType === 'llevar' && takeoutNotes.trim() === '')}
-        >
-          Cobrar y Enviar Orden
-        </button>
+        <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <button
+            onClick={() => onSendOrderWithoutCharge(orderType === 'llevar' ? takeoutNotes : undefined)}
+            className="w-full bg-amber-500 text-white py-3 rounded-2xl hover:bg-amber-600 active:bg-amber-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all font-bold text-sm shadow-md disabled:shadow-none"
+            disabled={!tableId || cart.length === 0 || (orderType === 'llevar' && takeoutNotes.trim() === '')}
+          >
+            Enviar Sin Cobrar
+          </button>
+          <button
+            onClick={() => onChargeAndSendOrder(orderType === 'llevar' ? takeoutNotes : undefined)}
+            className="w-full bg-indigo-600 text-white py-3 rounded-2xl hover:bg-indigo-700 active:bg-indigo-800 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all font-bold text-sm shadow-md disabled:shadow-none"
+            disabled={!tableId || cart.length === 0 || (orderType === 'llevar' && takeoutNotes.trim() === '')}
+          >
+            Cobrar y Enviar
+          </button>
+        </div>
       </div>
     </div>
   );

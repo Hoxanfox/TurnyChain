@@ -5,6 +5,7 @@ package repository
 
 import (
 	"database/sql"
+	"errors"
 	"strconv"
 
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/domain"
@@ -16,6 +17,7 @@ type OrderRepository interface {
 	CreateOrder(order *domain.Order) (*domain.Order, error)
 	GetOrders(filters map[string]interface{}) ([]domain.Order, error)
 	GetOrderByID(orderID uuid.UUID) (*domain.Order, error)
+	LinkOrderToParent(orderID, parentOrderID uuid.UUID) (*domain.Order, error)
 	UpdateOrderStatus(orderID, userID uuid.UUID, status string) (*domain.Order, error)
 	ManageOrder(orderID uuid.UUID, updates map[string]interface{}) (*domain.Order, error)
 	UpdateOrderItems(orderID uuid.UUID, items []domain.OrderItem, newTotal float64) error
@@ -35,10 +37,10 @@ func (r *orderRepository) CreateOrder(order *domain.Order) (*domain.Order, error
 	}
 
 	order.ID = uuid.New()
-	orderQuery := `INSERT INTO orders (id, waiter_id, table_id, table_number, status, total, order_type, delivery_address, delivery_phone, delivery_notes) 
-                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) 
+	orderQuery := `INSERT INTO orders (id, parent_order_id, waiter_id, table_id, table_number, status, total, order_type, customer_name, delivery_address, delivery_phone, delivery_notes) 
+	               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) 
                    RETURNING id, created_at`
-	err = tx.QueryRow(orderQuery, order.ID, order.WaiterID, order.TableID, order.TableNumber, order.Status, order.Total, order.OrderType, order.DeliveryAddress, order.DeliveryPhone, order.DeliveryNotes).Scan(&order.ID, &order.CreatedAt)
+	err = tx.QueryRow(orderQuery, order.ID, order.ParentOrderID, order.WaiterID, order.TableID, order.TableNumber, order.Status, order.Total, order.OrderType, order.CustomerName, order.DeliveryAddress, order.DeliveryPhone, order.DeliveryNotes).Scan(&order.ID, &order.CreatedAt)
 	if err != nil {
 		tx.Rollback()
 		return nil, err
@@ -69,7 +71,7 @@ func (r *orderRepository) CreateOrder(order *domain.Order) (*domain.Order, error
 }
 
 func (r *orderRepository) GetOrders(filters map[string]interface{}) ([]domain.Order, error) {
-	query := `SELECT o.id, o.waiter_id, u.username as waiter_name, o.cashier_id, o.table_number, o.status, o.total, o.order_type, o.delivery_address, o.delivery_phone, o.delivery_notes, o.payment_method, o.payment_proof_path, o.created_at, o.updated_at 
+	query := `SELECT o.id, o.parent_order_id, o.waiter_id, u.username as waiter_name, o.cashier_id, o.table_number, o.status, o.total, o.order_type, o.customer_name, o.delivery_address, o.delivery_phone, o.delivery_notes, o.payment_method, o.payment_proof_path, o.created_at, o.updated_at 
               FROM orders o
               LEFT JOIN users u ON o.waiter_id = u.id
               WHERE 1=1`
@@ -98,15 +100,21 @@ func (r *orderRepository) GetOrders(filters map[string]interface{}) ([]domain.Or
 
 	for rows.Next() {
 		var order domain.Order
+		var parentOrderID sql.NullString
 		var cashierID sql.NullString
 		var waiterName sql.NullString
+		var customerName sql.NullString
 		var paymentMethod sql.NullString
 		var paymentProof sql.NullString
 		var deliveryAddress sql.NullString
 		var deliveryPhone sql.NullString
 		var deliveryNotes sql.NullString
-		if err := rows.Scan(&order.ID, &order.WaiterID, &waiterName, &cashierID, &order.TableNumber, &order.Status, &order.Total, &order.OrderType, &deliveryAddress, &deliveryPhone, &deliveryNotes, &paymentMethod, &paymentProof, &order.CreatedAt, &order.UpdatedAt); err != nil {
+		if err := rows.Scan(&order.ID, &parentOrderID, &order.WaiterID, &waiterName, &cashierID, &order.TableNumber, &order.Status, &order.Total, &order.OrderType, &customerName, &deliveryAddress, &deliveryPhone, &deliveryNotes, &paymentMethod, &paymentProof, &order.CreatedAt, &order.UpdatedAt); err != nil {
 			return nil, err
+		}
+		if parentOrderID.Valid {
+			id, _ := uuid.Parse(parentOrderID.String)
+			order.ParentOrderID = &id
 		}
 		if cashierID.Valid {
 			id, _ := uuid.Parse(cashierID.String)
@@ -114,6 +122,10 @@ func (r *orderRepository) GetOrders(filters map[string]interface{}) ([]domain.Or
 		}
 		if waiterName.Valid {
 			order.WaiterName = waiterName.String
+		}
+		if customerName.Valid {
+			name := customerName.String
+			order.CustomerName = &name
 		}
 		if paymentMethod.Valid {
 			pm := paymentMethod.String
@@ -246,22 +258,32 @@ func (r *orderRepository) loadOrderItems(orderID uuid.UUID) ([]domain.OrderItem,
 
 func (r *orderRepository) GetOrderByID(orderID uuid.UUID) (*domain.Order, error) {
 	order := &domain.Order{}
-	orderQuery := `SELECT o.id, o.waiter_id, u.username as waiter_name, o.cashier_id, o.table_number, o.status, o.total, o.order_type, o.delivery_address, o.delivery_phone, o.delivery_notes, o.payment_method, o.payment_proof_path, o.created_at, o.updated_at 
+	orderQuery := `SELECT o.id, o.parent_order_id, o.waiter_id, u.username as waiter_name, o.cashier_id, o.table_number, o.status, o.total, o.order_type, o.customer_name, o.delivery_address, o.delivery_phone, o.delivery_notes, o.payment_method, o.payment_proof_path, o.created_at, o.updated_at 
 	               FROM orders o
 	               LEFT JOIN users u ON o.waiter_id = u.id
 	               WHERE o.id = $1`
+	var parentOrderID sql.NullString
 	var waiterName sql.NullString
+	var customerName sql.NullString
 	var paymentMethod sql.NullString
 	var paymentProof sql.NullString
 	var deliveryAddress sql.NullString
 	var deliveryPhone sql.NullString
 	var deliveryNotes sql.NullString
-	err := r.db.QueryRow(orderQuery, orderID).Scan(&order.ID, &order.WaiterID, &waiterName, &order.CashierID, &order.TableNumber, &order.Status, &order.Total, &order.OrderType, &deliveryAddress, &deliveryPhone, &deliveryNotes, &paymentMethod, &paymentProof, &order.CreatedAt, &order.UpdatedAt)
+	err := r.db.QueryRow(orderQuery, orderID).Scan(&order.ID, &parentOrderID, &order.WaiterID, &waiterName, &order.CashierID, &order.TableNumber, &order.Status, &order.Total, &order.OrderType, &customerName, &deliveryAddress, &deliveryPhone, &deliveryNotes, &paymentMethod, &paymentProof, &order.CreatedAt, &order.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
+	if parentOrderID.Valid {
+		id, _ := uuid.Parse(parentOrderID.String)
+		order.ParentOrderID = &id
+	}
 	if waiterName.Valid {
 		order.WaiterName = waiterName.String
+	}
+	if customerName.Valid {
+		name := customerName.String
+		order.CustomerName = &name
 	}
 	if paymentMethod.Valid {
 		pm := paymentMethod.String
@@ -292,6 +314,27 @@ func (r *orderRepository) GetOrderByID(orderID uuid.UUID) (*domain.Order, error)
 	order.Items = items
 
 	return order, nil
+}
+
+func (r *orderRepository) LinkOrderToParent(orderID, parentOrderID uuid.UUID) (*domain.Order, error) {
+	if orderID == parentOrderID {
+		return nil, errors.New("la orden no puede enlazarse consigo misma")
+	}
+
+	result, err := r.db.Exec(`UPDATE orders SET parent_order_id = $1 WHERE id = $2`, parentOrderID, orderID)
+	if err != nil {
+		return nil, err
+	}
+
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return nil, err
+	}
+	if affected == 0 {
+		return nil, sql.ErrNoRows
+	}
+
+	return r.GetOrderByID(orderID)
 }
 
 func (r *orderRepository) UpdateOrderStatus(orderID, userID uuid.UUID, status string) (*domain.Order, error) {

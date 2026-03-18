@@ -88,6 +88,7 @@ CREATE TABLE "menu_item_accompaniments" (
 -- Tabla para las órdenes
 CREATE TABLE "orders" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "parent_order_id" uuid REFERENCES "orders"("id") ON DELETE SET NULL,
   "waiter_id" uuid NOT NULL REFERENCES "users"("id"),
   "cashier_id" uuid REFERENCES "users"("id"),
   "table_id" uuid NOT NULL REFERENCES "tables"("id"),
@@ -96,6 +97,8 @@ CREATE TABLE "orders" (
   "total" numeric(10, 2) NOT NULL,
   -- Tipo de orden: mesa (permite híbridos), llevar (todo empacado), domicilio (todo empacado + dirección)
   "order_type" varchar(20) NOT NULL DEFAULT 'mesa' CHECK (order_type IN ('mesa', 'llevar', 'domicilio')),
+  -- Nombre del cliente (obligatorio para llevar y domicilio, NULL para mesa)
+  "customer_name" varchar(255) NULL,
   -- Campos opcionales para domicilio (solo cuando order_type = 'domicilio')
   "delivery_address" text NULL,
   "delivery_phone" varchar(20) NULL,
@@ -146,6 +149,7 @@ EXECUTE PROCEDURE trigger_set_timestamp();
 -- Crear índices para mejorar el rendimiento de las búsquedas
 CREATE INDEX ON "orders" ("status");
 CREATE INDEX ON "orders" ("waiter_id");
+CREATE INDEX ON "orders" ("parent_order_id");
 CREATE INDEX ON "menu_items" ("order_count");
 CREATE INDEX ON "menu_items" ("category_id");
 CREATE INDEX ON "printers" ("station_id");

@@ -44,6 +44,7 @@ func (c *Customizations) Scan(value interface{}) error {
 
 type Order struct {
 	ID          uuid.UUID   `json:"id" db:"id"`
+	ParentOrderID *uuid.UUID `json:"parent_order_id,omitempty" db:"parent_order_id"`
 	WaiterID    uuid.UUID   `json:"waiter_id" db:"waiter_id"`
 	WaiterName  string      `json:"waiter_name,omitempty" db:"waiter_name"`
 	CashierID   *uuid.UUID  `json:"cashier_id,omitempty" db:"cashier_id"`
@@ -56,6 +57,8 @@ type Order struct {
 	UpdatedAt   time.Time   `json:"updated_at" db:"updated_at"`
 	// Tipo de orden: "mesa" (permite híbridos), "llevar" (todo empacado), "domicilio" (todo empacado + dirección)
 	OrderType string `json:"order_type" db:"order_type"`
+	// Nombre del cliente (obligatorio para "llevar" y "domicilio")
+	CustomerName *string `json:"customer_name,omitempty" db:"customer_name"`
 	// Campos para órdenes a domicilio (solo cuando order_type = "domicilio")
 	DeliveryAddress *string `json:"delivery_address,omitempty" db:"delivery_address"`
 	DeliveryPhone   *string `json:"delivery_phone,omitempty" db:"delivery_phone"`
@@ -78,4 +81,27 @@ type OrderItem struct {
 	CategoryID          *uuid.UUID `json:"category_id,omitempty" db:"category_id"`
 	CategoryStationID   *uuid.UUID `json:"category_station_id,omitempty" db:"category_station_id"`
 	CategoryStationName string     `json:"category_station_name,omitempty" db:"category_station_name"`
+}
+
+// EditOrderRequest estructura para edición granular de órdenes
+type EditOrderRequest struct {
+	// Operaciones sobre items
+	AddItems    []OrderItem      `json:"add_items,omitempty"`    // Items nuevos a agregar
+	UpdateItems []UpdateItemOp   `json:"update_items,omitempty"` // Items a modificar (por índice)
+	RemoveItems []int            `json:"remove_items,omitempty"` // Índices de items a eliminar
+	// Modificaciones a nivel de orden
+	OrderType       *string `json:"order_type,omitempty"`       // "mesa", "llevar", "domicilio"
+	DeliveryAddress *string `json:"delivery_address,omitempty"` // Cambiar dirección de entrega
+	DeliveryPhone   *string `json:"delivery_phone,omitempty"`   // Cambiar teléfono de entrega
+	DeliveryNotes   *string `json:"delivery_notes,omitempty"`   // Cambiar notas de entrega
+	TableNumber     *int    `json:"table_number,omitempty"`     // Cambiar mesa (solo para order_type="mesa")
+}
+
+// UpdateItemOp representa una operación de actualización sobre un item específico
+type UpdateItemOp struct {
+	Index               int                  `json:"index"`                          // Índice del item en el array (0-based)
+	Quantity            *int                 `json:"quantity,omitempty"`             // Nueva cantidad
+	Notes               *string              `json:"notes,omitempty"`                // Nuevas notas
+	CustomizationsInput *CustomizationsInput `json:"customizations_input,omitempty"` // Nuevas customizaciones
+	IsTakeout           *bool                `json:"is_takeout,omitempty"`           // Cambiar si es para llevar
 }

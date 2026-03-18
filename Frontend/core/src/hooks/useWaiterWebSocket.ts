@@ -4,7 +4,7 @@
 // =================================================================
 import { useEffect, useRef } from 'react';
 import { useDispatch } from 'react-redux';
-import { orderUpdated, fetchMyOrders } from '../features/shared/orders/api/ordersSlice';
+import { orderUpdated, fetchMyOrders, fetchActiveOrders } from '../features/shared/orders/api/ordersSlice';
 import type { AppDispatch } from '../app/store';
 import type { Order } from '../types/orders';
 
@@ -25,6 +25,7 @@ export const useWaiterWebSocket = (
   const dispatch = useDispatch<AppDispatch>();
   const ws = useRef<WebSocket | null>(null);
   const heartbeatInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+  const refreshDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     // Solo conectar si es mesero
@@ -34,8 +35,19 @@ export const useWaiterWebSocket = (
       return;
     }
 
+    const userId = localStorage.getItem('user_id') || 'unknown';
+    const scheduleOrdersRefresh = () => {
+      if (refreshDebounce.current) {
+        clearTimeout(refreshDebounce.current);
+      }
+
+      refreshDebounce.current = setTimeout(() => {
+        dispatch(fetchMyOrders());
+        dispatch(fetchActiveOrders({ teamOrders: true }));
+      }, 250);
+    };
+
     if (!ws.current) {
-      const userId = localStorage.getItem('user_id') || 'unknown';
       const userRole = localStorage.getItem('user_role') || 'unknown';
 
       const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
@@ -81,6 +93,11 @@ export const useWaiterWebSocket = (
 
     const handleWebSocketMessage = (message: WebSocketMessage) => {
       switch (message.type) {
+        case 'NEW_PENDING_ORDER': {
+          scheduleOrdersRefresh();
+          break;
+        }
+
         case 'ORDER_STATUS_UPDATED':
           handleOrderStatusUpdate(message.payload);
           break;
@@ -89,11 +106,19 @@ export const useWaiterWebSocket = (
           handleOrderUpdate(message.payload);
           break;
 
+        case 'ORDER_ITEMS_UPDATED':
+          handleOrderUpdate(message.payload);
+          break;
+
+        case 'ORDER_MANAGED':
+          handleOrderUpdate(message.payload);
+          break;
+
         case 'PAYMENT_VERIFICATION_PENDING':
           console.log('⏳ [Mesero] Pago en verificación:', message.payload);
           if (message.payload.order) {
             dispatch(orderUpdated(message.payload.order as Order));
-            dispatch(fetchMyOrders());
+            scheduleOrdersRefresh();
           }
           break;
 
@@ -132,7 +157,7 @@ export const useWaiterWebSocket = (
           }
         }
 
-        dispatch(fetchMyOrders());
+        scheduleOrdersRefresh();
       }
     };
 
@@ -141,7 +166,7 @@ export const useWaiterWebSocket = (
 
       if (order) {
         dispatch(orderUpdated(order as Order));
-        dispatch(fetchMyOrders());
+        scheduleOrdersRefresh();
       }
     };
 
@@ -160,6 +185,10 @@ export const useWaiterWebSocket = (
     return () => {
       if (heartbeatInterval.current) {
         clearInterval(heartbeatInterval.current);
+      }
+      if (refreshDebounce.current) {
+        clearTimeout(refreshDebounce.current);
+        refreshDebounce.current = null;
       }
       if (ws.current && ws.current.readyState === WebSocket.OPEN) {
         ws.current.close();

@@ -11,7 +11,8 @@ interface CartSlideProps {
   orderType: string; // "mesa" | "llevar" | "domicilio"
   onTableChange: (value: string) => void;
   onCartAction: (item: CartItem, action: 'delete') => void;
-  onSendOrder: () => void;
+  onSendOrderWithoutCharge: (takeoutNotes?: string) => void;
+  onChargeAndSendOrder: (takeoutNotes?: string) => void;
   onEditItem: (item: CartItem) => void;
   onUpdateItemPrice?: (cartItemId: string, newPrice: number) => void;
   onIncrementQuantity?: (cartItemId: string) => void;
@@ -28,7 +29,8 @@ const CartSlide: React.FC<CartSlideProps> = ({
   orderType,
   onTableChange,
   onCartAction,
-  onSendOrder,
+  onSendOrderWithoutCharge,
+  onChargeAndSendOrder,
   onEditItem,
   onUpdateItemPrice,
   onIncrementQuantity,
@@ -102,7 +104,8 @@ const CartSlide: React.FC<CartSlideProps> = ({
           orderType={orderType}
           onTableChange={onTableChange}
           onCartAction={onCartAction}
-          onSendOrder={onSendOrder}
+          onSendOrderWithoutCharge={onSendOrderWithoutCharge}
+          onChargeAndSendOrder={onChargeAndSendOrder}
           onEditItem={onEditItem}
           onUpdateItemPrice={onUpdateItemPrice}
           onIncrementQuantity={onIncrementQuantity}

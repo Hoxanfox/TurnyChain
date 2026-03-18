@@ -7,10 +7,11 @@ import { addNewOrder, fetchMyOrders } from '../shared/orders/api/ordersSlice.ts'
 import { fetchTables } from '../admin/components/tables/api/tablesSlice.ts';
 import type { AppDispatch, RootState } from '../../app/store';
 import type { MenuItem, CartItem } from '../../types/menu';
+import type { Order } from '../../types/orders';
 import OrderDetailModal from '../shared/orders/components/OrderDetailModal.tsx';
-import MyOrdersModal from './components/MyOrdersModal';
 import CheckoutModal from './components/CheckoutModal';
 import CheckoutBeforeSendModal from './components/CheckoutBeforeSendModal';
+import ConfirmSendWithoutChargeModal from './components/ConfirmSendWithoutChargeModal';
 import ColleagueOrdersModal from './components/ColleagueOrdersModal';
 import WaiterProfileMenu from './components/WaiterProfileMenu';
 import CustomizeOrderItemModal from './components/CustomizeOrderItemModal';
@@ -27,6 +28,7 @@ import PaymentsSlide from './slides/PaymentsSlide';
 // Importar hook de media query y vista desktop
 import { useIsDesktop } from '../../hooks/useMediaQuery';
 import WaiterDashboardDesktop from './WaiterDashboardDesktop';
+import { useWaiterWebSocket } from '../../hooks/useWaiterWebSocket';
 
 // Importar funciones y tipos comunes del feature
 import {
@@ -57,6 +59,17 @@ const WaiterDashboard: React.FC = () => {
   const swiperRef = useRef<SwiperType | null>(null);
   const isDesktop = useIsDesktop();
 
+  useWaiterWebSocket((options) => {
+    if (options.type !== 'warning' && options.type !== 'error') {
+      return;
+    }
+
+    toast(options.message, {
+      icon: options.type === 'warning' ? '⚠️' : '❌',
+      duration: 3200,
+    });
+  });
+
   const [cart, setCart] = useState<CartItem[]>([]);
   const [tableId, setTableId] = useState('');
   const [orderType, setOrderType] = useState<string>('mesa'); // "mesa" | "llevar" | "domicilio"
@@ -69,14 +82,18 @@ const WaiterDashboard: React.FC = () => {
   const [customizingItem, setCustomizingItem] = useState<MenuItem | null>(null);
   const [editingCartItem, setEditingCartItem] = useState<CartItem | null>(null);
   const [viewingOrderId, setViewingOrderId] = useState<string | null>(null);
-  const [isMyOrdersModalOpen, setIsMyOrdersModalOpen] = useState(false);
-  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [isColleagueModalOpen, setIsColleagueModalOpen] = useState(false);
+  const [selectedParentOrder, setSelectedParentOrder] = useState<Order | null>(null);
   const [activeSlide, setActiveSlide] = useState(0);
   const [checkoutOrderId, setCheckoutOrderId] = useState<string | null>(null);
+  const [checkoutGroupOrderIds, setCheckoutGroupOrderIds] = useState<string[]>([]);
   const [checkoutOrderTotal, setCheckoutOrderTotal] = useState<number>(0);
   const [checkoutTableNumber, setCheckoutTableNumber] = useState<number>(0);
   const [isCheckoutBeforeSend, setIsCheckoutBeforeSend] = useState(false);
+  const [pendingSubmissionMode, setPendingSubmissionMode] = useState<'charge' | 'send' | null>(null);
+  const [pendingTakeoutNotes, setPendingTakeoutNotes] = useState<string>('');
+  const [isSendWithoutChargeModalOpen, setIsSendWithoutChargeModalOpen] = useState(false);
+  const [pendingSendWithoutChargeNotes, setPendingSendWithoutChargeNotes] = useState<string>('');
 
   // 🆕 MEJORA UX #1: Persistencia del carrito (Efecto Zeigarnik)
   // Recuperar carrito guardado al montar el componente
@@ -163,10 +180,16 @@ const WaiterDashboard: React.FC = () => {
   };
 
   const handleSelectTable = (selectedTableId: string) => {
+    if (selectedParentOrder) {
+      setSelectedParentOrder(null);
+    }
     setTableId(selectedTableId);
   };
 
   const handleOrderTypeChange = (newOrderType: string) => {
+    if (selectedParentOrder) {
+      setSelectedParentOrder(null);
+    }
     setOrderType(newOrderType);
     // Limpiar datos de delivery si cambia de tipo
     if (newOrderType !== 'domicilio') {
@@ -217,7 +240,45 @@ const WaiterDashboard: React.FC = () => {
     setCart(currentCart => decrementItemQuantity(currentCart, cartItemId));
   };
 
-  const handleSendOrder = (notes?: string) => {
+  const submitOrderWithoutCharge = (notes?: string) => {
+    const customerNameForPayload =
+      orderType === 'llevar'
+        ? (notes || '')
+        : orderType === 'domicilio'
+        ? (deliveryData?.notes || `Cliente mesa ${checkoutTableNumber}`)
+        : undefined;
+
+    const payload = buildOrderPayload(
+      cart,
+      tableId,
+      tables,
+      orderType,
+      selectedParentOrder?.id,
+      customerNameForPayload,
+      deliveryData || undefined
+    );
+    if (!payload) return;
+
+    if (orderType === 'llevar' && notes) {
+      payload.delivery_notes = notes;
+    }
+
+    dispatch(addNewOrder({ orderData: payload }));
+
+    toast('📌 Comanda enviada por cobrar', {
+      icon: '🧾',
+      duration: 3500,
+    });
+
+    setCart([]);
+    setTableId('');
+    setOrderType('mesa');
+    setDeliveryData(null);
+    setSelectedParentOrder(null);
+    localStorage.removeItem('waiter-cart-draft');
+  };
+
+  const handleSendOrder = (notes?: string, mode: 'charge' | 'send' = 'charge') => {
     if (!canSendOrder(cart, tableId)) return;
 
     // Validar nota especial obligatoria para llevar
@@ -233,7 +294,15 @@ const WaiterDashboard: React.FC = () => {
 
     // Si es domicilio y no hay datos de entrega, mostrar modal
     if (orderType === 'domicilio' && !deliveryData) {
+      setPendingSubmissionMode(mode);
+      setPendingTakeoutNotes(notes || '');
       setShowDeliveryModal(true);
+      return;
+    }
+
+    if (mode === 'send') {
+      setPendingSendWithoutChargeNotes(notes || '');
+      setIsSendWithoutChargeModalOpen(true);
       return;
     }
 
@@ -258,25 +327,54 @@ const WaiterDashboard: React.FC = () => {
     setShowDeliveryModal(false);
 
     // Continuar con el proceso de envío
-    handleSendOrder();
+    handleSendOrder(pendingTakeoutNotes, pendingSubmissionMode || 'charge');
+    setPendingSubmissionMode(null);
+    setPendingTakeoutNotes('');
   };
 
-  const handleSelectOrder = (orderId: string) => {
-    setIsMyOrdersModalOpen(false);
-    setIsHistoryModalOpen(false);
-    setViewingOrderId(orderId);
+  const handleConfirmSendWithoutCharge = () => {
+    setIsSendWithoutChargeModalOpen(false);
+    submitOrderWithoutCharge(pendingSendWithoutChargeNotes);
+    setPendingSendWithoutChargeNotes('');
+  };
+
+  const handleSelectParentOrder = (order: Order) => {
+    setSelectedParentOrder(order);
+
+    const parentOrderType = order.order_type || 'mesa';
+    setOrderType(parentOrderType);
+
+    const matchedTable = tables.find((t) => t.table_number === order.table_number);
+    if (matchedTable) {
+      setTableId(matchedTable.id);
+    }
+
+    if (parentOrderType !== 'domicilio') {
+      setDeliveryData(null);
+    }
+
+    toast.success(`Comanda adicional vinculada a la orden ${order.id.substring(0, 8).toUpperCase()}`);
+    swiperRef.current?.slideTo(1);
   };
 
   const handleCheckout = (orderId: string, total: number, tableNumber: number) => {
-    setIsMyOrdersModalOpen(false);
-    setIsHistoryModalOpen(false);
     setCheckoutOrderId(orderId);
+    setCheckoutGroupOrderIds([orderId]);
+    setCheckoutOrderTotal(total);
+    setCheckoutTableNumber(tableNumber);
+  };
+
+  const handleCheckoutGroup = (orderIds: string[], total: number, tableNumber: number) => {
+    if (orderIds.length === 0) return;
+    setCheckoutOrderId(orderIds[0]);
+    setCheckoutGroupOrderIds(orderIds);
     setCheckoutOrderTotal(total);
     setCheckoutTableNumber(tableNumber);
   };
 
   const handleCheckoutSuccess = () => {
     setCheckoutOrderId(null);
+    setCheckoutGroupOrderIds([]);
     setCheckoutOrderTotal(0);
     setCheckoutTableNumber(0);
     dispatch(fetchMyOrders()); // Recargar órdenes después del pago
@@ -287,7 +385,22 @@ const WaiterDashboard: React.FC = () => {
     setIsCheckoutBeforeSend(false);
 
     // Ahora sí enviar la orden con los datos de pago
-    const payload = buildOrderPayload(cart, tableId, tables, orderType, deliveryData || undefined);
+    const customerNameForPayload =
+      orderType === 'llevar'
+        ? checkoutTakeoutNotes
+        : orderType === 'domicilio'
+        ? (deliveryData?.notes || `Cliente mesa ${checkoutTableNumber}`)
+        : undefined;
+
+    const payload = buildOrderPayload(
+      cart,
+      tableId,
+      tables,
+      orderType,
+      selectedParentOrder?.id,
+      customerNameForPayload,
+      deliveryData || undefined
+    );
     if (!payload) return;
 
     // Agregar delivery_notes si es para llevar y hay notas
@@ -337,6 +450,7 @@ const WaiterDashboard: React.FC = () => {
     setTableId('');
     setOrderType('mesa');
     setDeliveryData(null);
+    setSelectedParentOrder(null);
     localStorage.removeItem('waiter-cart-draft');
   };
 
@@ -353,16 +467,10 @@ const WaiterDashboard: React.FC = () => {
           <h1 className="text-lg font-bold text-white">Mesero</h1>
           <div className="flex gap-2 items-center">
             <button
-              onClick={() => setIsMyOrdersModalOpen(true)}
+              onClick={() => swiperRef.current?.slideTo(3)}
               className="bg-white text-indigo-700 px-3 py-1.5 rounded-lg shadow-sm hover:bg-gray-50 transition-colors text-sm font-medium"
             >
               Hoy
-            </button>
-            <button
-              onClick={() => setIsHistoryModalOpen(true)}
-              className="bg-indigo-800 text-white px-3 py-1.5 rounded-lg shadow-sm hover:bg-indigo-900 transition-colors text-sm font-medium"
-            >
-              📋
             </button>
             <button
               onClick={() => setIsColleagueModalOpen(true)}
@@ -374,6 +482,20 @@ const WaiterDashboard: React.FC = () => {
             <WaiterProfileMenu />
           </div>
         </header>
+
+        {selectedParentOrder && (
+          <div className="bg-emerald-50 border-y border-emerald-200 px-4 py-2 flex items-center justify-between">
+            <p className="text-xs font-semibold text-emerald-800">
+              Comanda hija de {selectedParentOrder.id.substring(0, 8).toUpperCase()} • Mesa {selectedParentOrder.table_number}
+            </p>
+            <button
+              onClick={() => setSelectedParentOrder(null)}
+              className="text-xs text-emerald-700 hover:text-emerald-900 font-bold"
+            >
+              Quitar
+            </button>
+          </div>
+        )}
 
         {/* Swiper Container */}
         <div className="flex-grow overflow-hidden">
@@ -424,7 +546,8 @@ const WaiterDashboard: React.FC = () => {
                 orderType={orderType}
                 onTableChange={setTableId}
                 onCartAction={handleCartAction}
-                onSendOrder={handleSendOrder}
+                onSendOrderWithoutCharge={(notes) => handleSendOrder(notes, 'send')}
+                onChargeAndSendOrder={(notes) => handleSendOrder(notes, 'charge')}
                 onEditItem={handleEditCartItem}
                 onUpdateItemPrice={handleUpdateItemPrice}
                 onIncrementQuantity={handleIncrementQuantity}
@@ -440,6 +563,8 @@ const WaiterDashboard: React.FC = () => {
               <PaymentsSlide
                 onViewOrderDetails={(orderId) => setViewingOrderId(orderId)}
                 onCheckout={(orderId, total, tableNumber) => handleCheckout(orderId, total, tableNumber)}
+                onCheckoutGroup={handleCheckoutGroup}
+                onSelectParentOrder={handleSelectParentOrder}
               />
             </SwiperSlide>
           </Swiper>
@@ -487,22 +612,6 @@ const WaiterDashboard: React.FC = () => {
       </div>
 
       {/* Modales */}
-      {isMyOrdersModalOpen && (
-        <MyOrdersModal
-          onClose={() => setIsMyOrdersModalOpen(false)}
-          onSelectOrder={handleSelectOrder}
-          onCheckout={handleCheckout}
-          filterByToday={true}
-        />
-      )}
-      {isHistoryModalOpen && (
-        <MyOrdersModal
-          onClose={() => setIsHistoryModalOpen(false)}
-          onSelectOrder={handleSelectOrder}
-          onCheckout={handleCheckout}
-          filterByToday={false}
-        />
-      )}
       {viewingOrderId && (
         <OrderDetailModal
           orderId={viewingOrderId}
@@ -526,9 +635,13 @@ const WaiterDashboard: React.FC = () => {
       {checkoutOrderId && (
         <CheckoutModal
           orderId={checkoutOrderId}
+          groupOrderIds={checkoutGroupOrderIds}
           orderTotal={checkoutOrderTotal}
           tableNumber={checkoutTableNumber}
-          onClose={() => setCheckoutOrderId(null)}
+          onClose={() => {
+            setCheckoutOrderId(null);
+            setCheckoutGroupOrderIds([]);
+          }}
           onSuccess={handleCheckoutSuccess}
         />
       )}
@@ -546,6 +659,15 @@ const WaiterDashboard: React.FC = () => {
           onConfirm={handleDeliveryInfoConfirm}
         />
       )}
+      {isSendWithoutChargeModalOpen && (
+        <ConfirmSendWithoutChargeModal
+          onClose={() => {
+            setIsSendWithoutChargeModalOpen(false);
+            setPendingSendWithoutChargeNotes('');
+          }}
+          onConfirm={handleConfirmSendWithoutCharge}
+        />
+      )}
       {isColleagueModalOpen && (
         <ColleagueOrdersModal
           onClose={() => setIsColleagueModalOpen(false)}
@@ -553,9 +675,17 @@ const WaiterDashboard: React.FC = () => {
             setIsColleagueModalOpen(false);
             handleCheckout(orderId, total, tableNumber);
           }}
+          onCheckoutGroup={(orderIds, total, tableNumber) => {
+            setIsColleagueModalOpen(false);
+            handleCheckoutGroup(orderIds, total, tableNumber);
+          }}
           onViewDetails={(orderId) => {
             setIsColleagueModalOpen(false);
             setViewingOrderId(orderId);
+          }}
+          onSelectParentOrder={(order) => {
+            setIsColleagueModalOpen(false);
+            handleSelectParentOrder(order);
           }}
         />
       )}

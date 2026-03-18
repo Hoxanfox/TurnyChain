@@ -3,7 +3,7 @@
 // =================================================================
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchOrderDetails } from '../api/ordersSlice.ts';
+import { fetchActiveOrders, fetchOrderDetails } from '../api/ordersSlice.ts';
 import type { AppDispatch, RootState } from '../../../../app/store.ts';
 import type { OrderItem, Order } from '../../../../types/orders.ts';
 import { getPaymentProofUrl } from '../../../../utils/imageUtils.ts';
@@ -127,18 +127,64 @@ interface OrderDetailModalProps {
   editable?: boolean; // Nueva prop para controlar si se puede editar
 }
 
+const getStatusVisual = (status: string) => {
+  switch (status) {
+    case 'pagado':
+      return { icon: '✅', label: 'Pagado', className: 'bg-emerald-100 text-emerald-800 border-emerald-300' };
+    case 'por_verificar':
+      return { icon: '⏳', label: 'Por Verificar', className: 'bg-amber-100 text-amber-800 border-amber-300' };
+    case 'entregado':
+      return { icon: '💳', label: 'Por Cobrar', className: 'bg-blue-100 text-blue-800 border-blue-300' };
+    case 'pendiente_aprobacion':
+      return { icon: '🧾', label: 'Pendiente Aprobacion', className: 'bg-indigo-100 text-indigo-800 border-indigo-300' };
+    case 'aprobado':
+      return { icon: '👌', label: 'Aprobado', className: 'bg-cyan-100 text-cyan-800 border-cyan-300' };
+    case 'rechazado':
+      return { icon: '❌', label: 'Rechazado', className: 'bg-rose-100 text-rose-800 border-rose-300' };
+    case 'cancelado':
+      return { icon: '⛔', label: 'Cancelado', className: 'bg-red-100 text-red-800 border-red-300' };
+    default:
+      return { icon: 'ℹ️', label: status, className: 'bg-gray-100 text-gray-800 border-gray-300' };
+  }
+};
+
 const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ orderId, onClose, editable = false }) => {
   const dispatch = useDispatch<AppDispatch>();
-  const { selectedOrderDetails, detailsStatus } = useSelector((state: RootState) => state.orders);
+  const { selectedOrderDetails, detailsStatus, activeOrders } = useSelector((state: RootState) => state.orders);
+  const [currentOrderId, setCurrentOrderId] = useState(orderId);
   const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null);
   const [editedPrice, setEditedPrice] = useState<number>(0);
   const [editedNotes, setEditedNotes] = useState<string>('');
 
   useEffect(() => {
-    if (orderId) {
-      dispatch(fetchOrderDetails(orderId));
+    setCurrentOrderId(orderId);
+  }, [orderId]);
+
+  useEffect(() => {
+    if (currentOrderId) {
+      dispatch(fetchOrderDetails(currentOrderId));
     }
-  }, [orderId, dispatch]);
+  }, [currentOrderId, dispatch]);
+
+  useEffect(() => {
+    dispatch(fetchActiveOrders({ teamOrders: true }));
+  }, [dispatch]);
+
+  const groupOrders = React.useMemo(() => {
+    if (!selectedOrderDetails) return [] as Order[];
+
+    const orderMap = new Map<string, Order>();
+    (activeOrders || []).forEach((order) => orderMap.set(order.id, order));
+
+    const rootId = selectedOrderDetails.parent_order_id || selectedOrderDetails.id;
+    const parentOrder = orderMap.get(rootId) || selectedOrderDetails;
+
+    const children = (activeOrders || [])
+      .filter((order) => order.parent_order_id === parentOrder.id)
+      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+    return [parentOrder, ...children];
+  }, [selectedOrderDetails, activeOrders]);
 
   // Debug: Ver qué datos están llegando del backend
   useEffect(() => {
@@ -195,6 +241,62 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ orderId, onClose, e
         {detailsStatus === 'loading' && <p>Cargando detalles...</p>}
         {detailsStatus === 'succeeded' && selectedOrderDetails && (
           <div>
+            {(() => {
+              const statusVisual = getStatusVisual(selectedOrderDetails.status);
+              return (
+                <div className="mb-4 p-3 bg-white border rounded-lg shadow-sm">
+                  <p className="text-xs font-semibold text-gray-500 mb-1">Estado Actual</p>
+                  <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-bold ${statusVisual.className}`}>
+                    <span>{statusVisual.icon}</span>
+                    <span>{statusVisual.label}</span>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {groupOrders.length > 1 && (
+              <div className="mb-4 p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-bold text-indigo-800">Grupo vinculado</h3>
+                  <span className="text-xs font-semibold text-indigo-700">
+                    {groupOrders.length} comandas
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {groupOrders.map((groupOrder, index) => {
+                    const isCurrent = groupOrder.id === selectedOrderDetails.id;
+                    const groupStatusVisual = getStatusVisual(groupOrder.status);
+                    return (
+                      <button
+                        key={groupOrder.id}
+                        type="button"
+                        onClick={() => setCurrentOrderId(groupOrder.id)}
+                        className={`w-full text-left px-3 py-2 rounded-md border transition-colors ${
+                          isCurrent
+                            ? 'bg-indigo-100 border-indigo-400 text-indigo-900'
+                            : 'bg-white border-indigo-200 hover:bg-indigo-50 text-gray-800'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-semibold">
+                            {index === 0 ? 'Padre' : `Hija ${index}`} • Mesa {groupOrder.table_number}
+                          </span>
+                          <span className="text-sm font-bold">${groupOrder.total.toFixed(2)}</span>
+                        </div>
+                        <div className="text-xs mt-1 opacity-90 flex items-center gap-2 flex-wrap">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border font-semibold ${groupStatusVisual.className}`}>
+                            <span>{groupStatusVisual.icon}</span>
+                            <span>{groupStatusVisual.label}</span>
+                          </span>
+                          <span className="text-gray-600">ID: {groupOrder.id.substring(0, 8)}...</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Información del Tipo de Orden */}
             {selectedOrderDetails.order_type && (
               <div className={`mb-4 p-4 rounded-lg border-2 ${
@@ -263,7 +365,6 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ orderId, onClose, e
             )}
 
             <div className="grid grid-cols-2 gap-4 mb-4">
-              <p><strong>Estado:</strong> <span className="font-semibold text-blue-600">{selectedOrderDetails.status}</span></p>
               <p><strong>Total:</strong> <span className="font-bold">${selectedOrderDetails.total.toFixed(2)}</span></p>
               <p><strong>Mesero:</strong> {selectedOrderDetails.waiter_name || <span className="text-gray-400 text-sm">(ID: {selectedOrderDetails.waiter_id.substring(0, 8)}...)</span>}</p>
             </div>

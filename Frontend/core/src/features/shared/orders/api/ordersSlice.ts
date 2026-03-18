@@ -2,8 +2,8 @@
 // ARCHIVO 3: /src/features/orders/ordersSlice.ts
 // =================================================================
 import { createSlice, createAsyncThunk, type PayloadAction } from '@reduxjs/toolkit';
-import { createOrder, getOrders, getOrderDetails, updateOrderStatus, manageOrderAsAdmin } from './ordersAPI.ts';
-import type { Order, NewOrderPayload } from '../../../../types/orders.ts';
+import { createOrder, getOrders, getOrderDetails, updateOrderStatus, manageOrderAsAdmin, editOrder } from './ordersAPI.ts';
+import type { Order, NewOrderPayload, EditOrderRequest } from '../../../../types/orders.ts';
 import type { RootState } from '../../../../app/store.ts';
 
 interface OrdersState {
@@ -26,18 +26,44 @@ const initialState: OrdersState = {
   error: null,
 };
 
-export const fetchActiveOrders = createAsyncThunk('orders/fetchActive', async (_, { getState, rejectWithValue }) => {
+export const fetchActiveOrders = createAsyncThunk('orders/fetchActive', async (options: { teamOrders?: boolean } | undefined, { getState, rejectWithValue }) => {
   const token = (getState() as RootState).auth.token;
-  if (!token) return rejectWithValue('No se encontró el token');
-  try { return await getOrders(token); }
-  catch (error: any) { return rejectWithValue(error.response?.data?.error); }
+  if (!token) {
+    console.error('❌ [fetchActiveOrders] No se encontró el token');
+    return rejectWithValue('No se encontró el token');
+  }
+  try { 
+    console.log('🔄 [fetchActiveOrders] Solicitando órdenes activas...');
+    const orders = await getOrders(token, undefined, false, options?.teamOrders === true);
+    console.log('✅ [fetchActiveOrders] Órdenes recibidas:', orders?.length || 0, 'órdenes');
+    console.log('📦 [fetchActiveOrders] Primera orden (muestra):', orders?.[0]);
+    return orders;
+  }
+  catch (error: any) { 
+    console.error('❌ [fetchActiveOrders] Error:', error);
+    console.error('📋 [fetchActiveOrders] Detalles del error:', error.response?.data);
+    return rejectWithValue(error.response?.data?.error || error.message || 'Error desconocido'); 
+  }
 });
 
 export const fetchMyOrders = createAsyncThunk('orders/fetchMyOrders', async (_, { getState, rejectWithValue }) => {
     const token = (getState() as RootState).auth.token;
-    if (!token) return rejectWithValue('No se encontró el token');
-    try { return await getOrders(token, undefined, true); } // Agregado true para filtrar por mesero
-    catch (error: any) { return rejectWithValue(error.response?.data?.error); }
+    if (!token) {
+      console.error('❌ [fetchMyOrders] No se encontró el token');
+      return rejectWithValue('No se encontró el token');
+    }
+    try { 
+      console.log('🔄 [fetchMyOrders] Solicitando mis órdenes...');
+      const orders = await getOrders(token, undefined, true); // Agregado true para filtrar por mesero
+      console.log('✅ [fetchMyOrders] Órdenes recibidas:', orders?.length || 0, 'órdenes');
+      console.log('📦 [fetchMyOrders] Primera orden (muestra):', orders?.[0]);
+      return orders;
+    }
+    catch (error: any) { 
+      console.error('❌ [fetchMyOrders] Error:', error);
+      console.error('📋 [fetchMyOrders] Detalles del error:', error.response?.data);
+      return rejectWithValue(error.response?.data?.error || error.message || 'Error desconocido'); 
+    }
 });
 
 export const fetchOrderDetails = createAsyncThunk('orders/fetchDetails', async (orderId: string, { getState, rejectWithValue }) => {
@@ -85,6 +111,22 @@ export const cancelOrderAsAdmin = createAsyncThunk('orders/cancelAsAdmin', async
     catch (error: any) { return rejectWithValue(error.response?.data?.error); }
 });
 
+export const updateOrder = createAsyncThunk(
+  'orders/edit',
+  async (
+    { orderId, editRequest }: { orderId: string; editRequest: EditOrderRequest },
+    { getState, rejectWithValue }
+  ) => {
+    const token = (getState() as RootState).auth.token;
+    if (!token) return rejectWithValue('No se encontró el token');
+    try {
+      return await editOrder(orderId, editRequest, token);
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.error || 'Error al editar la orden');
+    }
+  }
+);
+
 export const ordersSlice = createSlice({
   name: 'orders',
   initialState,
@@ -122,20 +164,52 @@ export const ordersSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      .addCase(fetchActiveOrders.pending, (state) => { state.status = 'loading'; })
+      .addCase(fetchActiveOrders.pending, (state) => { 
+        console.log('⏳ [Reducer] fetchActiveOrders - PENDING');
+        state.status = 'loading';
+        state.error = null;
+      })
       .addCase(fetchActiveOrders.fulfilled, (state, action: PayloadAction<Order[]>) => {
+        console.log('✅ [Reducer] fetchActiveOrders - FULFILLED con', action.payload?.length || 0, 'órdenes');
+        console.log('📦 [Reducer] Payload completo:', action.payload);
         state.status = 'succeeded';
         state.activeOrders = action.payload || [];
+        state.error = null;
       })
-      .addCase(fetchMyOrders.pending, (state) => { state.myOrdersStatus = 'loading'; })
+      .addCase(fetchActiveOrders.rejected, (state, action) => {
+        console.error('❌ [Reducer] fetchActiveOrders - REJECTED:', action.payload);
+        state.status = 'failed';
+        state.error = action.payload as string || 'Error al cargar órdenes activas';
+      })
+      .addCase(fetchMyOrders.pending, (state) => { 
+        console.log('⏳ [Reducer] fetchMyOrders - PENDING');
+        state.myOrdersStatus = 'loading';
+        state.error = null;
+      })
       .addCase(fetchMyOrders.fulfilled, (state, action: PayloadAction<Order[]>) => {
+        console.log('✅ [Reducer] fetchMyOrders - FULFILLED con', action.payload?.length || 0, 'órdenes');
+        console.log('📦 [Reducer] Payload completo:', action.payload);
         state.myOrdersStatus = 'succeeded';
         state.myOrders = action.payload || [];
+        state.error = null;
       })
-      .addCase(fetchOrderDetails.pending, (state) => { state.detailsStatus = 'loading'; })
+      .addCase(fetchMyOrders.rejected, (state, action) => {
+        console.error('❌ [Reducer] fetchMyOrders - REJECTED:', action.payload);
+        state.myOrdersStatus = 'failed';
+        state.error = action.payload as string || 'Error al cargar mis órdenes';
+      })
+      .addCase(fetchOrderDetails.pending, (state) => { 
+        state.detailsStatus = 'loading';
+        state.error = null;
+      })
       .addCase(fetchOrderDetails.fulfilled, (state, action: PayloadAction<Order>) => {
         state.detailsStatus = 'succeeded';
         state.selectedOrderDetails = action.payload;
+        state.error = null;
+      })
+      .addCase(fetchOrderDetails.rejected, (state, action) => {
+        state.detailsStatus = 'failed';
+        state.error = action.payload as string || 'Error al cargar detalles de orden';
       })
       .addCase(changeOrderStatus.fulfilled, (state, action: PayloadAction<Order>) => {
         const index = state.activeOrders.findIndex((order: Order) => order.id === action.payload.id);
@@ -151,6 +225,22 @@ export const ordersSlice = createSlice({
       })
       .addCase(addNewOrder.fulfilled, (state, action: PayloadAction<Order>) => {
         state.myOrders.unshift(action.payload);
+      })
+      .addCase(updateOrder.fulfilled, (state, action: PayloadAction<Order>) => {
+        // Actualizar en myOrders
+        const myIndex = state.myOrders.findIndex((order: Order) => order.id === action.payload.id);
+        if (myIndex !== -1) {
+          state.myOrders[myIndex] = action.payload;
+        }
+        // Actualizar en activeOrders
+        const activeIndex = state.activeOrders.findIndex((order: Order) => order.id === action.payload.id);
+        if (activeIndex !== -1) {
+          state.activeOrders[activeIndex] = action.payload;
+        }
+        // Actualizar selectedOrderDetails si es la misma orden
+        if (state.selectedOrderDetails?.id === action.payload.id) {
+          state.selectedOrderDetails = action.payload;
+        }
       });
   },
 });

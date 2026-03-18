@@ -34,12 +34,13 @@ export interface OrderItem {
 // Orden completa que RECIBIMOS del backend
 export interface Order {
   id: string;
+  parent_order_id?: string;
   waiter_id: string;
   waiter_name?: string;
   table_number: number;
   status: string;
   total: number;
-  created_at: string;
+    created_at: string;
   items: OrderItem[];
   payment_method?: string; // "transferencia" | "efectivo"
   payment_proof_path?: string; // Ruta de la imagen del comprobante
@@ -67,6 +68,8 @@ export interface OrderItemPayload {
 export interface NewOrderPayload {
   table_id: string;
   table_number: number;
+  parent_order_id?: string;
+  customer_name?: string;
   items: OrderItemPayload[];
   // Nuevo: Tipo de orden
   order_type?: string; // "mesa" | "llevar" | "domicilio"
@@ -74,4 +77,17 @@ export interface NewOrderPayload {
   delivery_address?: string;
   delivery_phone?: string;
   delivery_notes?: string;
+}
+
+export interface EditOrderItemUpdate {
+  index: number;
+  quantity?: number;
+  notes?: string;
+  is_takeout?: boolean;
+}
+
+export interface EditOrderRequest {
+  add_items?: OrderItemPayload[];
+  update_items?: EditOrderItemUpdate[];
+  remove_items?: number[];
 }
