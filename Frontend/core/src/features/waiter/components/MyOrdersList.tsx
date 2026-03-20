@@ -181,10 +181,11 @@ const MyOrdersList: React.FC<MyOrdersListProps> = ({
         {rootOrders.map((parentOrder) => {
           const children = childrenByParent.get(parentOrder.id) || [];
           const groupOrders = [parentOrder, ...children];
-          const grandTotal = groupOrders.reduce((sum, order) => sum + order.total, 0);
-          const payableOrderIds = groupOrders
-            .filter((order) => order.status === 'entregado' || order.status === 'por_verificar' || order.status === 'pendiente_aprobacion')
-            .map((order) => order.id);
+          const payableOrders = groupOrders.filter(
+            (order) => order.status === 'entregado' || order.status === 'por_verificar' || order.status === 'pendiente_aprobacion'
+          );
+          const payableTotal = payableOrders.reduce((sum, order) => sum + order.total, 0);
+          const payableOrderIds = payableOrders.map((order) => order.id);
 
           return (
             <div key={parentOrder.id} className="bg-slate-100 border border-slate-300 rounded-2xl p-3 md:p-4 shadow-sm">
@@ -201,19 +202,19 @@ const MyOrdersList: React.FC<MyOrdersListProps> = ({
 
                   <div className="bg-white rounded-xl border border-slate-200 p-4 mt-1">
                     <div className="flex justify-between text-2xl font-bold text-gray-900">
-                      <span>Total Global</span>
-                      <span>{formatMoney(grandTotal)}</span>
+                      <span>Total a Cobrar</span>
+                      <span>{formatMoney(payableTotal)}</span>
                     </div>
 
-                    {onCheckoutGroup && payableOrderIds.length > 1 && (
+                    {onCheckoutGroup && payableOrderIds.length > 0 && (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          onCheckoutGroup(payableOrderIds, grandTotal, parentOrder.table_number);
+                          onCheckoutGroup(payableOrderIds, payableTotal, parentOrder.table_number);
                         }}
                         className="w-full mt-3 py-2.5 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-all font-semibold text-sm shadow-md"
                       >
-                        💳 Pago Global del Grupo
+                        {payableOrderIds.length > 1 ? '💳 Pago Global del Grupo' : '💳 Cobrar Comanda Pendiente del Grupo'}
                       </button>
                     )}
                   </div>

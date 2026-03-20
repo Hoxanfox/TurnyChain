@@ -189,3 +189,4 @@ export const CashierFilters: React.FC<CashierFiltersProps> = ({
   );
 };
 
+

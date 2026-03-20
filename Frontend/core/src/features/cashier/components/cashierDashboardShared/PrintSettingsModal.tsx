@@ -4,7 +4,7 @@
 // =================================================================
 
 import React, { useState, useEffect } from 'react';
-import { getPrintSettings, savePrintSettings, type PrintSettings } from '../../../utils/printUtils';
+import { getPrintSettings, savePrintSettings, type PrintSettings } from '../../../../utils/printUtils';
 
 interface PrintSettingsModalProps {
   isOpen: boolean;
@@ -353,4 +353,5 @@ export const PrintSettingsModal: React.FC<PrintSettingsModalProps> = ({ isOpen, 
     </div>
   );
 };
+
 

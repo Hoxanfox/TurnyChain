@@ -3,24 +3,8 @@
 // =================================================================
 import { useState, useMemo } from 'react';
 import type { Order } from '../../../types/orders';
-import type { FilterStatus, PaymentMethodFilter, SortBy } from '../components/CashierFilters';
-
-interface CashierStatistics {
-  totalPaid: number;
-  totalPending: number;
-  totalVerification: number;
-  totalDelivered: number;
-  cashTotal: number;
-  transferTotal: number;
-  ordersCount: number;
-  averageOrderValue: number;
-  // Nuevas estadísticas diarias
-  dailyRevenue: number;        // Ingresos totales del día (solo pagos verificados)
-  dailyCash: number;           // Dinero en efectivo del día
-  dailyTransfer: number;       // Dinero en transferencia del día
-  dailyOrdersCount: number;    // Cantidad de órdenes del día
-  dailyAverageTicket: number;  // Ticket promedio del día
-}
+import type { FilterStatus, PaymentMethodFilter, SortBy } from '../components/cashierDashboardShared/CashierFilters';
+import type { CashierStatistics } from '../types/cashierDashboardTypes';
 
 export const useCashierLogic = (activeOrders: Order[]) => {
   const getDayKey = (value: Date) =>

@@ -3,8 +3,8 @@
 // Modal para previsualizar los tickets de cocina por estación
 // =================================================================
 import React, { useEffect, useState } from 'react';
-import type { KitchenTicketsPreview } from '../../../types/kitchen_tickets';
-import { kitchenTicketsAPI } from '../../shared/orders/api/kitchenTicketsAPI';
+import type { KitchenTicketsPreview } from '../../../../types/kitchen_tickets';
+import { kitchenTicketsAPI } from '../../../shared/orders/api/kitchenTicketsAPI';
 
 interface KitchenTicketsPreviewModalProps {
   isOpen: boolean;
@@ -240,4 +240,5 @@ export const KitchenTicketsPreviewModal: React.FC<KitchenTicketsPreviewModalProp
     </div>
   );
 };
+
 

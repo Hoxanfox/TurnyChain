@@ -1,6 +1,6 @@
 import React from 'react';
-import type { Order } from '../../../types/orders';
-import { formatMoney } from '../../../utils/formatUtils';
+import type { Order } from '../../../../types/orders';
+import { formatMoney } from '../../../../utils/formatUtils';
 
 interface TableCardProps {
   tableNumber: number;
@@ -111,4 +111,5 @@ export const TableCard: React.FC<TableCardProps> = ({ tableNumber, orders, onVie
     </button>
   );
 };
+
 

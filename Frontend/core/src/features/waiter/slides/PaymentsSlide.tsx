@@ -529,10 +529,11 @@ const PaymentsSlide: React.FC<PaymentsSlideProps> = ({
         {rootOrders.map((parentOrder) => {
           const children = childrenByParent.get(parentOrder.id) || [];
           const groupOrders = [parentOrder, ...children];
-          const groupTotal = groupOrders.reduce((sum, current) => sum + current.total, 0);
-          const payableOrderIds = groupOrders
-            .filter((order) => order.status === 'entregado' || order.status === 'por_verificar' || order.status === 'pendiente_aprobacion')
-            .map((order) => order.id);
+          const payableOrders = groupOrders.filter(
+            (order) => order.status === 'entregado' || order.status === 'por_verificar' || order.status === 'pendiente_aprobacion'
+          );
+          const payableGroupTotal = payableOrders.reduce((sum, current) => sum + current.total, 0);
+          const payableOrderIds = payableOrders.map((order) => order.id);
 
           if (children.length === 0) {
             return renderPaymentCard(parentOrder);
@@ -542,12 +543,12 @@ const PaymentsSlide: React.FC<PaymentsSlideProps> = ({
             <div key={parentOrder.id} className="group bg-slate-100 border border-slate-300 rounded-xl p-2.5 space-y-2 transition-all duration-200 hover:shadow-lg hover:border-indigo-300">
               <div className="px-1 flex items-center justify-between transition-colors duration-200 group-hover:text-indigo-900">
                 <p className="text-xs font-semibold text-slate-700">Grupo de comandas enlazadas</p>
-                <p className="text-xs font-bold text-slate-900">Total grupo: {formatMoney(groupTotal)}</p>
+                <p className="text-xs font-bold text-slate-900">Total a cobrar: {formatMoney(payableGroupTotal)}</p>
               </div>
 
               {onCheckoutGroup && payableOrderIds.length > 0 && (
                 <button
-                  onClick={() => onCheckoutGroup(payableOrderIds, groupTotal, parentOrder.table_number)}
+                  onClick={() => onCheckoutGroup(payableOrderIds, payableGroupTotal, parentOrder.table_number)}
                   className="w-full py-2 px-3 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-lg hover:from-indigo-700 hover:to-indigo-800 transition-all font-bold text-sm shadow-md"
                 >
                   {payableOrderIds.length > 1 ? '💳 Cobro Global del Grupo' : '💳 Cobrar Comanda Pendiente del Grupo'}

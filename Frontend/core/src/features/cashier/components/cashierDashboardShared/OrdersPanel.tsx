@@ -1,11 +1,12 @@
 import React from 'react';
-import type { Order } from '../../../types/orders';
-import OrderGridView from '../../shared/orders/components/OrderGridView';
+import type { Order } from '../../../../types/orders';
+import OrderGridView from '../../../shared/orders/components/OrderGridView';
 
 interface OrdersPanelProps {
   orders: Order[];
   selectedTable: number | null;
   isLoading: boolean;
+  hasFailed?: boolean;
   onStatusChange: (orderId: string, status: string) => void;
   onConfirmPayment: (orderId: string) => void;
   onRejectPayment: (orderId: string) => void;
@@ -15,12 +16,14 @@ interface OrdersPanelProps {
   onPrintFullCommand?: (orderId: string) => void;
   onPreviewTickets?: (orderId: string) => void;
   onCancelOrder?: (orderId: string) => void;
+  onRetryLoadOrders?: () => void;
 }
 
 export const OrdersPanel: React.FC<OrdersPanelProps> = ({
   orders,
   selectedTable,
   isLoading,
+  hasFailed,
   onStatusChange,
   onConfirmPayment,
   onRejectPayment,
@@ -30,6 +33,7 @@ export const OrdersPanel: React.FC<OrdersPanelProps> = ({
   onPrintFullCommand,
   onPreviewTickets,
   onCancelOrder,
+  onRetryLoadOrders,
 }) => {
   if (isLoading) {
     return (
@@ -46,6 +50,24 @@ export const OrdersPanel: React.FC<OrdersPanelProps> = ({
       <div className="w-full md:w-3/4 overflow-y-auto">
         <div className="flex items-center justify-center h-full bg-white rounded-lg shadow">
           <p className="text-gray-500 text-lg">Seleccione una mesa para ver sus órdenes.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (hasFailed) {
+    return (
+      <div className="w-full md:w-3/4 overflow-y-auto">
+        <div className="flex flex-col items-center justify-center h-full bg-white rounded-lg shadow gap-3 px-6">
+          <p className="text-red-600 text-lg font-semibold">Error al cargar órdenes.</p>
+          {onRetryLoadOrders && (
+            <button
+              onClick={onRetryLoadOrders}
+              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+            >
+              Reintentar
+            </button>
+          )}
         </div>
       </div>
     );
@@ -174,4 +196,5 @@ export const OrdersPanel: React.FC<OrdersPanelProps> = ({
     </div>
   );
 };
+
 

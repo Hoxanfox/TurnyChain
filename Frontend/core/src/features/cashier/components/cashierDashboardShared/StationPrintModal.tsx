@@ -3,8 +3,8 @@
 // Modal para seleccionar estaciones e imprimir tickets de cocina
 // =================================================================
 import React, { useEffect, useState } from 'react';
-import type { KitchenTicketStationSummary, KitchenTicketsPreview } from '../../../types/kitchen_tickets';
-import { kitchenTicketsAPI } from '../../shared/orders/api/kitchenTicketsAPI';
+import type { KitchenTicketStationSummary, KitchenTicketsPreview } from '../../../../types/kitchen_tickets';
+import { kitchenTicketsAPI } from '../../../shared/orders/api/kitchenTicketsAPI';
 
 interface StationPrintModalProps {
   isOpen: boolean;
@@ -382,3 +382,4 @@ export const StationPrintModal: React.FC<StationPrintModalProps> = ({
     </div>
   );
 };
+

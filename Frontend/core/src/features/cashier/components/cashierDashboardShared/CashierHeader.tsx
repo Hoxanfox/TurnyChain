@@ -1,5 +1,5 @@
-import React from 'react';
-import LogoutButton from '../../../components/LogoutButton';
+import React, { useState } from 'react';
+import LogoutButton from '../../../../components/LogoutButton';
 
 interface CashierHeaderProps {
   pendingVerificationCount: number;
@@ -18,6 +18,8 @@ export const CashierHeader: React.FC<CashierHeaderProps> = ({
   onOpenPrintSettings,
   activeFiltersCount = 0,
 }) => {
+  const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false);
+
   return (
     <div className="bg-gradient-to-r from-purple-600 via-pink-600 to-blue-600 rounded-lg shadow-xl p-6 mb-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
@@ -56,26 +58,47 @@ export const CashierHeader: React.FC<CashierHeaderProps> = ({
           >
             📊 {showStats ? 'Ocultar' : 'Mostrar'} Stats
           </button>
-          <button
-            onClick={onOpenPrintSettings}
-            className="px-4 py-2 bg-white text-indigo-600 rounded-lg hover:bg-indigo-50 transition-all font-semibold shadow-lg hover:shadow-xl transform hover:scale-105"
-            title="Configurar impresión de comandas"
-          >
-            🖨️ Impresión
-          </button>
-          <button
-            onClick={onExportReport}
-            className="px-4 py-2 bg-white text-green-600 rounded-lg hover:bg-green-50 transition-all font-semibold shadow-lg hover:shadow-xl transform hover:scale-105"
-            title="Exportar reporte CSV"
-          >
-            📥 Exportar
-          </button>
-          <div className="bg-white rounded-lg p-1">
-            <LogoutButton />
+          <div className="relative">
+            <button
+              onClick={() => setIsActionsMenuOpen((prev) => !prev)}
+              className="px-4 py-2 bg-white text-indigo-700 rounded-lg hover:bg-indigo-50 transition-all font-semibold shadow-lg hover:shadow-xl"
+              title="Abrir menú de acciones"
+            >
+              ☰ Acciones
+            </button>
+
+            {isActionsMenuOpen && (
+              <div className="absolute right-0 mt-2 w-56 rounded-xl bg-white shadow-2xl border border-indigo-100 overflow-hidden z-30">
+                <button
+                  onClick={() => {
+                    onOpenPrintSettings();
+                    setIsActionsMenuOpen(false);
+                  }}
+                  className="w-full text-left px-4 py-3 text-indigo-700 hover:bg-indigo-50 font-semibold"
+                >
+                  🖨️ Configurar impresión
+                </button>
+                <button
+                  onClick={() => {
+                    onExportReport();
+                    setIsActionsMenuOpen(false);
+                  }}
+                  className="w-full text-left px-4 py-3 text-emerald-700 hover:bg-emerald-50 font-semibold border-t border-gray-100"
+                >
+                  📥 Exportar reporte
+                </button>
+                <div className="px-3 py-2 border-t border-gray-100 bg-gray-50">
+                  <div className="bg-white rounded-lg p-1">
+                    <LogoutButton />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
     </div>
   );
 };
+
 

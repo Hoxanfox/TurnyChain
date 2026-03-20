@@ -8,10 +8,10 @@ import type { AppDispatch, RootState } from '../../app/store';
 import { useCashierWebSocket } from '../../hooks/useCashierWebSocket';
 import { useIsDesktop } from '../../hooks/useMediaQuery';
 import { useCashierLogic } from './hooks/useCashierLogic';
-import { CashierDashboardDesktop } from './CashierDashboardDesktop';
-import { CashierDashboardMobile } from './CashierDashboardMobile';
-import { PrintSettingsModal } from './components/PrintSettingsModal';
-import { KitchenTicketsPreviewModal } from './components/KitchenTicketsPreviewModal';
+import { CashierDashboardDesktop } from './components/cashierDashboardDesktop/CashierDashboardDesktop';
+import { CashierDashboardMobile } from './components/cashierDashboardMobile/CashierDashboardMobile';
+import { PrintSettingsModal } from './components/cashierDashboardShared/PrintSettingsModal';
+import { KitchenTicketsPreviewModal } from './components/cashierDashboardShared/KitchenTicketsPreviewModal';
 import { printKitchenCommand, printKitchenTicketsFrontend, getPrintSettings } from '../../utils/printUtils';
 import { kitchenTicketsAPI } from '../shared/orders/api/kitchenTicketsAPI';
 
@@ -238,6 +238,7 @@ const CashierDashboard: React.FC = () => {
     deliveredCount: cashierLogic.deliveredCount,
     paidCount: cashierLogic.paidCount,
     isLoading: status === 'loading',
+    hasFailed: status === 'failed',
 
     // Notificaciones
     notification,
@@ -252,6 +253,7 @@ const CashierDashboard: React.FC = () => {
     onExportReport: cashierLogic.exportReport,
     onOpenPrintSettings: handleOpenPrintSettings,
     onCloseNotification: () => setNotification(null),
+    onRetryLoadOrders: () => dispatch(fetchActiveOrders()),
 
     // Handlers de acciones
     onStatusChange: handleStatusChange,
@@ -306,3 +308,4 @@ const CashierDashboard: React.FC = () => {
 };
 
 export default CashierDashboard;
+

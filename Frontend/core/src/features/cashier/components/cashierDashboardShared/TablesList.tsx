@@ -1,5 +1,5 @@
 import React from 'react';
-import type { Order } from '../../../types/orders';
+import type { Order } from '../../../../types/orders';
 
 interface TablesListProps {
   ordersByTable: Record<number, Order[]>;
@@ -68,4 +68,5 @@ export const TablesList: React.FC<TablesListProps> = ({
     </div>
   );
 };
+
 

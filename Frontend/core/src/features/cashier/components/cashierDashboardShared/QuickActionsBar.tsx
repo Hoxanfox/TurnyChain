@@ -4,7 +4,8 @@ interface QuickActionsBarProps {
   pendingCount: number;
   deliveredCount: number;
   paidCount: number;
-  onNavigate: (status: 'por_verificar' | 'entregado' | 'pagado') => void;
+  onNavigate?: (status: 'por_verificar' | 'entregado' | 'pagado') => void;
+  onFilterByStatus?: (status: 'por_verificar' | 'entregado' | 'pagado') => void;
 }
 
 export const QuickActionsBar: React.FC<QuickActionsBarProps> = ({
@@ -12,13 +13,24 @@ export const QuickActionsBar: React.FC<QuickActionsBarProps> = ({
   deliveredCount,
   paidCount,
   onNavigate,
+  onFilterByStatus,
 }) => {
+  const handleAction = (status: 'por_verificar' | 'entregado' | 'pagado') => {
+    if (onFilterByStatus) {
+      onFilterByStatus(status);
+      return;
+    }
+    if (onNavigate) {
+      onNavigate(status);
+    }
+  };
+
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-white border-t-2 border-gray-200 shadow-2xl p-3 z-50">
       <div className="flex gap-2 max-w-screen-lg mx-auto">
         {/* Por Verificar */}
         <button
-          onClick={() => onNavigate('por_verificar')}
+          onClick={() => handleAction('por_verificar')}
           className="flex-1 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl py-3 px-2 shadow-lg active:scale-95 transition-transform"
         >
           <div className="text-center">
@@ -29,7 +41,7 @@ export const QuickActionsBar: React.FC<QuickActionsBarProps> = ({
 
         {/* Entregados */}
         <button
-          onClick={() => onNavigate('entregado')}
+          onClick={() => handleAction('entregado')}
           className="flex-1 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl py-3 px-2 shadow-lg active:scale-95 transition-transform"
         >
           <div className="text-center">
@@ -40,7 +52,7 @@ export const QuickActionsBar: React.FC<QuickActionsBarProps> = ({
 
         {/* Pagados */}
         <button
-          onClick={() => onNavigate('pagado')}
+          onClick={() => handleAction('pagado')}
           className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl py-3 px-2 shadow-lg active:scale-95 transition-transform"
         >
           <div className="text-center">
@@ -52,4 +64,5 @@ export const QuickActionsBar: React.FC<QuickActionsBarProps> = ({
     </div>
   );
 };
+
 

@@ -250,10 +250,11 @@ const ColleagueOrdersModal: React.FC<ColleagueOrdersModalProps> = ({
           {filteredOrders.map(order => {
             const children = childrenByParent.get(order.id) || [];
             const groupOrders = [order, ...children];
-            const groupTotal = groupOrders.reduce((sum, current) => sum + current.total, 0);
-            const payableOrderIds = groupOrders
-              .filter((current) => current.status === 'entregado' || current.status === 'por_verificar' || current.status === 'pendiente_aprobacion')
-              .map((current) => current.id);
+            const payableOrders = groupOrders.filter(
+              (current) => current.status === 'entregado' || current.status === 'por_verificar' || current.status === 'pendiente_aprobacion'
+            );
+            const payableGroupTotal = payableOrders.reduce((sum, current) => sum + current.total, 0);
+            const payableOrderIds = payableOrders.map((current) => current.id);
 
             const renderCard = (current: Order, isChild = false) => {
               const isPendingPayment = current.status === 'entregado' || current.status === 'pendiente_aprobacion';
@@ -416,15 +417,15 @@ const ColleagueOrdersModal: React.FC<ColleagueOrdersModalProps> = ({
               <div key={order.id} className="bg-violet-100 border border-violet-300 rounded-xl p-2.5 space-y-2">
                 <div className="px-1 flex items-center justify-between">
                   <p className="text-xs font-semibold text-violet-700">Grupo enlazado</p>
-                  <p className="text-xs font-bold text-violet-900">Total grupo: {formatMoney(groupTotal)}</p>
+                  <p className="text-xs font-bold text-violet-900">Total a cobrar: {formatMoney(payableGroupTotal)}</p>
                 </div>
 
-                {onCheckoutGroup && payableOrderIds.length > 1 && (
+                {onCheckoutGroup && payableOrderIds.length > 0 && (
                   <button
-                    onClick={() => onCheckoutGroup(payableOrderIds, groupTotal, order.table_number)}
+                    onClick={() => onCheckoutGroup(payableOrderIds, payableGroupTotal, order.table_number)}
                     className="w-full py-2.5 bg-gradient-to-r from-violet-600 to-purple-700 text-white rounded-xl hover:from-violet-700 hover:to-purple-800 transition-all font-bold text-sm shadow-md active:scale-95"
                   >
-                    💳 Cobro Global del Grupo
+                    {payableOrderIds.length > 1 ? '💳 Cobro Global del Grupo' : '💳 Cobrar Comanda Pendiente del Grupo'}
                   </button>
                 )}
 

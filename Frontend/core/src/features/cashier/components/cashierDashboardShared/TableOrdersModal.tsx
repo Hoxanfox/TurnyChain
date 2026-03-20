@@ -1,9 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import type { Order } from '../../../types/orders';
-import OrderGridView from '../../shared/orders/components/OrderGridView';
+import type { Order } from '../../../../types/orders';
+import OrderGridView from '../../../shared/orders/components/OrderGridView';
 import { QuickProofView } from './QuickProofView';
 import { StationPrintModal } from './StationPrintModal';
-import { formatMoney } from '../../../utils/formatUtils';
+import { formatMoney } from '../../../../utils/formatUtils';
 
 interface ProofModalState {
   order: Order;
@@ -19,6 +19,7 @@ interface TableOrdersModalProps {
   onConfirmPayment: (orderId: string) => void;
   onRejectPayment: (orderId: string) => void;
   onViewDetail: (orderId: string) => void;
+  onPrintCommand?: (orderId: string) => void;
   onPrintFullCommand?: (orderId: string) => void;
   onPreviewTickets?: (orderId: string) => void;
   onCancelOrder: (orderId: string) => void;
@@ -33,10 +34,12 @@ export const TableOrdersModal: React.FC<TableOrdersModalProps> = ({
   onConfirmPayment,
   onRejectPayment,
   onViewDetail,
+  onPrintCommand,
   onPrintFullCommand,
   onCancelOrder,
 }) => {
   const isPorCobrarStatus = (status: string) => status === 'entregado' || status === 'pendiente_aprobacion';
+  const isPayableStatus = (status: string) => status === 'por_verificar' || isPorCobrarStatus(status);
   const handlePrintCashTicket = (orderId: string) => {
     if (onPrintFullCommand) {
       onPrintFullCommand(orderId);
@@ -47,6 +50,10 @@ export const TableOrdersModal: React.FC<TableOrdersModalProps> = ({
   };
 
   const handlePrintByStation = (orderId: string) => {
+    if (onPrintCommand) {
+      onPrintCommand(orderId);
+      return;
+    }
     setStationPrintOrderId(orderId);
   };
 
@@ -137,9 +144,12 @@ export const TableOrdersModal: React.FC<TableOrdersModalProps> = ({
         root,
         members,
         isLinkedGroup: members.length > 1,
-        total: members.reduce((sum, current) => sum + current.total, 0),
+        payableMembers: members.filter((member) => isPayableStatus(member.status)),
       };
-    }).filter((group) => groupMatchesTab(group.members));
+    }).map((group) => ({
+      ...group,
+      payableTotal: group.payableMembers.reduce((sum, current) => sum + current.total, 0),
+    })).filter((group) => groupMatchesTab(group.members));
   }, [orders, filterTab]);
 
   if (!isOpen || !tableNumber) return null;
@@ -274,7 +284,7 @@ export const TableOrdersModal: React.FC<TableOrdersModalProps> = ({
                           <p className="text-xs font-semibold text-slate-700">
                             Grupo enlazado • {group.members.length} comandas (1 padre + {group.members.length - 1} hijas)
                           </p>
-                          <p className="text-xs font-bold text-slate-900">Total grupo: {formatMoney(group.total)}</p>
+                          <p className="text-xs font-bold text-slate-900">Total a cobrar: {formatMoney(group.payableTotal)}</p>
                         </div>
 
                         {(() => {
@@ -816,4 +826,5 @@ export const TableOrdersModal: React.FC<TableOrdersModalProps> = ({
     </>
   );
 };
+
 
