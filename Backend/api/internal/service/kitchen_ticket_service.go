@@ -223,6 +223,27 @@ func (s *KitchenTicketService) PrintGlobalOrderTicket(orderID uuid.UUID) error {
 	return s.sendToPrinter(printers[0], globalTicket)
 }
 
+// PrintGlobalOrderTicketResponse imprime la comanda global de Caja y devuelve una respuesta estándar.
+func (s *KitchenTicketService) PrintGlobalOrderTicketResponse(orderID uuid.UUID) (*domain.PrintResponse, error) {
+	err := s.PrintGlobalOrderTicket(orderID)
+	if err != nil {
+		return &domain.PrintResponse{
+			Success:     false,
+			Message:     "Error al imprimir ticket global de Caja",
+			TicketsSent: 0,
+			FailedPrints: []domain.FailedPrintInfo{
+				{StationName: "Caja", Error: err.Error()},
+			},
+		}, nil
+	}
+
+	return &domain.PrintResponse{
+		Success:     true,
+		Message:     "Ticket global enviado a Caja correctamente",
+		TicketsSent: 1,
+	}, nil
+}
+
 // PrintKitchenTickets genera los tickets y los envía a las impresoras correspondientes
 func (s *KitchenTicketService) PrintKitchenTickets(orderID uuid.UUID, reprint bool) (*domain.PrintResponse, error) {
 	// 1. Generar los tickets

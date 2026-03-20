@@ -132,3 +132,27 @@ func (h *KitchenTicketHandler) PrintKitchenTicketsByStation(c *fiber.Ctx) error 
 
 	return c.JSON(response)
 }
+
+// PrintGlobalCashTicket imprime la comanda global en la estación Caja
+// POST /api/orders/:orderId/kitchen-tickets/print/caja
+func (h *KitchenTicketHandler) PrintGlobalCashTicket(c *fiber.Ctx) error {
+	orderID, err := uuid.Parse(c.Params("orderId"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Order ID inválido",
+		})
+	}
+
+	response, err := h.service.PrintGlobalOrderTicketResponse(orderID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Error al imprimir ticket de Caja: " + err.Error(),
+		})
+	}
+
+	if !response.Success {
+		return c.Status(fiber.StatusMultiStatus).JSON(response)
+	}
+
+	return c.JSON(response)
+}

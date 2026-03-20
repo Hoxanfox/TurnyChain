@@ -132,7 +132,7 @@ export const CashierFilters: React.FC<CashierFiltersProps> = ({
                 : 'bg-gray-100 hover:bg-gray-200 text-gray-700 hover:shadow-md'
             }`}
           >
-            🍽️ Entregado
+            🧾 Por Cobrar
           </button>
           <button
             onClick={() => onFilterStatusChange('pagado')}

@@ -1,9 +1,14 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import type { Order } from '../../../types/orders';
 import OrderGridView from '../../shared/orders/components/OrderGridView';
 import { QuickProofView } from './QuickProofView';
 import { StationPrintModal } from './StationPrintModal';
 import { formatMoney } from '../../../utils/formatUtils';
+
+interface ProofModalState {
+  order: Order;
+  relatedOrders?: Order[];
+}
 
 interface TableOrdersModalProps {
   isOpen: boolean;
@@ -29,28 +34,115 @@ export const TableOrdersModal: React.FC<TableOrdersModalProps> = ({
   onRejectPayment,
   onViewDetail,
   onPrintFullCommand,
-  onPreviewTickets,
   onCancelOrder,
 }) => {
-  const [selectedProofOrder, setSelectedProofOrder] = useState<Order | null>(null);
-  const [filterTab, setFilterTab] = useState<'all' | 'pending' | 'paid' | 'cancelled'>('all');
+  const isPorCobrarStatus = (status: string) => status === 'entregado' || status === 'pendiente_aprobacion';
+  const handlePrintCashTicket = (orderId: string) => {
+    if (onPrintFullCommand) {
+      onPrintFullCommand(orderId);
+      return;
+    }
+
+    window.alert('La impresión de Ticket Caja no está disponible en este contexto.');
+  };
+
+  const handlePrintByStation = (orderId: string) => {
+    setStationPrintOrderId(orderId);
+  };
+
+  const getStatusVisual = (status: string) => {
+    switch (status) {
+      case 'por_verificar':
+        return { icon: '⏳', label: 'Por Verificar', className: 'bg-amber-100 text-amber-800 border-amber-300' };
+      case 'entregado':
+      case 'pendiente_aprobacion':
+        return { icon: '🧾', label: 'Por Cobrar', className: 'bg-blue-100 text-blue-800 border-blue-300' };
+      case 'pagado':
+        return { icon: '✅', label: 'Pagado', className: 'bg-emerald-100 text-emerald-800 border-emerald-300' };
+      case 'cancelado':
+        return { icon: '⛔', label: 'Cancelado', className: 'bg-red-100 text-red-800 border-red-300' };
+      default:
+        return { icon: 'ℹ️', label: status, className: 'bg-gray-100 text-gray-700 border-gray-300' };
+    }
+  };
+
+  const [selectedProofOrder, setSelectedProofOrder] = useState<ProofModalState | null>(null);
+  const [filterTab, setFilterTab] = useState<'all' | 'to_collect' | 'pending' | 'paid' | 'cancelled'>('to_collect');
   const [stationPrintOrderId, setStationPrintOrderId] = useState<string | null>(null);
 
-  if (!isOpen || !tableNumber) return null;
-
-  // Filtrar órdenes según la pestaña activa
-  const filteredOrders = orders.filter(order => {
+  const orderMatchesTab = (order: Order) => {
+    if (filterTab === 'all') return true;
+    if (filterTab === 'to_collect') return isPorCobrarStatus(order.status);
     if (filterTab === 'pending') return order.status === 'por_verificar';
     if (filterTab === 'paid') return order.status === 'pagado';
     if (filterTab === 'cancelled') return order.status === 'cancelado';
     return true;
-  });
+  };
+
+  const groupMatchesTab = (members: Order[]) => {
+    if (filterTab === 'all') return true;
+    return members.some((member) => orderMatchesTab(member));
+  };
+
+  // Filtrar órdenes individuales para contador/vistas simples
+  const filteredOrders = orders.filter(orderMatchesTab);
 
   // Calcular estadísticas
   const totalAmount = orders.reduce((sum, order) => sum + order.total, 0);
+  const toCollectCount = orders.filter(o => isPorCobrarStatus(o.status)).length;
   const pendingCount = orders.filter(o => o.status === 'por_verificar').length;
   const paidCount = orders.filter(o => o.status === 'pagado').length;
   const cancelledCount = orders.filter(o => o.status === 'cancelado').length;
+  const childCountMap = orders.reduce((acc, order) => {
+    if (!order.parent_order_id) return acc;
+    acc[order.parent_order_id] = (acc[order.parent_order_id] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const groupedFilteredOrders = useMemo(() => {
+    const orderById = new Map<string, Order>();
+    orders.forEach((order) => orderById.set(order.id, order));
+
+    const childrenByParent = new Map<string, Order[]>();
+    orders.forEach((order) => {
+      if (!order.parent_order_id || !orderById.has(order.parent_order_id)) return;
+      const list = childrenByParent.get(order.parent_order_id) || [];
+      list.push(order);
+      childrenByParent.set(order.parent_order_id, list);
+    });
+
+    childrenByParent.forEach((children, parentId) => {
+      children.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      childrenByParent.set(parentId, children);
+    });
+
+    const roots = orders
+      .filter((order) => !order.parent_order_id || !orderById.has(order.parent_order_id))
+      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+    return roots.map((root) => {
+      const members: Order[] = [root];
+
+      const appendChildren = (parentId: string) => {
+        const children = childrenByParent.get(parentId) || [];
+        children.forEach((child) => {
+          members.push(child);
+          appendChildren(child.id);
+        });
+      };
+
+      appendChildren(root.id);
+
+      return {
+        root,
+        members,
+        isLinkedGroup: members.length > 1,
+        total: members.reduce((sum, current) => sum + current.total, 0),
+      };
+    }).filter((group) => groupMatchesTab(group.members));
+  }, [orders, filterTab]);
+
+  if (!isOpen || !tableNumber) return null;
 
   return (
     <>
@@ -81,10 +173,14 @@ export const TableOrdersModal: React.FC<TableOrdersModalProps> = ({
                 <p className="text-xs text-white/90">Total</p>
               </div>
               <div className="bg-white/20 rounded-lg p-2 text-center">
+                <p className="text-2xl font-bold text-white">{toCollectCount}</p>
+                <p className="text-xs text-white/90">Por Cobrar</p>
+              </div>
+              <div className="bg-white/20 rounded-lg p-2 text-center">
                 <p className="text-2xl font-bold text-white">{pendingCount}</p>
                 <p className="text-xs text-white/90">Por Verificar</p>
               </div>
-              <div className="bg-white/20 rounded-lg p-2 text-center">
+              <div className="bg-white/20 rounded-lg p-2 text-center col-span-3 sm:col-span-1">
                 <p className="text-2xl font-bold text-white">{paidCount}</p>
                 <p className="text-xs text-white/90">Pagadas</p>
               </div>
@@ -108,6 +204,16 @@ export const TableOrdersModal: React.FC<TableOrdersModalProps> = ({
                 }`}
               >
                 📊 Todas ({orders.length})
+              </button>
+              <button
+                onClick={() => setFilterTab('to_collect')}
+                className={`flex-1 px-4 py-2 rounded-lg font-semibold transition-all ${
+                  filterTab === 'to_collect'
+                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                🧾 Por Cobrar ({toCollectCount})
               </button>
               <button
                 onClick={() => setFilterTab('pending')}
@@ -154,14 +260,137 @@ export const TableOrdersModal: React.FC<TableOrdersModalProps> = ({
                 </div>
               </div>
             ) : (
-              <OrderGridView
-                orders={filteredOrders}
-                renderActions={(order) => (
-                  <div className="space-y-2">
+              <div className="space-y-4">
+                {groupedFilteredOrders.map((group) => (
+                  <div
+                    key={group.root.id}
+                    className={`rounded-xl border p-3 ${
+                      group.isLinkedGroup ? 'bg-slate-50 border-slate-300 shadow-sm' : 'bg-emerald-50/60 border-emerald-200 shadow-sm'
+                    }`}
+                  >
+                    {group.isLinkedGroup && (
+                      <div className="mb-3 px-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-xs font-semibold text-slate-700">
+                            Grupo enlazado • {group.members.length} comandas (1 padre + {group.members.length - 1} hijas)
+                          </p>
+                          <p className="text-xs font-bold text-slate-900">Total grupo: {formatMoney(group.total)}</p>
+                        </div>
+
+                        {(() => {
+                          const pendingGroupMembers = group.members.filter((member) => member.status === 'por_verificar');
+                          if (pendingGroupMembers.length === 0) return null;
+
+                          return (
+                            <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-2">
+                              <p className="text-[11px] font-semibold text-amber-800 mb-2">
+                                ⚠️ {pendingGroupMembers.length} comanda(s) del grupo pendiente(s) por verificar
+                              </p>
+                              <div className="grid grid-cols-2 gap-2">
+                                <button
+                                  onClick={() => {
+                                    if (!window.confirm(`¿Aprobar ${pendingGroupMembers.length} comanda(s) del grupo?`)) return;
+                                    pendingGroupMembers.forEach((member) => onConfirmPayment(member.id));
+                                  }}
+                                  className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold text-xs"
+                                >
+                                  ✓ Aprobar Grupo
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    if (!window.confirm(`¿Rechazar ${pendingGroupMembers.length} comanda(s) del grupo?`)) return;
+                                    pendingGroupMembers.forEach((member) => onRejectPayment(member.id));
+                                  }}
+                                  className="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold text-xs"
+                                >
+                                  ✕ Rechazar Grupo
+                                </button>
+                              </div>
+
+                              <button
+                                onClick={() => setSelectedProofOrder({ order: group.root, relatedOrders: group.members })}
+                                className="mt-2 w-full px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-semibold text-xs"
+                              >
+                                🔍 Ver Comprobante Global + Individuales
+                              </button>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    )}
+
+                    {!group.isLinkedGroup && (
+                      <div className="mb-3 px-1">
+                        <p className="text-xs font-semibold text-emerald-700">Comanda individual</p>
+                      </div>
+                    )}
+
+                    {group.isLinkedGroup ? (
+                      <div className="relative pl-3">
+                        <div className="absolute left-0 top-2 bottom-2 w-1 rounded-full bg-gradient-to-b from-indigo-300 to-violet-300" />
+                        {group.members.map((member, memberIndex) => {
+                          const isChild = !!member.parent_order_id;
+                          const isParentWithChildren = (childCountMap[member.id] || 0) > 0;
+                          const toneClass = isChild
+                            ? 'bg-violet-50 border-violet-200'
+                            : isParentWithChildren
+                            ? 'bg-indigo-50 border-indigo-200'
+                            : 'bg-emerald-50 border-emerald-200';
+
+                          return (
+                            <div
+                              key={member.id}
+                              className="relative"
+                              style={{ marginLeft: `${memberIndex * 12}px` }}
+                            >
+                              {memberIndex > 0 && (
+                                <span className="absolute -left-3 top-7 h-[2px] w-3 rounded-full bg-indigo-200" />
+                              )}
+                              <div className={`rounded-xl border p-2 shadow-sm ${toneClass}`}>
+                              <div className="mb-2">
+                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-semibold bg-white/80 text-slate-700 border border-slate-200">
+                                  {memberIndex === 0 ? 'Padre' : `Hija ${memberIndex}`}
+                                </span>
+                              </div>
+                              <OrderGridView
+                                orders={[member]}
+                                renderActions={(order) => (
+                        <div className="space-y-2">
+                    {(() => {
+                      const statusVisual = getStatusVisual(order.status);
+                      const childCount = childCountMap[order.id] || 0;
+                      const hasGroupContext = !!order.parent_order_id || childCount > 0;
+                      return (
+                        <div className="space-y-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full border text-xs font-semibold ${statusVisual.className}`}>
+                              <span>{statusVisual.icon}</span>
+                              <span>{statusVisual.label}</span>
+                            </span>
+                            {order.parent_order_id && (
+                              <span className="px-2 py-1 rounded-full text-[11px] font-semibold bg-indigo-100 text-indigo-800">
+                                ↳ Adicional de {order.parent_order_id.slice(0, 8).toUpperCase()}
+                              </span>
+                            )}
+                            {childCount > 0 && (
+                              <span className="px-2 py-1 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800">
+                                🔗 {childCount} adicional(es)
+                              </span>
+                            )}
+                            {!hasGroupContext && (
+                              <span className="px-2 py-1 rounded-full text-[11px] font-semibold bg-gray-100 text-gray-600">
+                                Comanda individual
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()}
+
                     {order.status === 'por_verificar' ? (
                       <>
                         <button
-                          onClick={() => setSelectedProofOrder(order)}
+                          onClick={() => setSelectedProofOrder({ order, relatedOrders: group.members })}
                           className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
                         >
                           <span className="text-xl">🔍</span>
@@ -188,36 +417,19 @@ export const TableOrdersModal: React.FC<TableOrdersModalProps> = ({
                           <span className="text-lg">📋</span>
                           <span>Ver Detalle Completo</span>
                         </button>
-                        {/* Sección de Impresión */}
-                        <div className="border-t-2 border-gray-200 pt-2 mt-1">
-                          <p className="text-xs text-gray-600 font-semibold mb-2 text-center">🖨️ OPCIONES DE IMPRESIÓN</p>
-                          {onPreviewTickets && (
-                            <button
-                              onClick={() => onPreviewTickets(order.id)}
-                              className="w-full px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 mb-2"
-                            >
-                              <span className="text-lg">🎫</span>
-                              <span className="text-sm">Vista Previa Tickets</span>
-                            </button>
-                          )}
-                          <div className="grid grid-cols-2 gap-2">
-                            <button
-                              onClick={() => setStationPrintOrderId(order.id)}
-                              className="px-3 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:from-purple-700 hover:to-pink-700 font-semibold shadow-md hover:shadow-lg transition-all flex flex-col items-center justify-center gap-1"
-                            >
-                              <span className="text-lg">🏪</span>
-                              <span className="text-xs leading-tight">Tickets Cocina</span>
-                            </button>
-                            {onPrintFullCommand && (
-                              <button
-                                onClick={() => onPrintFullCommand(order.id)}
-                                className="px-3 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl hover:from-orange-600 hover:to-red-600 font-semibold shadow-md hover:shadow-lg transition-all flex flex-col items-center justify-center gap-1"
-                              >
-                                <span className="text-lg">📄</span>
-                                <span className="text-xs leading-tight">Comanda Completa</span>
-                              </button>
-                            )}
-                          </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            onClick={() => handlePrintCashTicket(order.id)}
+                            className="w-full px-4 py-2 bg-white border border-indigo-200 text-indigo-700 rounded-xl hover:bg-indigo-50 font-semibold"
+                          >
+                            🧾 Ticket Caja
+                          </button>
+                          <button
+                            onClick={() => handlePrintByStation(order.id)}
+                            className="w-full px-4 py-2 bg-white border border-purple-200 text-purple-700 rounded-xl hover:bg-purple-50 font-semibold"
+                          >
+                            🏪 Estaciones
+                          </button>
                         </div>
                       </>
                     ) : order.status === 'pagado' ? (
@@ -234,39 +446,19 @@ export const TableOrdersModal: React.FC<TableOrdersModalProps> = ({
                             <span>Ver Detalle</span>
                           </button>
 
-                          {/* Sección de Impresión */}
-                          <div className="border-t-2 border-gray-200 pt-2 mt-1">
-                            <p className="text-xs text-gray-600 font-semibold mb-2 text-center">🖨️ OPCIONES DE IMPRESIÓN</p>
-
-                            {onPreviewTickets && (
-                              <button
-                                onClick={() => onPreviewTickets(order.id)}
-                                className="w-full px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 mb-2"
-                              >
-                                <span className="text-lg">🎫</span>
-                                <span className="text-sm">Vista Previa Tickets</span>
-                              </button>
-                            )}
-
-                            <div className="grid grid-cols-2 gap-2">
-                              <button
-                                onClick={() => setStationPrintOrderId(order.id)}
-                                className="px-3 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:from-purple-700 hover:to-pink-700 font-semibold shadow-md hover:shadow-lg transition-all flex flex-col items-center justify-center gap-1"
-                              >
-                                <span className="text-lg">🏪</span>
-                                <span className="text-xs leading-tight">Tickets Cocina</span>
-                              </button>
-
-                              {onPrintFullCommand && (
-                                <button
-                                  onClick={() => onPrintFullCommand(order.id)}
-                                  className="px-3 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl hover:from-orange-600 hover:to-red-600 font-semibold shadow-md hover:shadow-lg transition-all flex flex-col items-center justify-center gap-1"
-                                >
-                                  <span className="text-lg">📄</span>
-                                  <span className="text-xs leading-tight">Comanda Completa</span>
-                                </button>
-                              )}
-                            </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              onClick={() => handlePrintCashTicket(order.id)}
+                              className="px-4 py-2 bg-white border border-indigo-200 text-indigo-700 rounded-xl hover:bg-indigo-50 font-semibold"
+                            >
+                              🧾 Ticket Caja
+                            </button>
+                            <button
+                              onClick={() => handlePrintByStation(order.id)}
+                              className="px-4 py-2 bg-white border border-purple-200 text-purple-700 rounded-xl hover:bg-purple-50 font-semibold"
+                            >
+                              🏪 Estaciones
+                            </button>
                           </div>
                         </div>
                       </>
@@ -281,6 +473,39 @@ export const TableOrdersModal: React.FC<TableOrdersModalProps> = ({
                         >
                           <span className="text-lg">📋</span>
                           <span>Ver Detalle Completo</span>
+                        </button>
+                      </div>
+                    ) : isPorCobrarStatus(order.status) ? (
+                      <div className="space-y-2">
+                        <div className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-4 py-3 rounded-xl text-center font-semibold">
+                          🧾 Pendiente de validación de pago
+                        </div>
+                        <button
+                          onClick={() => onViewDetail(order.id)}
+                          className="w-full px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                        >
+                          <span className="text-lg">📋</span>
+                          <span>Ver Detalle Completo</span>
+                        </button>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            onClick={() => handlePrintCashTicket(order.id)}
+                            className="w-full px-4 py-2 bg-white border border-indigo-200 text-indigo-700 rounded-xl hover:bg-indigo-50 font-semibold"
+                          >
+                            🧾 Ticket Caja
+                          </button>
+                          <button
+                            onClick={() => handlePrintByStation(order.id)}
+                            className="w-full px-4 py-2 bg-white border border-purple-200 text-purple-700 rounded-xl hover:bg-purple-50 font-semibold"
+                          >
+                            🏪 Estaciones
+                          </button>
+                        </div>
+                        <button
+                          onClick={() => onCancelOrder(order.id)}
+                          className="w-full px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-xl font-semibold transition-all border border-red-200"
+                        >
+                          ❌ Cancelar Orden
                         </button>
                       </div>
                     ) : (
@@ -304,36 +529,19 @@ export const TableOrdersModal: React.FC<TableOrdersModalProps> = ({
                           <span className="text-lg">📋</span>
                           <span>Ver Detalle Completo</span>
                         </button>
-                        {/* Sección de Impresión */}
-                        <div className="border-t-2 border-gray-200 pt-2 mt-1">
-                          <p className="text-xs text-gray-600 font-semibold mb-2 text-center">🖨️ OPCIONES DE IMPRESIÓN</p>
-                          {onPreviewTickets && (
-                            <button
-                              onClick={() => onPreviewTickets(order.id)}
-                              className="w-full px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 mb-2"
-                            >
-                              <span className="text-lg">🎫</span>
-                              <span className="text-sm">Vista Previa Tickets</span>
-                            </button>
-                          )}
-                          <div className="grid grid-cols-2 gap-2">
-                            <button
-                              onClick={() => setStationPrintOrderId(order.id)}
-                              className="px-3 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:from-purple-700 hover:to-pink-700 font-semibold shadow-md hover:shadow-lg transition-all flex flex-col items-center justify-center gap-1"
-                            >
-                              <span className="text-lg">🏪</span>
-                              <span className="text-xs leading-tight">Tickets Cocina</span>
-                            </button>
-                            {onPrintFullCommand && (
-                              <button
-                                onClick={() => onPrintFullCommand(order.id)}
-                                className="px-3 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl hover:from-orange-600 hover:to-red-600 font-semibold shadow-md hover:shadow-lg transition-all flex flex-col items-center justify-center gap-1"
-                              >
-                                <span className="text-lg">📄</span>
-                                <span className="text-xs leading-tight">Comanda Completa</span>
-                              </button>
-                            )}
-                          </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            onClick={() => handlePrintCashTicket(order.id)}
+                            className="w-full px-4 py-2 bg-white border border-indigo-200 text-indigo-700 rounded-xl hover:bg-indigo-50 font-semibold"
+                          >
+                            🧾 Ticket Caja
+                          </button>
+                          <button
+                            onClick={() => handlePrintByStation(order.id)}
+                            className="w-full px-4 py-2 bg-white border border-purple-200 text-purple-700 rounded-xl hover:bg-purple-50 font-semibold"
+                          >
+                            🏪 Estaciones
+                          </button>
                         </div>
                         <button
                           onClick={() => onCancelOrder(order.id)}
@@ -344,8 +552,239 @@ export const TableOrdersModal: React.FC<TableOrdersModalProps> = ({
                       </div>
                     )}
                   </div>
-                )}
-              />
+                                )}
+                              />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-2">
+                        <OrderGridView
+                          orders={group.members}
+                          renderActions={(order) => (
+                            <div className="space-y-2">
+                    {(() => {
+                      const statusVisual = getStatusVisual(order.status);
+                      const childCount = childCountMap[order.id] || 0;
+                      const hasGroupContext = !!order.parent_order_id || childCount > 0;
+                      return (
+                        <div className="space-y-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full border text-xs font-semibold ${statusVisual.className}`}>
+                              <span>{statusVisual.icon}</span>
+                              <span>{statusVisual.label}</span>
+                            </span>
+                            {order.parent_order_id && (
+                              <span className="px-2 py-1 rounded-full text-[11px] font-semibold bg-indigo-100 text-indigo-800">
+                                ↳ Adicional de {order.parent_order_id.slice(0, 8).toUpperCase()}
+                              </span>
+                            )}
+                            {childCount > 0 && (
+                              <span className="px-2 py-1 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800">
+                                🔗 {childCount} adicional(es)
+                              </span>
+                            )}
+                            {!hasGroupContext && (
+                              <span className="px-2 py-1 rounded-full text-[11px] font-semibold bg-gray-100 text-gray-600">
+                                Comanda individual
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {order.status === 'por_verificar' ? (
+                      <>
+                        <button
+                          onClick={() => setSelectedProofOrder({ order, relatedOrders: group.members })}
+                          className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                        >
+                          <span className="text-xl">🔍</span>
+                          <span>Ver Comprobante</span>
+                        </button>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            onClick={() => onConfirmPayment(order.id)}
+                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold shadow-md transition-all"
+                          >
+                            ✓ Confirmar
+                          </button>
+                          <button
+                            onClick={() => onRejectPayment(order.id)}
+                            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold shadow-md transition-all"
+                          >
+                            ✕ Rechazar
+                          </button>
+                        </div>
+                        <button
+                          onClick={() => onViewDetail(order.id)}
+                          className="w-full px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                        >
+                          <span className="text-lg">📋</span>
+                          <span>Ver Detalle Completo</span>
+                        </button>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            onClick={() => handlePrintCashTicket(order.id)}
+                            className="w-full px-4 py-2 bg-white border border-indigo-200 text-indigo-700 rounded-xl hover:bg-indigo-50 font-semibold"
+                          >
+                            🧾 Ticket Caja
+                          </button>
+                          <button
+                            onClick={() => handlePrintByStation(order.id)}
+                            className="w-full px-4 py-2 bg-white border border-purple-200 text-purple-700 rounded-xl hover:bg-purple-50 font-semibold"
+                          >
+                            🏪 Estaciones
+                          </button>
+                        </div>
+                      </>
+                    ) : order.status === 'pagado' ? (
+                      <>
+                        <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-4 py-3 rounded-xl text-center font-semibold">
+                          ✓ Pagado Completamente
+                        </div>
+                        <div className="grid grid-cols-1 gap-2">
+                          <button
+                            onClick={() => onViewDetail(order.id)}
+                            className="px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                          >
+                            <span className="text-xl">📋</span>
+                            <span>Ver Detalle</span>
+                          </button>
+
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              onClick={() => handlePrintCashTicket(order.id)}
+                              className="px-4 py-2 bg-white border border-indigo-200 text-indigo-700 rounded-xl hover:bg-indigo-50 font-semibold"
+                            >
+                              🧾 Ticket Caja
+                            </button>
+                            <button
+                              onClick={() => handlePrintByStation(order.id)}
+                              className="px-4 py-2 bg-white border border-purple-200 text-purple-700 rounded-xl hover:bg-purple-50 font-semibold"
+                            >
+                              🏪 Estaciones
+                            </button>
+                          </div>
+                        </div>
+                      </>
+                    ) : order.status === 'cancelado' ? (
+                      <div className="space-y-2">
+                        <div className="bg-gradient-to-r from-red-500 to-rose-600 text-white px-4 py-3 rounded-xl text-center font-semibold">
+                          ❌ Orden Cancelada
+                        </div>
+                        <button
+                          onClick={() => onViewDetail(order.id)}
+                          className="w-full px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                        >
+                          <span className="text-lg">📋</span>
+                          <span>Ver Detalle Completo</span>
+                        </button>
+                      </div>
+                    ) : isPorCobrarStatus(order.status) ? (
+                      <div className="space-y-2">
+                        <div className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-4 py-3 rounded-xl text-center font-semibold">
+                          🧾 Pendiente de validación de pago
+                        </div>
+                        <button
+                          onClick={() => onViewDetail(order.id)}
+                          className="w-full px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                        >
+                          <span className="text-lg">📋</span>
+                          <span>Ver Detalle Completo</span>
+                        </button>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            onClick={() => handlePrintCashTicket(order.id)}
+                            className="w-full px-4 py-2 bg-white border border-indigo-200 text-indigo-700 rounded-xl hover:bg-indigo-50 font-semibold"
+                          >
+                            🧾 Ticket Caja
+                          </button>
+                          <button
+                            onClick={() => handlePrintByStation(order.id)}
+                            className="w-full px-4 py-2 bg-white border border-purple-200 text-purple-700 rounded-xl hover:bg-purple-50 font-semibold"
+                          >
+                            🏪 Estaciones
+                          </button>
+                        </div>
+                        <button
+                          onClick={() => onCancelOrder(order.id)}
+                          className="w-full px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-xl font-semibold transition-all border border-red-200"
+                        >
+                          ❌ Cancelar Orden
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <select
+                          onChange={(e) => onStatusChange(order.id, e.target.value)}
+                          value={order.status}
+                          className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-semibold text-gray-800 bg-white"
+                        >
+                          <option value="pendiente_aprobacion">⏳ Pendiente</option>
+                          <option value="recibido">📥 Recibido</option>
+                          <option value="en_preparacion">👨‍🍳 En Preparación</option>
+                          <option value="listo_para_servir">🍽️ Listo para Servir</option>
+                          <option value="entregado">✅ Entregado</option>
+                          <option value="pagado">💰 Pagado</option>
+                        </select>
+                        <button
+                          onClick={() => onViewDetail(order.id)}
+                          className="w-full px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                        >
+                          <span className="text-lg">📋</span>
+                          <span>Ver Detalle Completo</span>
+                        </button>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            onClick={() => handlePrintCashTicket(order.id)}
+                            className="w-full px-4 py-2 bg-white border border-indigo-200 text-indigo-700 rounded-xl hover:bg-indigo-50 font-semibold"
+                          >
+                            🧾 Ticket Caja
+                          </button>
+                          <button
+                            onClick={() => handlePrintByStation(order.id)}
+                            className="w-full px-4 py-2 bg-white border border-purple-200 text-purple-700 rounded-xl hover:bg-purple-50 font-semibold"
+                          >
+                            🏪 Estaciones
+                          </button>
+                        </div>
+                        <button
+                          onClick={() => onCancelOrder(order.id)}
+                          className="w-full px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-xl font-semibold transition-all border border-red-200"
+                        >
+                          ❌ Cancelar Orden
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                                )}
+                        />
+                      </div>
+                    )}
+
+                    {group.isLinkedGroup && (
+                      <div className="mt-3 grid grid-cols-2 gap-2 border-t border-slate-200 pt-3">
+                        <button
+                          onClick={() => handlePrintCashTicket(group.root.id)}
+                          className="w-full px-4 py-2 bg-white border border-indigo-200 text-indigo-700 rounded-xl hover:bg-indigo-50 font-semibold"
+                        >
+                          🧾 Ticket Global
+                        </button>
+                        <button
+                          onClick={() => handlePrintByStation(group.root.id)}
+                          className="w-full px-4 py-2 bg-white border border-purple-200 text-purple-700 rounded-xl hover:bg-purple-50 font-semibold"
+                        >
+                          🏪 Estaciones Grupo
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         </div>
@@ -361,14 +800,15 @@ export const TableOrdersModal: React.FC<TableOrdersModalProps> = ({
       {/* Modal de Comprobante */}
       {selectedProofOrder && (
         <QuickProofView
-          order={selectedProofOrder}
+          order={selectedProofOrder.order}
+          relatedOrders={selectedProofOrder.relatedOrders}
           onClose={() => setSelectedProofOrder(null)}
-          onConfirm={() => {
-            onConfirmPayment(selectedProofOrder.id);
+          onConfirm={(targetOrderId) => {
+            onConfirmPayment(targetOrderId);
             setSelectedProofOrder(null);
           }}
-          onReject={() => {
-            onRejectPayment(selectedProofOrder.id);
+          onReject={(targetOrderId) => {
+            onRejectPayment(targetOrderId);
             setSelectedProofOrder(null);
           }}
         />

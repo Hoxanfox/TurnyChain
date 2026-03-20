@@ -9,11 +9,13 @@ interface TableCardProps {
 }
 
 export const TableCard: React.FC<TableCardProps> = ({ tableNumber, orders, onViewOrders }) => {
+  const isPorCobrarStatus = (status: string) => status === 'entregado' || status === 'pendiente_aprobacion';
+
   // Calcular estadísticas de la mesa
   const totalAmount = orders.reduce((sum, order) => sum + order.total, 0);
   const pendingVerification = orders.filter(o => o.status === 'por_verificar').length;
   const paid = orders.filter(o => o.status === 'pagado').length;
-  const delivered = orders.filter(o => o.status === 'entregado').length;
+  const toCollect = orders.filter(o => isPorCobrarStatus(o.status)).length;
   const cancelled = orders.filter(o => o.status === 'cancelado').length;
 
   // Determinar el estado predominante de la mesa
@@ -21,7 +23,7 @@ export const TableCard: React.FC<TableCardProps> = ({ tableNumber, orders, onVie
     if (pendingVerification > 0) return 'warning';
     if (cancelled > 0 && paid === orders.length - cancelled) return 'cancelled';
     if (paid === orders.length) return 'success';
-    if (delivered > 0) return 'info';
+    if (toCollect > 0) return 'info';
     return 'default';
   };
 
@@ -78,10 +80,10 @@ export const TableCard: React.FC<TableCardProps> = ({ tableNumber, orders, onVie
               <p className="text-xs font-semibold text-orange-700">{pendingVerification} Por Verificar</p>
             </div>
           )}
-          {delivered > 0 && (
+          {toCollect > 0 && (
             <div className="bg-blue-50 rounded-lg p-2 text-center">
-              <p className="text-2xl">✅</p>
-              <p className="text-xs font-semibold text-blue-700">{delivered} Entregado</p>
+              <p className="text-2xl">🧾</p>
+              <p className="text-xs font-semibold text-blue-700">{toCollect} Por Cobrar</p>
             </div>
           )}
           {paid > 0 && (

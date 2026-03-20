@@ -50,5 +50,15 @@ export const kitchenTicketsAPI = {
     );
     return response.data;
   },
+
+  // Imprimir ticket global en la estación Caja
+  printCashierGlobal: async (orderId: string): Promise<PrintKitchenTicketsResponse> => {
+    const response = await axios.post<PrintKitchenTicketsResponse>(
+      `/api/orders/${orderId}/kitchen-tickets/print/caja`,
+      { order_id: orderId },
+      getAuthConfig()
+    );
+    return response.data;
+  },
 };
 

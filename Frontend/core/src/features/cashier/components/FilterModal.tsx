@@ -101,7 +101,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
-                ✅ Entregado
+                🧾 Por Cobrar
               </button>
               <button
                 onClick={() => onFilterStatusChange('pagado')}

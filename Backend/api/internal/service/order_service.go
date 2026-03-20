@@ -412,7 +412,7 @@ func (s *orderService) UpdateOrderStatus(orderID, userID uuid.UUID, newStatus st
 
 	// Notificar específicamente a cajeros si la orden requiere su atención
 	if newStatus == "por_verificar" {
-		s.wsHub.BroadcastToRole("cashier", "PAYMENT_VERIFICATION_PENDING", map[string]interface{}{
+		s.wsHub.BroadcastToRole("cajero", "PAYMENT_VERIFICATION_PENDING", map[string]interface{}{
 			"order_id":     updatedOrder.ID.String(),
 			"table_number": updatedOrder.TableNumber,
 			"method":       updatedOrder.PaymentMethod,
@@ -423,7 +423,7 @@ func (s *orderService) UpdateOrderStatus(orderID, userID uuid.UUID, newStatus st
 		log.Printf("📡 [Service] Notificación 'PAYMENT_VERIFICATION_PENDING' enviada a cajeros")
 	} else if newStatus == "entregado" && updatedOrder.PaymentMethod != nil && *updatedOrder.PaymentMethod != "" {
 		// Si una orden entregada tiene método de pago, significa que ya fue rechazada y está lista para reenvío
-		s.wsHub.BroadcastToRole("cashier", "ORDER_READY_FOR_PAYMENT", map[string]interface{}{
+		s.wsHub.BroadcastToRole("cajero", "ORDER_READY_FOR_PAYMENT", map[string]interface{}{
 			"order_id":     updatedOrder.ID.String(),
 			"table_number": updatedOrder.TableNumber,
 			"status":       updatedOrder.Status,
@@ -497,7 +497,7 @@ func (s *orderService) AddPaymentProof(orderID uuid.UUID, method string, proofPa
 	log.Printf("📡 [Backend] Evento broadcast 'ORDER_UPDATED' emitido para orden %s", orderID.String())
 
 	// Notificar específicamente a los cajeros sobre verificación de pago pendiente
-	s.wsHub.BroadcastToRole("cashier", "PAYMENT_VERIFICATION_PENDING", map[string]interface{}{
+	s.wsHub.BroadcastToRole("cajero", "PAYMENT_VERIFICATION_PENDING", map[string]interface{}{
 		"order_id":     order.ID.String(),
 		"table_number": order.TableNumber,
 		"method":       order.PaymentMethod,

@@ -545,12 +545,12 @@ const PaymentsSlide: React.FC<PaymentsSlideProps> = ({
                 <p className="text-xs font-bold text-slate-900">Total grupo: {formatMoney(groupTotal)}</p>
               </div>
 
-              {onCheckoutGroup && payableOrderIds.length > 1 && (
+              {onCheckoutGroup && payableOrderIds.length > 0 && (
                 <button
                   onClick={() => onCheckoutGroup(payableOrderIds, groupTotal, parentOrder.table_number)}
                   className="w-full py-2 px-3 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-lg hover:from-indigo-700 hover:to-indigo-800 transition-all font-bold text-sm shadow-md"
                 >
-                  💳 Cobro Global del Grupo
+                  {payableOrderIds.length > 1 ? '💳 Cobro Global del Grupo' : '💳 Cobrar Comanda Pendiente del Grupo'}
                 </button>
               )}
 

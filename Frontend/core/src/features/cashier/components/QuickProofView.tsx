@@ -4,20 +4,32 @@ import { getPaymentProofUrl } from '../../../utils/imageUtils';
 
 interface QuickProofViewProps {
   order: Order;
-  onConfirm: () => void;
-  onReject: () => void;
+  relatedOrders?: Order[];
+  onConfirm: (orderId: string) => void;
+  onReject: (orderId: string) => void;
   onClose: () => void;
 }
 
 export const QuickProofView: React.FC<QuickProofViewProps> = ({
   order,
+  relatedOrders,
   onConfirm,
   onReject,
   onClose
 }) => {
+  const proofOrders = (relatedOrders && relatedOrders.length > 0)
+    ? relatedOrders
+    : [order];
+  const [activeOrderId, setActiveOrderId] = useState(order.id);
+
+  const activeOrder = proofOrders.find((current) => current.id === activeOrderId) || order;
+  const groupTotal = proofOrders.reduce((sum, current) => sum + current.total, 0);
+  const globalOrder = proofOrders.find((current) => !current.parent_order_id) || proofOrders[0];
+  const isGroupView = proofOrders.length > 1;
+
   const [imageError, setImageError] = useState(false);
   const [showFullImage, setShowFullImage] = useState(false);
-  const imageUrl = order.payment_proof_path ? getPaymentProofUrl(order.payment_proof_path) : null;
+  const imageUrl = activeOrder.payment_proof_path ? getPaymentProofUrl(activeOrder.payment_proof_path) : null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
@@ -27,11 +39,11 @@ export const QuickProofView: React.FC<QuickProofViewProps> = ({
           <div>
             <h3 className="text-xl font-bold">Verificar Comprobante</h3>
             <p className="text-sm text-gray-600">
-              Mesa {order.table_number} • Total: ${order.total.toFixed(2)}
+              Mesa {activeOrder.table_number} • Total: ${activeOrder.total.toFixed(2)}
             </p>
             <p className="text-xs text-gray-500 mt-1">
-              👤 Mesero: {order.waiter_name || order.waiter_id.substring(0, 8)} •
-              🕐 {new Date(order.created_at).toLocaleString('es-ES', {
+              👤 Mesero: {activeOrder.waiter_name || activeOrder.waiter_id.substring(0, 8)} •
+              🕐 {new Date(activeOrder.created_at).toLocaleString('es-ES', {
                 hour: '2-digit',
                 minute: '2-digit',
                 day: '2-digit',
@@ -48,32 +60,81 @@ export const QuickProofView: React.FC<QuickProofViewProps> = ({
         </div>
 
         <div className="p-4">
+          {isGroupView && (
+            <div className="mb-4 p-4 rounded-lg border-2 border-indigo-200 bg-indigo-50">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="font-bold text-indigo-900">Pago global del grupo</h4>
+                <span className="text-sm font-semibold text-indigo-700">{proofOrders.length} comandas</span>
+              </div>
+              <p className="text-sm text-indigo-800 mb-3">
+                Total global: <span className="font-bold">${groupTotal.toFixed(2)}</span>
+              </p>
+
+              <div className="flex flex-wrap gap-2">
+                {proofOrders.map((groupOrder, index) => {
+                  const hasProof = !!groupOrder.payment_proof_path;
+                  const isActive = groupOrder.id === activeOrder.id;
+                  return (
+                    <button
+                      key={groupOrder.id}
+                      type="button"
+                      onClick={() => {
+                        setActiveOrderId(groupOrder.id);
+                        setImageError(false);
+                      }}
+                      className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                        isActive
+                          ? 'bg-indigo-600 text-white border-indigo-600'
+                          : 'bg-white text-indigo-800 border-indigo-300 hover:bg-indigo-100'
+                      }`}
+                    >
+                      {index === 0 ? 'Global (padre)' : `Individual ${index}`} {hasProof ? '✓' : '⚠'}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {globalOrder.payment_proof_path && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveOrderId(globalOrder.id);
+                    setImageError(false);
+                  }}
+                  className="mt-3 px-3 py-2 text-xs font-semibold bg-white text-indigo-800 border border-indigo-300 rounded-lg hover:bg-indigo-100"
+                >
+                  🔍 Ver comprobante global
+                </button>
+              )}
+            </div>
+          )}
+
           {/* Tipo de Orden */}
-          {order.order_type && (
+          {activeOrder.order_type && (
             <div className={`mb-4 p-4 rounded-lg border-2 ${
-              order.order_type === 'mesa' 
+              activeOrder.order_type === 'mesa' 
                 ? 'bg-indigo-50 border-indigo-300'
-                : order.order_type === 'llevar'
+                : activeOrder.order_type === 'llevar'
                 ? 'bg-green-50 border-green-300'
                 : 'bg-purple-50 border-purple-300'
             }`}>
               <div className="flex items-center gap-3">
                 <span className="text-3xl">
-                  {order.order_type === 'mesa' ? '🍽️' :
-                   order.order_type === 'llevar' ? '🥡' : '🏍️'}
+                  {activeOrder.order_type === 'mesa' ? '🍽️' :
+                   activeOrder.order_type === 'llevar' ? '🥡' : '🏍️'}
                 </span>
                 <div>
                   <p className={`font-bold text-lg ${
-                    order.order_type === 'mesa' ? 'text-indigo-800' :
-                    order.order_type === 'llevar' ? 'text-green-800' : 'text-purple-800'
+                    activeOrder.order_type === 'mesa' ? 'text-indigo-800' :
+                    activeOrder.order_type === 'llevar' ? 'text-green-800' : 'text-purple-800'
                   }`}>
-                    {order.order_type === 'mesa' ? 'Orden en Mesa' :
-                     order.order_type === 'llevar' ? 'Orden Para Llevar' : 'Orden a Domicilio'}
+                    {activeOrder.order_type === 'mesa' ? 'Orden en Mesa' :
+                     activeOrder.order_type === 'llevar' ? 'Orden Para Llevar' : 'Orden a Domicilio'}
                   </p>
                   <p className="text-sm text-gray-600">
-                    Mesa {order.table_number}
-                    {order.order_type === 'llevar' && ' (Virtual 9999)'}
-                    {order.order_type === 'domicilio' && ' (Virtual 9998)'}
+                    Mesa {activeOrder.table_number}
+                    {activeOrder.order_type === 'llevar' && ' (Virtual 9999)'}
+                    {activeOrder.order_type === 'domicilio' && ' (Virtual 9998)'}
                   </p>
                 </div>
               </div>
@@ -81,7 +142,7 @@ export const QuickProofView: React.FC<QuickProofViewProps> = ({
           )}
 
           {/* Datos de Domicilio */}
-          {order.order_type === 'domicilio' && order.delivery_address && (
+          {activeOrder.order_type === 'domicilio' && activeOrder.delivery_address && (
             <div className="mb-4 p-4 bg-purple-50 border-2 border-purple-300 rounded-lg">
               <h3 className="font-bold text-purple-800 mb-3 flex items-center gap-2">
                 <span className="text-xl">🏍️</span>
@@ -92,22 +153,22 @@ export const QuickProofView: React.FC<QuickProofViewProps> = ({
                   <span className="text-purple-600 mt-0.5">📍</span>
                   <div>
                     <p className="text-xs font-semibold text-purple-700">Dirección:</p>
-                    <p className="text-sm text-gray-800">{order.delivery_address}</p>
+                      <p className="text-sm text-gray-800">{activeOrder.delivery_address}</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-2">
                   <span className="text-purple-600 mt-0.5">📞</span>
                   <div>
                     <p className="text-xs font-semibold text-purple-700">Teléfono:</p>
-                    <p className="text-sm text-gray-800">{order.delivery_phone}</p>
+                      <p className="text-sm text-gray-800">{activeOrder.delivery_phone}</p>
                   </div>
                 </div>
-                {order.delivery_notes && (
+                {activeOrder.delivery_notes && (
                   <div className="flex items-start gap-2">
                     <span className="text-purple-600 mt-0.5">💬</span>
                     <div>
                       <p className="text-xs font-semibold text-purple-700">Notas:</p>
-                      <p className="text-sm text-gray-800 italic">{order.delivery_notes}</p>
+                      <p className="text-sm text-gray-800 italic">{activeOrder.delivery_notes}</p>
                     </div>
                   </div>
                 )}
@@ -120,7 +181,7 @@ export const QuickProofView: React.FC<QuickProofViewProps> = ({
             <p className="text-sm">
               <strong>Método de pago:</strong>{' '}
               <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-semibold ml-2">
-                {order.payment_method === 'transferencia' ? '📱 Transferencia' : '💵 Efectivo'}
+                {activeOrder.payment_method === 'transferencia' ? '📱 Transferencia' : '💵 Efectivo'}
               </span>
             </p>
           </div>
@@ -149,7 +210,7 @@ export const QuickProofView: React.FC<QuickProofViewProps> = ({
                 🔍 Ver en tamaño completo
               </button>
               <p className="text-xs text-gray-500 mt-2">
-                {order.payment_proof_path}
+                {activeOrder.payment_proof_path}
               </p>
             </div>
           ) : (
@@ -157,9 +218,9 @@ export const QuickProofView: React.FC<QuickProofViewProps> = ({
               <p className="text-sm text-yellow-800">
                 ⚠️ No se pudo cargar el comprobante
               </p>
-              {order.payment_proof_path && (
+              {activeOrder.payment_proof_path && (
                 <p className="text-xs text-gray-600 mt-1">
-                  {order.payment_proof_path}
+                  {activeOrder.payment_proof_path}
                 </p>
               )}
             </div>
@@ -168,14 +229,14 @@ export const QuickProofView: React.FC<QuickProofViewProps> = ({
           {/* Botones de acción */}
           <div className="grid grid-cols-2 gap-3 mb-6">
             <button
-              onClick={onReject}
+              onClick={() => onReject(activeOrder.id)}
               className="px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold transition-colors flex items-center justify-center gap-2 shadow-md hover:shadow-lg"
             >
               <span className="text-xl">✕</span>
               <span>Rechazar</span>
             </button>
             <button
-              onClick={onConfirm}
+              onClick={() => onConfirm(activeOrder.id)}
               className="px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold transition-colors flex items-center justify-center gap-2 shadow-md hover:shadow-lg"
             >
               <span className="text-xl">✓</span>
@@ -187,7 +248,7 @@ export const QuickProofView: React.FC<QuickProofViewProps> = ({
           <div className="pt-4 border-t">
             <h4 className="font-bold text-lg mb-3">Items de la orden:</h4>
             <ul className="space-y-3">
-              {(order.items || []).map((item, idx) => {
+              {(activeOrder.items || []).map((item, idx) => {
                 const subtotal = item.price_at_order * item.quantity;
                 const activeIngredients = item.customizations?.active_ingredients || [];
                 const selectedAccompaniments = item.customizations?.selected_accompaniments || [];
@@ -289,7 +350,7 @@ export const QuickProofView: React.FC<QuickProofViewProps> = ({
             {/* Total */}
             <div className="mt-4 pt-4 border-t flex justify-between items-center">
               <span className="font-bold text-lg">Total:</span>
-              <span className="font-bold text-2xl text-green-700">${order.total.toFixed(2)}</span>
+              <span className="font-bold text-2xl text-green-700">${activeOrder.total.toFixed(2)}</span>
             </div>
           </div>
         </div>

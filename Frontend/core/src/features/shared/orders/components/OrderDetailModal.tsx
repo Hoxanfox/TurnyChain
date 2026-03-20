@@ -186,6 +186,10 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ orderId, onClose, e
     return [parentOrder, ...children];
   }, [selectedOrderDetails, activeOrders]);
 
+  const groupTotal = React.useMemo(() => {
+    return groupOrders.reduce((sum, order) => sum + order.total, 0);
+  }, [groupOrders]);
+
   // Debug: Ver qué datos están llegando del backend
   useEffect(() => {
     if (selectedOrderDetails && (selectedOrderDetails.items?.length || 0) > 0) {
@@ -261,6 +265,10 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ orderId, onClose, e
                   <span className="text-xs font-semibold text-indigo-700">
                     {groupOrders.length} comandas
                   </span>
+                </div>
+                <div className="mb-2 px-3 py-2 rounded-md bg-white border border-indigo-200 flex items-center justify-between">
+                  <span className="text-xs font-semibold text-indigo-700">Total global del grupo</span>
+                  <span className="text-sm font-bold text-indigo-900">${groupTotal.toFixed(2)}</span>
                 </div>
                 <div className="space-y-2">
                   {groupOrders.map((groupOrder, index) => {

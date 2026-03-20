@@ -23,6 +23,16 @@ interface CashierStatistics {
 }
 
 export const useCashierLogic = (activeOrders: Order[]) => {
+  const getDayKey = (value: Date) =>
+    new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Bogota',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(value);
+
+  const isPorCobrarStatus = (status: string) => status === 'entregado' || status === 'pendiente_aprobacion';
+
   // Estados de UI
   const [showStats, setShowStats] = useState(false); // 🔧 Oculto por defecto
   const [selectedTable, setSelectedTable] = useState<number | null>(null);
@@ -35,8 +45,7 @@ export const useCashierLogic = (activeOrders: Order[]) => {
 
   // Estadísticas calculadas - SOLO DEL DÍA ACTUAL
   const statistics = useMemo((): CashierStatistics => {
-    const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const todayKey = getDayKey(new Date());
 
     const stats = {
       totalPaid: 0,
@@ -57,8 +66,7 @@ export const useCashierLogic = (activeOrders: Order[]) => {
 
     // FILTRAR SOLO ÓRDENES DEL DÍA ACTUAL
     const todayOrders = activeOrders.filter((order) => {
-      const orderDate = new Date(order.created_at);
-      return orderDate >= todayStart;
+      return getDayKey(new Date(order.created_at)) === todayKey;
     });
 
     stats.ordersCount = todayOrders.length;
@@ -74,6 +82,7 @@ export const useCashierLogic = (activeOrders: Order[]) => {
           stats.totalVerification += order.total;
           break;
         case 'entregado':
+        case 'pendiente_aprobacion':
           stats.totalDelivered += order.total;
           break;
         default:
@@ -108,50 +117,51 @@ export const useCashierLogic = (activeOrders: Order[]) => {
 
   // Conteos de órdenes por estado (sin filtro, solo del día actual)
   const pendingVerificationCount = useMemo(() => {
-    const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const todayKey = getDayKey(new Date());
     return activeOrders.filter((order) => {
-      const orderDate = new Date(order.created_at);
-      return orderDate >= todayStart && order.status === 'por_verificar';
+      return getDayKey(new Date(order.created_at)) === todayKey && order.status === 'por_verificar';
     }).length;
   }, [activeOrders]);
 
   const deliveredCount = useMemo(() => {
-    const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const todayKey = getDayKey(new Date());
     return activeOrders.filter((order) => {
-      const orderDate = new Date(order.created_at);
-      return orderDate >= todayStart && order.status === 'entregado';
+      return getDayKey(new Date(order.created_at)) === todayKey && isPorCobrarStatus(order.status);
     }).length;
   }, [activeOrders]);
 
   const paidCount = useMemo(() => {
-    const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const todayKey = getDayKey(new Date());
     return activeOrders.filter((order) => {
-      const orderDate = new Date(order.created_at);
-      return orderDate >= todayStart && order.status === 'pagado';
+      return getDayKey(new Date(order.created_at)) === todayKey && order.status === 'pagado';
     }).length;
   }, [activeOrders]);
 
   // Filtrado y búsqueda de órdenes - SOLO DEL DÍA ACTUAL
   const filteredOrders = useMemo(() => {
-    const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const todayKey = getDayKey(new Date());
 
-    return activeOrders.filter((order) => {
-      // FILTRO PRINCIPAL: Solo órdenes del día actual
-      const orderDate = new Date(order.created_at);
-      const isToday = orderDate >= todayStart;
-      if (!isToday) return false;
+    const todayOrders = activeOrders.filter((order) => getDayKey(new Date(order.created_at)) === todayKey);
+
+    const baseMatched = todayOrders.filter((order) => {
 
       // Filtro por estado
-      if (filterStatus !== 'all' && order.status !== filterStatus) {
+      if (filterStatus !== 'all') {
+        if (filterStatus === 'entregado' && !isPorCobrarStatus(order.status)) {
+          return false;
+        }
+        if (filterStatus !== 'entregado' && order.status !== filterStatus) {
+          return false;
+        }
+      }
+
+      // Si está por cobrar, no exigir método de pago en el filtro de método
+      if (isPorCobrarStatus(order.status) && paymentMethodFilter !== 'all') {
         return false;
       }
 
       // Filtro por método de pago
-      if (paymentMethodFilter !== 'all' && order.payment_method !== paymentMethodFilter) {
+      if (!isPorCobrarStatus(order.status) && paymentMethodFilter !== 'all' && order.payment_method !== paymentMethodFilter) {
         return false;
       }
 
@@ -167,6 +177,40 @@ export const useCashierLogic = (activeOrders: Order[]) => {
 
       return true;
     });
+
+    const relatedIds = new Set<string>();
+    baseMatched.forEach((order) => {
+      relatedIds.add(order.id);
+      if (order.parent_order_id) {
+        relatedIds.add(order.parent_order_id);
+      }
+    });
+
+    let changed = true;
+    while (changed) {
+      changed = false;
+
+      todayOrders.forEach((order) => {
+        const parentId = order.parent_order_id || '';
+        const isRelated = relatedIds.has(order.id) || (!!parentId && relatedIds.has(parentId));
+
+        if (!isRelated) {
+          return;
+        }
+
+        if (!relatedIds.has(order.id)) {
+          relatedIds.add(order.id);
+          changed = true;
+        }
+
+        if (parentId && !relatedIds.has(parentId)) {
+          relatedIds.add(parentId);
+          changed = true;
+        }
+      });
+    }
+
+    return todayOrders.filter((order) => relatedIds.has(order.id));
   }, [activeOrders, filterStatus, paymentMethodFilter, searchQuery]);
 
   // Ordenamiento de órdenes
