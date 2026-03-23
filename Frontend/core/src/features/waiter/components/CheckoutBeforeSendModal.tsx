@@ -21,6 +21,7 @@ const CheckoutBeforeSendModal: React.FC<CheckoutBeforeSendModalProps> = ({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isCompressing, setIsCompressing] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Referencia oculta para el input de archivo
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -132,11 +133,15 @@ const CheckoutBeforeSendModal: React.FC<CheckoutBeforeSendModalProps> = ({
   };
 
   const handleSubmit = () => {
+    if (isSubmitting) return;
+
     // Validaciones
     if (paymentMethod === 'transferencia' && !proofImage) {
       setError("Por favor adjunta la foto del comprobante");
       return;
     }
+
+    setIsSubmitting(true);
     // Limpiar localStorage solo al confirmar
     localStorage.removeItem(storageKey);
     // Confirmar y enviar datos de pago al padre
@@ -168,6 +173,7 @@ const CheckoutBeforeSendModal: React.FC<CheckoutBeforeSendModalProps> = ({
           </div>
           <button
             onClick={onClose}
+            disabled={isSubmitting}
             className="p-2 bg-green-800 rounded-full hover:bg-green-700 transition-colors"
           >
             <MdClose size={24} />
@@ -185,6 +191,7 @@ const CheckoutBeforeSendModal: React.FC<CheckoutBeforeSendModalProps> = ({
         <div className="flex p-3 gap-2 bg-gray-100">
           <button
             onClick={() => handlePaymentMethodChange('efectivo')}
+            disabled={isSubmitting}
             className={`flex-1 py-3 rounded-xl flex items-center justify-center gap-2 font-bold transition-all ${
               paymentMethod === 'efectivo' 
                 ? 'bg-white text-green-700 shadow-lg border-2 border-green-200' 
@@ -195,6 +202,7 @@ const CheckoutBeforeSendModal: React.FC<CheckoutBeforeSendModalProps> = ({
           </button>
           <button
             onClick={() => handlePaymentMethodChange('transferencia')}
+            disabled={isSubmitting}
             className={`flex-1 py-3 rounded-xl flex items-center justify-center gap-2 font-bold transition-all ${
               paymentMethod === 'transferencia' 
                 ? 'bg-white text-blue-700 shadow-lg border-2 border-blue-200' 
@@ -242,7 +250,7 @@ const CheckoutBeforeSendModal: React.FC<CheckoutBeforeSendModalProps> = ({
                 // BOTÓN DE CÁMARA GRANDE
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  disabled={isCompressing}
+                  disabled={isCompressing || isSubmitting}
                   className={`w-full h-48 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center gap-3 transition-all ${
                     isCompressing
                       ? 'border-blue-400 bg-blue-50 cursor-wait'
@@ -275,6 +283,7 @@ const CheckoutBeforeSendModal: React.FC<CheckoutBeforeSendModalProps> = ({
                   {/* Botón para borrar y reintentar */}
                   <button
                     onClick={handleRemovePhoto}
+                    disabled={isSubmitting}
                     className="absolute top-3 right-3 bg-red-600 text-white p-2 rounded-full shadow-lg hover:bg-red-700 transition-all active:scale-90"
                   >
                     <MdDelete size={20} />
@@ -301,16 +310,20 @@ const CheckoutBeforeSendModal: React.FC<CheckoutBeforeSendModalProps> = ({
         <div className="p-4 border-t border-gray-200 bg-gray-50">
           <button
             onClick={handleSubmit}
-            disabled={paymentMethod === 'transferencia' && !proofImage}
+            disabled={isSubmitting || (paymentMethod === 'transferencia' && !proofImage)}
             className={`w-full py-4 rounded-xl font-black text-lg shadow-lg flex items-center justify-center gap-2 transition-all ${
-              paymentMethod === 'transferencia' && !proofImage
+              isSubmitting || (paymentMethod === 'transferencia' && !proofImage)
                 ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 : paymentMethod === 'efectivo'
                   ? 'bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white active:scale-95 shadow-green-300'
                   : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white active:scale-95 shadow-blue-300'
             }`}
           >
-            {paymentMethod === 'efectivo' ? '✅ CONFIRMAR Y ENVIAR COMANDA' : '📤 ADJUNTAR Y ENVIAR COMANDA'}
+            {isSubmitting
+              ? '⏳ ENVIANDO...'
+              : paymentMethod === 'efectivo'
+                ? '✅ CONFIRMAR Y ENVIAR COMANDA'
+                : '📤 ADJUNTAR Y ENVIAR COMANDA'}
           </button>
 
           {paymentMethod === 'transferencia' && !proofImage && (
