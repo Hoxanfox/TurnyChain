@@ -53,7 +53,7 @@ func (s *authService) Login(username, password string) (string, error) {
 	claims := jwt.MapClaims{
 		"sub":  user.ID,
 		"role": user.Role,
-		"exp":  time.Now().Add(time.Hour * 24).Unix(),
+		"exp":  time.Now().Add(4 * time.Hour).Unix(),
 	}
 
 	// 4. Crear y firmar el token

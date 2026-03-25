@@ -5,19 +5,20 @@ import React, { useState, useRef } from 'react';
 import { MdClose, MdAttachMoney, MdPhoneAndroid, MdCameraAlt, MdDelete } from 'react-icons/md';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../../../app/store';
-import { uploadPaymentProof } from '../../shared/orders/api/ordersAPI.ts';
+import { uploadPaymentProof, updateOrderStatus } from '../../shared/orders/api/ordersAPI.ts';
 
 interface CheckoutModalProps {
   orderId: string;
   groupOrderIds?: string[];
   orderTotal: number;
   tableNumber: number;
+  forcePaidAfterCheckout?: boolean;
   onClose: () => void;
   onSuccess: () => void;
 }
 
 const CheckoutModal: React.FC<CheckoutModalProps> = ({
-  orderId, groupOrderIds, orderTotal, tableNumber, onClose, onSuccess
+  orderId, groupOrderIds, orderTotal, tableNumber, forcePaidAfterCheckout = false, onClose, onSuccess
 }) => {
   const token = useSelector((state: RootState) => state.auth.token);
   const [paymentMethod, setPaymentMethod] = useState<'efectivo' | 'transferencia'>('efectivo');
@@ -170,6 +171,11 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
       for (const targetOrderId of targetOrderIds) {
         await uploadPaymentProof(targetOrderId, fileToUpload, paymentMethod, token);
+
+        // En flujo de cajero, el cobro debe quedar aplicado de inmediato.
+        if (forcePaidAfterCheckout) {
+          await updateOrderStatus(targetOrderId, 'pagado', token);
+        }
       }
       
       // ✅ SOLO LIMPIAR LOCALSTORAGE DESPUÉS DEL ÉXITO
@@ -177,7 +183,11 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
       
       onSuccess();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Error al procesar el pago. Intente nuevamente.');
+      setError(
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        'Error al procesar el pago. Intente nuevamente.'
+      );
       console.error('Upload error:', err);
     } finally {
       setIsSubmitting(false);

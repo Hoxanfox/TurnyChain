@@ -48,6 +48,8 @@ interface CashierDashboardMobileProps {
   onPrintCommand: (orderId: string) => void;
   onPrintFullCommand: (orderId: string) => void;
   onPreviewTickets: (orderId: string) => void;
+  onOpenCheckout: (orderId: string, total: number, tableNumber: number) => void;
+  onOpenCheckoutGroup: (orderIds: string[], total: number, tableNumber: number) => void;
   onRetryLoadOrders?: () => void;
 }
 
@@ -78,6 +80,8 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
   onPrintCommand,
   onPrintFullCommand,
   onPreviewTickets,
+  onOpenCheckout,
+  onOpenCheckoutGroup,
   onRetryLoadOrders,
 }) => {
   const isPorCobrarStatus = (status: string) => status === 'entregado' || status === 'pendiente_aprobacion';
@@ -407,6 +411,8 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
         onPrintCommand={onPrintCommand}
         onPrintFullCommand={onPrintFullCommand}
         onPreviewTickets={onPreviewTickets}
+        onOpenCheckout={onOpenCheckout}
+        onOpenCheckoutGroup={onOpenCheckoutGroup}
         onCancelOrder={(orderId) => onStatusChange(orderId, 'cancelado')}
       />
 

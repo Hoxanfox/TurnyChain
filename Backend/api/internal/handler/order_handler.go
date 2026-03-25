@@ -163,39 +163,45 @@ func (h *OrderHandler) UploadPaymentProof(c *fiber.Ctx) error {
 
 	log.Printf("   - Método de pago: %s", method)
 
-	// Obtener el archivo
-	file, err := c.FormFile("file")
-	if err != nil {
-		log.Printf("❌ [Handler] Error al obtener archivo: %v", err)
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "file is required"})
+	proofPath := ""
+	savedFilePath := ""
+	file, fileErr := c.FormFile("file")
+	if fileErr != nil {
+		if method != "efectivo" {
+			log.Printf("❌ [Handler] Error al obtener archivo: %v", fileErr)
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "file is required for transferencia"})
+		}
+		log.Printf("ℹ️ [Handler] Pago en efectivo sin archivo adjunto para orden %s", orderID.String())
+	} else {
+		log.Printf("   - Archivo recibido: %s (%d bytes)", file.Filename, file.Size)
+
+		// Crear carpeta ./uploads/proofs si no existe
+		uploadDir := "./uploads/proofs"
+		if err := os.MkdirAll(uploadDir, os.ModePerm); err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "could not create upload directory"})
+		}
+
+		// Guardar archivo con nombre orden_<id>_<timestamp>_<original>
+		ext := filepath.Ext(file.Filename)
+		filename := fmt.Sprintf("order_%s_%d%s", orderID.String(), time.Now().Unix(), ext)
+		destination := filepath.Join(uploadDir, filename)
+
+		if err := c.SaveFile(file, destination); err != nil {
+			log.Printf("❌ [Handler] Error al guardar archivo: %v", err)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "could not save file"})
+		}
+
+		log.Printf("💾 [Handler] Archivo guardado en: %s", destination)
+		savedFilePath = destination
+		proofPath = "/static/proofs/" + filename
 	}
 
-	log.Printf("   - Archivo recibido: %s (%d bytes)", file.Filename, file.Size)
-
-	// Crear carpeta ./uploads/proofs si no existe
-	uploadDir := "./uploads/proofs"
-	if err := os.MkdirAll(uploadDir, os.ModePerm); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "could not create upload directory"})
-	}
-
-	// Guardar archivo con nombre orden_<id>_<timestamp>_<original>
-	ext := filepath.Ext(file.Filename)
-	filename := fmt.Sprintf("order_%s_%d%s", orderID.String(), time.Now().Unix(), ext)
-	destination := filepath.Join(uploadDir, filename)
-
-	if err := c.SaveFile(file, destination); err != nil {
-		log.Printf("❌ [Handler] Error al guardar archivo: %v", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "could not save file"})
-	}
-
-	log.Printf("💾 [Handler] Archivo guardado en: %s", destination)
-
-	// Guardar la ruta relativa en DB
-	proofPath := "/static/proofs/" + filename
 	order, err := h.orderService.AddPaymentProof(orderID, method, proofPath)
 	if err != nil {
 		// Intentar limpiar el archivo si DB falla
-		_ = os.Remove(destination)
+		if savedFilePath != "" {
+			_ = os.Remove(savedFilePath)
+		}
 		log.Printf("❌ [Handler] Error al actualizar orden: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "could not update order with proof"})
 	}
