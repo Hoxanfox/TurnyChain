@@ -78,8 +78,30 @@ const OrderManagement: React.FC = () => {
         </div>
 
         <main className="w-full md:w-3/4 overflow-y-auto">
-          {status === 'loading' && <p>Cargando órdenes...</p>}
-          {selectedTable ? (
+          {status === 'loading' && (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center py-8">
+                <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-indigo-600 border-t-transparent"></div>
+                <p className="mt-2 text-gray-600">Cargando órdenes...</p>
+              </div>
+            </div>
+          )}
+          {status === 'failed' && (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center py-8">
+                <div className="text-red-600 text-5xl mb-2">⚠️</div>
+                <p className="text-red-600 font-semibold">Error al cargar las órdenes</p>
+                <p className="text-gray-500 text-sm mt-1">Verifica tu conexión o intenta nuevamente</p>
+                <button
+                  onClick={() => dispatch(fetchActiveOrders())}
+                  className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                >
+                  🔄 Reintentar
+                </button>
+              </div>
+            </div>
+          )}
+          {selectedTable && status === 'succeeded' ? (
             <OrderGridView
               orders={ordersByTable[selectedTable]}
               renderActions={(order) => (
@@ -89,11 +111,11 @@ const OrderManagement: React.FC = () => {
                 </>
               )}
             />
-          ) : (
+          ) : status === 'succeeded' ? (
             <div className="flex items-center justify-center h-full">
               <p className="text-gray-500">Seleccione una mesa para ver sus órdenes.</p>
             </div>
-          )}
+          ) : null}
         </main>
       </div>
       {selectedOrderId && <OrderDetailModal orderId={selectedOrderId} onClose={() => setSelectedOrderId(null)} />}

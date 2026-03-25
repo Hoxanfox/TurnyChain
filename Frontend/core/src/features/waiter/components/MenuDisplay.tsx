@@ -6,7 +6,6 @@ import { useDispatch, useSelector } from 'react-redux';
 import { fetchMenu } from '../../admin/components/menu/api/menuSlice.ts';
 import type { AppDispatch, RootState } from '../../../app/store';
 import type { MenuItem } from '../../../types/menu';
-import { formatMoney } from '../../../utils/formatUtils.ts';
 import MenuSearchBar from './MenuSearchBar';
 
 interface MenuDisplayProps {
@@ -218,7 +217,7 @@ const MenuDisplay: React.FC<MenuDisplayProps> = ({ onAddToCart }) => {
                       </p>
                     )}
                     <p className="text-lg font-bold text-indigo-700 mt-auto">
-                      {formatMoney(item.price)}
+                      ${item.price.toFixed(2)}
                     </p>
                   </button>
                 ))}
