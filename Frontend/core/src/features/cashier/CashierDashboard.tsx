@@ -52,53 +52,11 @@ const CashierDashboard: React.FC = () => {
     try {
       await dispatch(changeOrderStatus({ orderId, status: 'pagado' })).unwrap();
       const orderDetails = await dispatch(fetchOrderDetails(orderId)).unwrap();
-      const printSettings = getPrintSettings();
-
-      if (printSettings.ticketPrintMethod === 'backend') {
-        try {
-          const printResult = await kitchenTicketsAPI.print(orderId, false);
-
-          if (printResult.success) {
-            const ticketsCount = printResult.tickets_sent;
-            const failedCount = printResult.failed_prints?.length || 0;
-
-            if (failedCount > 0) {
-              const failedStations = printResult.failed_prints.map((f) => f.station_name).join(', ');
-              setNotification({
-                title: '⚠️ Pago Confirmado con Advertencias',
-                message: `Mesa ${orderDetails.table_number} - ${ticketsCount} tickets enviados, pero ${failedCount} fallaron (${failedStations}).`,
-                type: 'warning',
-              });
-            } else {
-              setNotification({
-                title: '✅ Pago Confirmado',
-                message: `Mesa ${orderDetails.table_number} - ${ticketsCount} ticket(s) enviados correctamente.`,
-                type: 'success',
-              });
-            }
-          } else {
-            throw new Error(printResult.message || 'Error al imprimir tickets');
-          }
-        } catch {
-          const printed = await printKitchenTicketsFrontend(orderDetails);
-          setNotification({
-            title: printed ? '⚠️ Pago Confirmado (Frontend)' : '⚠️ Pago Confirmado',
-            message: printed
-              ? `Mesa ${orderDetails.table_number} - Tickets impresos desde el navegador (fallback).`
-              : `Mesa ${orderDetails.table_number} - Pago confirmado, pero no se pudo imprimir.`,
-            type: 'warning',
-          });
-        }
-      } else {
-        const printed = await printKitchenTicketsFrontend(orderDetails);
-        setNotification({
-          title: '✅ Pago Confirmado',
-          message: printed
-            ? `Mesa ${orderDetails.table_number} - Tickets impresos desde el navegador.`
-            : `Mesa ${orderDetails.table_number} - Pago confirmado, impresión cancelada.`,
-          type: printed ? 'success' : 'warning',
-        });
-      }
+      setNotification({
+        title: '✅ Pago Confirmado',
+        message: `Mesa ${orderDetails.table_number} - Pago confirmado correctamente.`,
+        type: 'success',
+      });
     } catch {
       setNotification({
         title: '❌ Error',
