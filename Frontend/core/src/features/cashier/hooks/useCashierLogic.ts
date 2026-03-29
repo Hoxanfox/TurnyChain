@@ -25,6 +25,7 @@ export const useCashierLogic = (activeOrders: Order[]) => {
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
   const [paymentMethodFilter, setPaymentMethodFilter] = useState<PaymentMethodFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [orderIdQuery, setOrderIdQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortBy>('time');
 
   // Estadísticas calculadas - SOLO DEL DÍA ACTUAL
@@ -124,6 +125,7 @@ export const useCashierLogic = (activeOrders: Order[]) => {
   // Filtrado y búsqueda de órdenes - SOLO DEL DÍA ACTUAL
   const filteredOrders = useMemo(() => {
     const todayKey = getDayKey(new Date());
+    const normalizedOrderIdQuery = orderIdQuery.trim().toLowerCase();
 
     const todayOrders = activeOrders.filter((order) => getDayKey(new Date(order.created_at)) === todayKey);
 
@@ -153,7 +155,6 @@ export const useCashierLogic = (activeOrders: Order[]) => {
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
         return (
-          order.id.toLowerCase().includes(query) ||
           order.table_number.toString().includes(query) ||
           order.waiter_name?.toLowerCase().includes(query)
         );
@@ -162,8 +163,20 @@ export const useCashierLogic = (activeOrders: Order[]) => {
       return true;
     });
 
+    if (!normalizedOrderIdQuery) {
+      return baseMatched;
+    }
+
+    const directlyMatchedById = todayOrders.filter((order) =>
+      order.id.toLowerCase().includes(normalizedOrderIdQuery)
+    );
+
+    if (directlyMatchedById.length === 0) {
+      return [];
+    }
+
     const relatedIds = new Set<string>();
-    baseMatched.forEach((order) => {
+    directlyMatchedById.forEach((order) => {
       relatedIds.add(order.id);
       if (order.parent_order_id) {
         relatedIds.add(order.parent_order_id);
@@ -195,7 +208,7 @@ export const useCashierLogic = (activeOrders: Order[]) => {
     }
 
     return todayOrders.filter((order) => relatedIds.has(order.id));
-  }, [activeOrders, filterStatus, paymentMethodFilter, searchQuery]);
+  }, [activeOrders, filterStatus, paymentMethodFilter, searchQuery, orderIdQuery]);
 
   // Ordenamiento de órdenes
   const sortedOrders = useMemo(() => {
@@ -238,6 +251,7 @@ export const useCashierLogic = (activeOrders: Order[]) => {
     setFilterStatus('all');
     setPaymentMethodFilter('all');
     setSearchQuery('');
+    setOrderIdQuery('');
   };
 
   // Función para exportar reporte CSV
@@ -277,6 +291,8 @@ export const useCashierLogic = (activeOrders: Order[]) => {
     setPaymentMethodFilter,
     searchQuery,
     setSearchQuery,
+    orderIdQuery,
+    setOrderIdQuery,
     sortBy,
     setSortBy,
 

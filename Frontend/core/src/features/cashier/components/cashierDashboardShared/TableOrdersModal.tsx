@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import type { Order } from '../../../../types/orders';
 import OrderGridView from '../../../shared/orders/components/OrderGridView';
 import { QuickProofView } from './QuickProofView';
@@ -25,6 +25,7 @@ interface TableOrdersModalProps {
   onOpenCheckout: (orderId: string, total: number, tableNumber: number) => void;
   onOpenCheckoutGroup: (orderIds: string[], total: number, tableNumber: number) => void;
   onCancelOrder: (orderId: string) => void;
+  highlightOrderId?: string | null;
 }
 
 export const TableOrdersModal: React.FC<TableOrdersModalProps> = ({
@@ -39,6 +40,7 @@ export const TableOrdersModal: React.FC<TableOrdersModalProps> = ({
   onOpenCheckout,
   onOpenCheckoutGroup,
   onCancelOrder,
+  highlightOrderId = null,
 }) => {
   const isPorCobrarStatus = (status: string) => status === 'entregado' || status === 'pendiente_aprobacion';
   const isPayableStatus = (status: string) => status === 'por_verificar' || isPorCobrarStatus(status);
@@ -148,6 +150,21 @@ export const TableOrdersModal: React.FC<TableOrdersModalProps> = ({
       payableTotal: group.payableMembers.reduce((sum, current) => sum + current.total, 0),
     })).filter((group) => groupMatchesTab(group.members));
   }, [orders, filterTab]);
+
+  useEffect(() => {
+    if (!isOpen || !highlightOrderId) return;
+
+    setFilterTab('all');
+
+    const timer = window.setTimeout(() => {
+      const target = document.getElementById(`order-card-${highlightOrderId}`);
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 180);
+
+    return () => window.clearTimeout(timer);
+  }, [isOpen, highlightOrderId]);
 
   if (!isOpen || !tableNumber) return null;
 
@@ -394,6 +411,7 @@ export const TableOrdersModal: React.FC<TableOrdersModalProps> = ({
                               </div>
                               <OrderGridView
                                 orders={[member]}
+                                highlightOrderId={highlightOrderId}
                                 renderActions={(order) => (
                         <div className="space-y-2">
                     {(() => {
@@ -574,6 +592,7 @@ export const TableOrdersModal: React.FC<TableOrdersModalProps> = ({
                       <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-2">
                         <OrderGridView
                           orders={group.members}
+                          highlightOrderId={highlightOrderId}
                           renderActions={(order) => (
                             <div className="space-y-2">
                     {(() => {

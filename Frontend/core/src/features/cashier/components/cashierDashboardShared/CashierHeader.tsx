@@ -8,6 +8,10 @@ interface CashierHeaderProps {
   onExportReport: () => void;
   onOpenPrintSettings: () => void;
   activeFiltersCount?: number;
+  orderIdQuery?: string;
+  onOpenOrderIdSearch?: () => void;
+  quickTablesCount?: number;
+  onOpenQuickTableSelect?: () => void;
 }
 
 export const CashierHeader: React.FC<CashierHeaderProps> = ({
@@ -17,6 +21,10 @@ export const CashierHeader: React.FC<CashierHeaderProps> = ({
   onExportReport,
   onOpenPrintSettings,
   activeFiltersCount = 0,
+  orderIdQuery = '',
+  onOpenOrderIdSearch,
+  quickTablesCount = 0,
+  onOpenQuickTableSelect,
 }) => {
   const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false);
 
@@ -51,6 +59,34 @@ export const CashierHeader: React.FC<CashierHeaderProps> = ({
         </div>
 
         <div className="flex items-center gap-2 mt-4 md:mt-0">
+          {onOpenQuickTableSelect && (
+            <button
+              onClick={onOpenQuickTableSelect}
+              className="relative px-4 py-2 bg-white text-indigo-700 rounded-lg hover:bg-indigo-50 transition-all font-semibold shadow-lg hover:shadow-xl"
+              title="Seleccion rapida de mesa"
+            >
+              🪑 Mesas
+              {quickTablesCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs font-bold rounded-full min-w-4 h-4 px-1 flex items-center justify-center">
+                  {quickTablesCount}
+                </span>
+              )}
+            </button>
+          )}
+          {onOpenOrderIdSearch && (
+            <button
+              onClick={onOpenOrderIdSearch}
+              className="relative px-4 py-2 bg-white text-indigo-700 rounded-lg hover:bg-indigo-50 transition-all font-semibold shadow-lg hover:shadow-xl"
+              title="Buscar comanda por ID"
+            >
+              🔍 Buscar ID
+              {orderIdQuery.trim() && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                  1
+                </span>
+              )}
+            </button>
+          )}
           <button
             onClick={onToggleStats}
             className="px-4 py-2 bg-white text-purple-600 rounded-lg hover:bg-purple-50 transition-all font-semibold shadow-lg hover:shadow-xl transform hover:scale-105"

@@ -3,6 +3,7 @@
 // =================================================================
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { fetchActiveOrders, changeOrderStatus, fetchOrderDetails } from '../shared/orders/api/ordersSlice';
 import type { AppDispatch, RootState } from '../../app/store';
 import { useCashierWebSocket } from '../../hooks/useCashierWebSocket';
@@ -18,6 +19,8 @@ import { kitchenTicketsAPI } from '../shared/orders/api/kitchenTicketsAPI';
 import CheckoutModal from '../waiter/components/CheckoutModal';
 
 const CashierDashboard: React.FC = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
   const { activeOrders, status } = useSelector((state: RootState) => state.orders);
   const isDesktop = useIsDesktop();
@@ -31,6 +34,8 @@ const CashierDashboard: React.FC = () => {
   const [checkoutGroupOrderIds, setCheckoutGroupOrderIds] = useState<string[]>([]);
   const [checkoutOrderTotal, setCheckoutOrderTotal] = useState<number>(0);
   const [checkoutTableNumber, setCheckoutTableNumber] = useState<number>(0);
+  const [shortcutTarget, setShortcutTarget] = useState<{ tableNumber: number; orderId: string } | null>(null);
+  const [shortcutNonce, setShortcutNonce] = useState(0);
 
   const cashierLogic = useCashierLogic(activeOrders);
 
@@ -41,6 +46,18 @@ const CashierDashboard: React.FC = () => {
   useEffect(() => {
     dispatch(fetchActiveOrders());
   }, [dispatch]);
+
+  useEffect(() => {
+    const stateWithShortcut = location.state as { cashierShortcut?: { tableNumber: number; orderId: string } } | null;
+    const incomingShortcut = stateWithShortcut?.cashierShortcut;
+
+    if (!incomingShortcut || status === 'loading') return;
+
+    cashierLogic.setSelectedTable(incomingShortcut.tableNumber);
+    setShortcutTarget(incomingShortcut);
+    setShortcutNonce((prev) => prev + 1);
+    navigate(location.pathname, { replace: true, state: null });
+  }, [location.pathname, location.state, navigate, status]);
 
   const handleStatusChange = (orderId: string, newStatus: string) => {
     dispatch(changeOrderStatus({ orderId, status: newStatus }));
@@ -204,6 +221,7 @@ const CashierDashboard: React.FC = () => {
     filterStatus: cashierLogic.filterStatus,
     paymentMethodFilter: cashierLogic.paymentMethodFilter,
     searchQuery: cashierLogic.searchQuery,
+    orderIdQuery: cashierLogic.orderIdQuery,
     sortBy: cashierLogic.sortBy,
 
     statistics: cashierLogic.statistics,
@@ -218,6 +236,7 @@ const CashierDashboard: React.FC = () => {
     onFilterStatusChange: cashierLogic.setFilterStatus,
     onPaymentMethodFilterChange: cashierLogic.setPaymentMethodFilter,
     onSearchQueryChange: cashierLogic.setSearchQuery,
+    onOrderIdQueryChange: cashierLogic.setOrderIdQuery,
     onSortByChange: cashierLogic.setSortBy,
     onClearFilters: cashierLogic.clearFilters,
     onExportReport: cashierLogic.exportReport,
@@ -243,10 +262,16 @@ const CashierDashboard: React.FC = () => {
           selectedTable={cashierLogic.selectedTable}
           sortedSelectedOrders={cashierLogic.sortedSelectedOrders}
           onSelectTable={cashierLogic.setSelectedTable}
+          shortcutTarget={shortcutTarget}
+          shortcutNonce={shortcutNonce}
           onViewProof={() => {}}
         />
       ) : (
-        <CashierDashboardMobile {...commonProps} />
+        <CashierDashboardMobile
+          {...commonProps}
+          shortcutTarget={shortcutTarget}
+          shortcutNonce={shortcutNonce}
+        />
       )}
 
       <PrintSettingsModal

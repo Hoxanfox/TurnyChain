@@ -23,30 +23,52 @@ interface AuthState {
   error: string | null;
 }
 
+const DEFAULT_SESSION_DURATION_DAYS = 30;
+const envSessionDurationDays = Number(import.meta.env.VITE_SESSION_DURATION_DAYS);
+const SESSION_DURATION_DAYS =
+  Number.isFinite(envSessionDurationDays) && envSessionDurationDays > 0
+    ? envSessionDurationDays
+    : DEFAULT_SESSION_DURATION_DAYS;
+const SESSION_DURATION_MS = SESSION_DURATION_DAYS * 24 * 60 * 60 * 1000;
+
+const clearAuthStorage = () => {
+  localStorage.removeItem('token');
+  localStorage.removeItem('user_id');
+  localStorage.removeItem('user_role');
+  localStorage.removeItem('username');
+  localStorage.removeItem('session_expires_at');
+};
+
 // --- Lógica para el Estado Inicial ---
 
 // 1. Intentamos obtener el token del localStorage.
-const token = localStorage.getItem('token');
+let token = localStorage.getItem('token');
 let user: User | null = null;
+const sessionExpiresAtRaw = localStorage.getItem('session_expires_at');
+const sessionExpiresAt = Number(sessionExpiresAtRaw || '0');
+const hasValidLocalSession = !sessionExpiresAtRaw || sessionExpiresAt > Date.now();
 
 // 2. Si existe un token, lo decodificamos para restaurar la sesión.
 if (token) {
   try {
     const decodedToken: DecodedToken = jwtDecode(token);
     // Verificamos si el token ha expirado
-    if (decodedToken.exp * 1000 > Date.now()) {
+    if (decodedToken.exp * 1000 > Date.now() && hasValidLocalSession) {
       user = {
         id: decodedToken.sub,
         role: decodedToken.role,
         username: decodedToken.username || localStorage.getItem('username') || 'Usuario',
       };
+      localStorage.setItem('session_expires_at', String(Date.now() + SESSION_DURATION_MS));
     } else {
-      // Si el token ha expirado, lo eliminamos.
-      localStorage.removeItem('token');
+      // Si expiró la sesión local o el token, limpiamos datos de auth.
+      clearAuthStorage();
+      token = null;
     }
   } catch (error) {
     console.error("Error al decodificar el token:", error);
-    localStorage.removeItem('token');
+    clearAuthStorage();
+    token = null;
   }
 }
 
@@ -77,6 +99,7 @@ export const login = createAsyncThunk(
       localStorage.setItem('user_id', decodedToken.sub);
       localStorage.setItem('user_role', decodedToken.role);
       localStorage.setItem('username', loggedInUser.username);
+      localStorage.setItem('session_expires_at', String(Date.now() + SESSION_DURATION_MS));
 
       console.log('✅ Login exitoso:', {
         user_id: decodedToken.sub,
@@ -100,10 +123,7 @@ export const authSlice = createSlice({
     logout: (state) => {
       state.user = null;
       state.token = null;
-      localStorage.removeItem('token');
-      localStorage.removeItem('user_id');
-      localStorage.removeItem('user_role');
-      localStorage.removeItem('username');
+      localStorage.clear();
       console.log('👋 Logout exitoso');
     },
     // Actualizar nombre de usuario localmente tras edición de perfil

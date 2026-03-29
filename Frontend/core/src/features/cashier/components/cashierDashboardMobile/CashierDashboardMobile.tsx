@@ -1,7 +1,8 @@
 // =================================================================
 // ARCHIVO: /src/features/cashier/CashierDashboardMobile.tsx
 // =================================================================
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { Order } from '../../../../types/orders';
 import { FilterModal } from '../cashierDashboardShared/FilterModal';
 import type { FilterStatus, PaymentMethodFilter, SortBy } from '../cashierDashboardShared/CashierFilters';
@@ -9,6 +10,8 @@ import { StatisticsCard } from '../cashierDashboardShared/StatisticsCard';
 import { TableCard } from '../cashierDashboardShared/TableCard';
 import { TableOrdersModal } from '../cashierDashboardShared/TableOrdersModal';
 import { QuickActionsBar } from '../cashierDashboardShared/QuickActionsBar';
+import { OrderIdSearchModal } from '../cashierDashboardShared/OrderIdSearchModal';
+import { QuickTablePickerModal } from '../cashierDashboardShared/QuickTablePickerModal';
 import type { CashierNotification, CashierStatistics } from '../../types/cashierDashboardTypes';
 import { Notification } from '../../../../components/Notification';
 import LogoutButton from '../../../../components/LogoutButton';
@@ -20,6 +23,7 @@ interface CashierDashboardMobileProps {
   filterStatus: FilterStatus;
   paymentMethodFilter: PaymentMethodFilter;
   searchQuery: string;
+  orderIdQuery: string;
   sortBy: SortBy;
 
   // Datos
@@ -37,6 +41,7 @@ interface CashierDashboardMobileProps {
   onFilterStatusChange: (status: FilterStatus) => void;
   onPaymentMethodFilterChange: (method: PaymentMethodFilter) => void;
   onSearchQueryChange: (query: string) => void;
+  onOrderIdQueryChange: (query: string) => void;
   onSortByChange: (sortBy: SortBy) => void;
   onClearFilters: () => void;
   onExportReport: () => void;
@@ -51,6 +56,8 @@ interface CashierDashboardMobileProps {
   onOpenCheckout: (orderId: string, total: number, tableNumber: number) => void;
   onOpenCheckoutGroup: (orderIds: string[], total: number, tableNumber: number) => void;
   onRetryLoadOrders?: () => void;
+  shortcutTarget?: { tableNumber: number; orderId: string } | null;
+  shortcutNonce?: number;
 }
 
 export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
@@ -58,6 +65,7 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
   filterStatus,
   paymentMethodFilter,
   searchQuery,
+  orderIdQuery,
   sortBy,
   statistics,
   ordersByTable,
@@ -69,6 +77,7 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
   onFilterStatusChange,
   onPaymentMethodFilterChange,
   onSearchQueryChange,
+  onOrderIdQueryChange,
   onSortByChange,
   onClearFilters,
   onExportReport,
@@ -83,14 +92,27 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
   onOpenCheckout,
   onOpenCheckoutGroup,
   onRetryLoadOrders,
+  shortcutTarget = null,
+  shortcutNonce = 0,
 }) => {
+  const navigate = useNavigate();
   const isPorCobrarStatus = (status: string) => status === 'entregado' || status === 'pendiente_aprobacion';
 
   const [showFilterModal, setShowFilterModal] = useState(false);
+  const [showOrderIdModal, setShowOrderIdModal] = useState(false);
+  const [showQuickTablePicker, setShowQuickTablePicker] = useState(false);
   const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false);
   const [selectedTableNumber, setSelectedTableNumber] = useState<number | null>(null);
+  const [focusedOrderId, setFocusedOrderId] = useState<string | null>(null);
   const [selectedOrderIdForDetail, setSelectedOrderIdForDetail] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'tables' | 'urgent'>('tables');
+
+  useEffect(() => {
+    if (!shortcutTarget || shortcutNonce === 0) return;
+    setViewMode('tables');
+    setSelectedTableNumber(shortcutTarget.tableNumber);
+    setFocusedOrderId(shortcutTarget.orderId);
+  }, [shortcutNonce, shortcutTarget]);
 
   // Obtener todas las órdenes
   const allOrders = Object.values(ordersByTable).flat();
@@ -116,13 +138,6 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
     dailyOrdersCount: statistics.dailyOrdersCount,
     dailyAverageTicket: statistics.dailyAverageTicket,
   };
-
-  // Calcular filtros activos
-  const activeFiltersCount = [
-    filterStatus !== 'all',
-    paymentMethodFilter !== 'all',
-    searchQuery.trim() !== '',
-  ].filter(Boolean).length;
 
   // Ordenar mesas (tablas con órdenes por verificar primero)
   const sortedTableNumbers = Object.keys(ordersByTable)
@@ -165,13 +180,25 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
             </div>
             <div className="flex gap-1.5 flex-shrink-0 flex-wrap justify-end">
               <button
-                onClick={() => setShowFilterModal(true)}
+                onClick={() => setShowQuickTablePicker(true)}
+                className="relative p-2.5 bg-white bg-opacity-20 rounded-xl hover:bg-opacity-30 transition-all"
+                title="Seleccion rapida de mesa"
+              >
+                <span className="text-xl">🪑</span>
+                {sortedTableNumbers.length > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs font-bold rounded-full min-w-4 h-4 px-1 flex items-center justify-center">
+                    {sortedTableNumbers.length}
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={() => setShowOrderIdModal(true)}
                 className="relative p-2.5 bg-white bg-opacity-20 rounded-xl hover:bg-opacity-30 transition-all"
               >
                 <span className="text-xl">🔍</span>
-                {activeFiltersCount > 0 && (
+                {orderIdQuery.trim() && (
                   <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-4 h-4 flex items-center justify-center">
-                    {activeFiltersCount}
+                    1
                   </span>
                 )}
               </button>
@@ -200,6 +227,15 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
                       className="w-full text-left px-4 py-3 text-indigo-700 hover:bg-indigo-50 font-semibold"
                     >
                       🖨️ Configurar impresión
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowFilterModal(true);
+                        setIsActionsMenuOpen(false);
+                      }}
+                      className="w-full text-left px-4 py-3 text-blue-700 hover:bg-blue-50 font-semibold border-t border-gray-100"
+                    >
+                      🔧 Filtros avanzados
                     </button>
                     <button
                       onClick={() => {
@@ -398,12 +434,42 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
         onClearFilters={onClearFilters}
       />
 
+      <OrderIdSearchModal
+        isOpen={showOrderIdModal}
+        value={orderIdQuery}
+        onChange={onOrderIdQueryChange}
+        onSubmit={(value) => {
+          const normalized = value.trim();
+          if (!normalized) return;
+          setShowOrderIdModal(false);
+          onOrderIdQueryChange('');
+          navigate(`/cashier/search/${encodeURIComponent(normalized)}`);
+        }}
+        onClose={() => setShowOrderIdModal(false)}
+      />
+
+      <QuickTablePickerModal
+        isOpen={showQuickTablePicker}
+        tableNumbers={sortedTableNumbers}
+        selectedTable={selectedTableNumber}
+        onSelectTable={(tableNumber) => {
+          setViewMode('tables');
+          setFocusedOrderId(null);
+          setSelectedTableNumber(tableNumber);
+        }}
+        onClose={() => setShowQuickTablePicker(false)}
+      />
+
       {/* Modal de órdenes de mesa */}
       <TableOrdersModal
         isOpen={selectedTableNumber !== null}
-        onClose={() => setSelectedTableNumber(null)}
+        onClose={() => {
+          setSelectedTableNumber(null);
+          setFocusedOrderId(null);
+        }}
         tableNumber={selectedTableNumber}
         orders={selectedTableNumber ? ordersByTable[selectedTableNumber] || [] : []}
+        highlightOrderId={focusedOrderId}
         onStatusChange={onStatusChange}
         onConfirmPayment={onConfirmPayment}
         onRejectPayment={onRejectPayment}

@@ -2,6 +2,7 @@
 // ARCHIVO 11: /src/app/store.ts (CORREGIDO)
 // =================================================================
 import { configureStore } from '@reduxjs/toolkit';
+import { combineReducers } from '@reduxjs/toolkit';
 import authReducer from '../features/auth/authSlice';
 import usersReducer from '../features/users/api/usersSlice.ts';
 import menuReducer from '../features/admin/components/menu/api/menuSlice.ts';
@@ -11,17 +12,26 @@ import categoriesReducer from '../features/admin/components/categories/api/categ
 import ingredientsReducer from '../features/admin/components/ingredients/api/ingredientsSlice.ts';
 import accompanimentsReducer from '../features/admin/components/accompaniments/api/accompanimentsSlice.ts';
 
+const appReducer = combineReducers({
+  auth: authReducer,
+  users: usersReducer,
+  menu: menuReducer,
+  orders: ordersReducer,
+  tables: tablesReducer,
+  categories: categoriesReducer,
+  ingredients: ingredientsReducer,
+  accompaniments: accompanimentsReducer,
+});
+
+const rootReducer: typeof appReducer = (state, action) => {
+  if (action.type === 'auth/logout') {
+    return appReducer(undefined, action);
+  }
+  return appReducer(state, action);
+};
+
 export const store = configureStore({
-  reducer: {
-    auth: authReducer,
-    users: usersReducer,
-    menu: menuReducer,
-    orders: ordersReducer,
-    tables: tablesReducer,
-    categories: categoriesReducer,
-    ingredients: ingredientsReducer,
-    accompaniments: accompanimentsReducer,
-  },
+  reducer: rootReducer,
 });
 
 export type RootState = ReturnType<typeof store.getState>;
