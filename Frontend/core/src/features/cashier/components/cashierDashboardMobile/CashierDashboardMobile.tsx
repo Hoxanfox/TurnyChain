@@ -1,7 +1,7 @@
 // =================================================================
 // ARCHIVO: /src/features/cashier/CashierDashboardMobile.tsx
 // =================================================================
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Order } from '../../../../types/orders';
 import { FilterModal } from '../cashierDashboardShared/FilterModal';
@@ -11,6 +11,7 @@ import { TableCard } from '../cashierDashboardShared/TableCard';
 import { TableOrdersModal } from '../cashierDashboardShared/TableOrdersModal';
 import { QuickActionsBar } from '../cashierDashboardShared/QuickActionsBar';
 import { OrderIdSearchModal } from '../cashierDashboardShared/OrderIdSearchModal';
+import { WaiterPickerModal } from '../cashierDashboardShared/WaiterPickerModal';
 import { QuickTablePickerModal } from '../cashierDashboardShared/QuickTablePickerModal';
 import type { CashierNotification, CashierStatistics } from '../../types/cashierDashboardTypes';
 import { Notification } from '../../../../components/Notification';
@@ -23,6 +24,7 @@ interface CashierDashboardMobileProps {
   filterStatus: FilterStatus;
   paymentMethodFilter: PaymentMethodFilter;
   searchQuery: string;
+  waiterQuery: string;
   orderIdQuery: string;
   sortBy: SortBy;
 
@@ -41,6 +43,7 @@ interface CashierDashboardMobileProps {
   onFilterStatusChange: (status: FilterStatus) => void;
   onPaymentMethodFilterChange: (method: PaymentMethodFilter) => void;
   onSearchQueryChange: (query: string) => void;
+  onWaiterQueryChange: (query: string) => void;
   onOrderIdQueryChange: (query: string) => void;
   onSortByChange: (sortBy: SortBy) => void;
   onClearFilters: () => void;
@@ -65,6 +68,7 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
   filterStatus,
   paymentMethodFilter,
   searchQuery,
+  waiterQuery,
   orderIdQuery,
   sortBy,
   statistics,
@@ -77,6 +81,7 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
   onFilterStatusChange,
   onPaymentMethodFilterChange,
   onSearchQueryChange,
+  onWaiterQueryChange,
   onOrderIdQueryChange,
   onSortByChange,
   onClearFilters,
@@ -100,6 +105,7 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
 
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [showOrderIdModal, setShowOrderIdModal] = useState(false);
+  const [showWaiterPicker, setShowWaiterPicker] = useState(false);
   const [showQuickTablePicker, setShowQuickTablePicker] = useState(false);
   const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false);
   const [selectedTableNumber, setSelectedTableNumber] = useState<number | null>(null);
@@ -116,6 +122,27 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
 
   // Obtener todas las órdenes
   const allOrders = Object.values(ordersByTable).flat();
+  const waiterOptions = useMemo(() => {
+    const waiterMap = new Map<string, { ordersCount: number; tables: Set<number> }>();
+
+    allOrders.forEach((order) => {
+      const waiterName = (order.waiter_name || '').trim();
+      if (!waiterName) return;
+
+      const current = waiterMap.get(waiterName) || { ordersCount: 0, tables: new Set<number>() };
+      current.ordersCount += 1;
+      current.tables.add(order.table_number);
+      waiterMap.set(waiterName, current);
+    });
+
+    return Array.from(waiterMap.entries())
+      .map(([name, value]) => ({
+        name,
+        ordersCount: value.ordersCount,
+        tablesCount: value.tables.size,
+      }))
+      .sort((a, b) => b.ordersCount - a.ordersCount || a.name.localeCompare(b.name));
+  }, [allOrders]);
 
   // Órdenes por categoría
   const urgentOrders = allOrders.filter(o => o.status === 'por_verificar');
@@ -197,6 +224,18 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
               >
                 <span className="text-xl">🔍</span>
                 {orderIdQuery.trim() && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                    1
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={() => setShowWaiterPicker(true)}
+                className="relative p-2.5 bg-white bg-opacity-20 rounded-xl hover:bg-opacity-30 transition-all"
+                title="Buscar por mesero"
+              >
+                <span className="text-xl">👤</span>
+                {waiterQuery.trim() && (
                   <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-4 h-4 flex items-center justify-center">
                     1
                   </span>
@@ -446,6 +485,20 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
           navigate(`/cashier/search/${encodeURIComponent(normalized)}`);
         }}
         onClose={() => setShowOrderIdModal(false)}
+      />
+
+      <WaiterPickerModal
+        isOpen={showWaiterPicker}
+        waiters={waiterOptions}
+        selectedWaiter={waiterQuery}
+        onSelectWaiter={(waiterName) => {
+          const normalized = waiterName.trim();
+          if (!normalized) return;
+          onWaiterQueryChange(normalized);
+          navigate(`/cashier/search/waiter/${encodeURIComponent(normalized)}`);
+        }}
+        onClear={() => onWaiterQueryChange('')}
+        onClose={() => setShowWaiterPicker(false)}
       />
 
       <QuickTablePickerModal

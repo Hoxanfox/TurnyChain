@@ -10,6 +10,8 @@ interface CashierHeaderProps {
   activeFiltersCount?: number;
   orderIdQuery?: string;
   onOpenOrderIdSearch?: () => void;
+  waiterQuery?: string;
+  onOpenWaiterSearch?: () => void;
   quickTablesCount?: number;
   onOpenQuickTableSelect?: () => void;
 }
@@ -23,6 +25,8 @@ export const CashierHeader: React.FC<CashierHeaderProps> = ({
   activeFiltersCount = 0,
   orderIdQuery = '',
   onOpenOrderIdSearch,
+  waiterQuery = '',
+  onOpenWaiterSearch,
   quickTablesCount = 0,
   onOpenQuickTableSelect,
 }) => {
@@ -81,6 +85,20 @@ export const CashierHeader: React.FC<CashierHeaderProps> = ({
             >
               🔍 Buscar ID
               {orderIdQuery.trim() && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                  1
+                </span>
+              )}
+            </button>
+          )}
+          {onOpenWaiterSearch && (
+            <button
+              onClick={onOpenWaiterSearch}
+              className="relative px-4 py-2 bg-white text-indigo-700 rounded-lg hover:bg-indigo-50 transition-all font-semibold shadow-lg hover:shadow-xl"
+              title="Buscar comandas por mesero"
+            >
+              👤 Mesero
+              {waiterQuery.trim() && (
                 <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-4 h-4 flex items-center justify-center">
                   1
                 </span>

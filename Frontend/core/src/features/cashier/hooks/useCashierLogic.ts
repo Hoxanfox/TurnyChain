@@ -25,6 +25,7 @@ export const useCashierLogic = (activeOrders: Order[]) => {
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
   const [paymentMethodFilter, setPaymentMethodFilter] = useState<PaymentMethodFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [waiterQuery, setWaiterQuery] = useState('');
   const [orderIdQuery, setOrderIdQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortBy>('time');
 
@@ -126,6 +127,7 @@ export const useCashierLogic = (activeOrders: Order[]) => {
   const filteredOrders = useMemo(() => {
     const todayKey = getDayKey(new Date());
     const normalizedOrderIdQuery = orderIdQuery.trim().toLowerCase();
+    const normalizedWaiterQuery = waiterQuery.trim().toLowerCase();
 
     const todayOrders = activeOrders.filter((order) => getDayKey(new Date(order.created_at)) === todayKey);
 
@@ -154,10 +156,20 @@ export const useCashierLogic = (activeOrders: Order[]) => {
       // Búsqueda por texto
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
-        return (
+        const matchesSearch = (
           order.table_number.toString().includes(query) ||
           order.waiter_name?.toLowerCase().includes(query)
         );
+        if (!matchesSearch) {
+          return false;
+        }
+      }
+
+      if (normalizedWaiterQuery) {
+        const waiterName = order.waiter_name?.toLowerCase() || '';
+        if (!waiterName.includes(normalizedWaiterQuery)) {
+          return false;
+        }
       }
 
       return true;
@@ -208,7 +220,7 @@ export const useCashierLogic = (activeOrders: Order[]) => {
     }
 
     return todayOrders.filter((order) => relatedIds.has(order.id));
-  }, [activeOrders, filterStatus, paymentMethodFilter, searchQuery, orderIdQuery]);
+  }, [activeOrders, filterStatus, paymentMethodFilter, searchQuery, waiterQuery, orderIdQuery]);
 
   // Ordenamiento de órdenes
   const sortedOrders = useMemo(() => {
@@ -251,6 +263,7 @@ export const useCashierLogic = (activeOrders: Order[]) => {
     setFilterStatus('all');
     setPaymentMethodFilter('all');
     setSearchQuery('');
+    setWaiterQuery('');
     setOrderIdQuery('');
   };
 
@@ -291,6 +304,8 @@ export const useCashierLogic = (activeOrders: Order[]) => {
     setPaymentMethodFilter,
     searchQuery,
     setSearchQuery,
+    waiterQuery,
+    setWaiterQuery,
     orderIdQuery,
     setOrderIdQuery,
     sortBy,

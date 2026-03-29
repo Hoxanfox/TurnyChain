@@ -12,6 +12,7 @@ interface OrdersState {
   selectedOrderDetails: Order | null;
   status: 'idle' | 'loading' | 'succeeded' | 'failed';
   myOrdersStatus: 'idle' | 'loading' | 'succeeded' | 'failed';
+  createOrderStatus: 'idle' | 'loading' | 'succeeded' | 'failed';
   detailsStatus: 'idle' | 'loading' | 'succeeded' | 'failed';
   error: string | null;
 }
@@ -22,6 +23,7 @@ const initialState: OrdersState = {
   selectedOrderDetails: null,
   status: 'idle',
   myOrdersStatus: 'idle',
+  createOrderStatus: 'idle',
   detailsStatus: 'idle',
   error: null,
 };
@@ -94,6 +96,12 @@ export const addNewOrder = createAsyncThunk(
       );
     }
     catch (error: any) { return rejectWithValue(error.response?.data?.error); }
+  },
+  {
+    condition: (_, { getState }) => {
+      const state = getState() as RootState;
+      return state.orders.createOrderStatus !== 'loading';
+    }
   }
 );
 
@@ -223,8 +231,18 @@ export const ordersSlice = createSlice({
           state.activeOrders[index] = action.payload;
         }
       })
+      .addCase(addNewOrder.pending, (state) => {
+        state.createOrderStatus = 'loading';
+      })
       .addCase(addNewOrder.fulfilled, (state, action: PayloadAction<Order>) => {
-        state.myOrders.unshift(action.payload);
+        state.createOrderStatus = 'succeeded';
+        if (!state.myOrders.find((order: Order) => order.id === action.payload.id)) {
+          state.myOrders.unshift(action.payload);
+        }
+      })
+      .addCase(addNewOrder.rejected, (state, action) => {
+        state.createOrderStatus = 'failed';
+        state.error = (action.payload as string) || 'Error al crear la orden';
       })
       .addCase(updateOrder.fulfilled, (state, action: PayloadAction<Order>) => {
         // Actualizar en myOrders

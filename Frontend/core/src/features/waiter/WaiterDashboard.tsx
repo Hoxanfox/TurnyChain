@@ -1,7 +1,7 @@
 // =================================================================
 // ARCHIVO: /src/features/waiter/WaiterDashboard.tsx (REFACTORIZADO CON SWIPER)
 // =================================================================
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { addNewOrder, fetchMyOrders } from '../shared/orders/api/ordersSlice.ts';
 import { fetchTables } from '../admin/components/tables/api/tablesSlice.ts';
@@ -56,10 +56,11 @@ const WaiterDashboard: React.FC = () => {
     const [checkoutTakeoutNotes, setCheckoutTakeoutNotes] = useState<string>("");
   const dispatch = useDispatch<AppDispatch>();
   const { tables } = useSelector((state: RootState) => state.tables);
+  const { createOrderStatus } = useSelector((state: RootState) => state.orders);
   const swiperRef = useRef<SwiperType | null>(null);
   const isDesktop = useIsDesktop();
 
-  useWaiterWebSocket((options) => {
+  const handleWaiterWsNotification = useCallback((options: { title: string; message: string; type: 'info' | 'success' | 'warning' | 'error' }) => {
     if (options.type !== 'warning' && options.type !== 'error') {
       return;
     }
@@ -68,7 +69,9 @@ const WaiterDashboard: React.FC = () => {
       icon: options.type === 'warning' ? '⚠️' : '❌',
       duration: 3200,
     });
-  });
+  }, []);
+
+  useWaiterWebSocket(handleWaiterWsNotification);
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [tableId, setTableId] = useState('');
@@ -240,7 +243,9 @@ const WaiterDashboard: React.FC = () => {
     setCart(currentCart => decrementItemQuantity(currentCart, cartItemId));
   };
 
-  const submitOrderWithoutCharge = (notes?: string) => {
+  const submitOrderWithoutCharge = async (notes?: string) => {
+    if (createOrderStatus === 'loading') return;
+
     const customerNameForPayload =
       orderType === 'llevar'
         ? (notes || '')
@@ -263,7 +268,12 @@ const WaiterDashboard: React.FC = () => {
       payload.delivery_notes = notes;
     }
 
-    dispatch(addNewOrder({ orderData: payload }));
+    try {
+      await dispatch(addNewOrder({ orderData: payload })).unwrap();
+    } catch (error) {
+      toast.error('No se pudo enviar la comanda. Intenta nuevamente.');
+      return;
+    }
 
     toast('📌 Comanda enviada por cobrar', {
       icon: '🧾',
@@ -332,9 +342,9 @@ const WaiterDashboard: React.FC = () => {
     setPendingTakeoutNotes('');
   };
 
-  const handleConfirmSendWithoutCharge = () => {
+  const handleConfirmSendWithoutCharge = async () => {
     setIsSendWithoutChargeModalOpen(false);
-    submitOrderWithoutCharge(pendingSendWithoutChargeNotes);
+    await submitOrderWithoutCharge(pendingSendWithoutChargeNotes);
     setPendingSendWithoutChargeNotes('');
   };
 
@@ -380,7 +390,9 @@ const WaiterDashboard: React.FC = () => {
     dispatch(fetchMyOrders()); // Recargar órdenes después del pago
   };
 
-  const handleConfirmPaymentBeforeSend = (paymentMethod: 'efectivo' | 'transferencia', proofFile: File | null) => {
+  const handleConfirmPaymentBeforeSend = async (paymentMethod: 'efectivo' | 'transferencia', proofFile: File | null) => {
+    if (createOrderStatus === 'loading') return;
+
     // Cerrar el modal de checkout
     setIsCheckoutBeforeSend(false);
 
@@ -414,11 +426,16 @@ const WaiterDashboard: React.FC = () => {
       hasProofFile: !!proofFile
     });
 
-    dispatch(addNewOrder({
-      orderData: payload,
-      paymentMethod,
-      paymentProofFile: proofFile
-    }));
+    try {
+      await dispatch(addNewOrder({
+        orderData: payload,
+        paymentMethod,
+        paymentProofFile: proofFile
+      })).unwrap();
+    } catch (error) {
+      toast.error('No se pudo cobrar y enviar la comanda. Intenta nuevamente.');
+      return;
+    }
 
     // 🆕 MEJORA UX #3: Feedback celebratorio (Peak-End Rule)
     // Confetti animation

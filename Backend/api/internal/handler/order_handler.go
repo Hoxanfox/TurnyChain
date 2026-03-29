@@ -4,11 +4,14 @@
 package handler
 
 import (
+	"crypto/sha256"
 	"encoding/json"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/domain"
@@ -18,11 +21,23 @@ import (
 )
 
 type OrderHandler struct {
-	orderService service.OrderService
+	orderService         service.OrderService
+	createOrderMu        sync.Mutex
+	recentCreateByKey    map[string]recentCreatedOrder
+	inFlightCreateByKey  map[string]struct{}
+}
+
+type recentCreatedOrder struct {
+	orderID   uuid.UUID
+	expiresAt time.Time
 }
 
 func NewOrderHandler(s service.OrderService) *OrderHandler {
-	return &OrderHandler{orderService: s}
+	return &OrderHandler{
+		orderService:        s,
+		recentCreateByKey:   make(map[string]recentCreatedOrder),
+		inFlightCreateByKey: make(map[string]struct{}),
+	}
 }
 
 type CreateOrderPayload struct {
@@ -36,16 +51,132 @@ type CreateOrderPayload struct {
 	Items           []domain.OrderItem `json:"items"`
 }
 
+func (h *OrderHandler) buildCreateFingerprint(waiterID uuid.UUID, paymentMethod string, payload CreateOrderPayload) string {
+	fingerprintPayload := struct {
+		WaiterID      string             `json:"waiter_id"`
+		PaymentMethod string             `json:"payment_method"`
+		Payload       CreateOrderPayload `json:"payload"`
+	}{
+		WaiterID:      waiterID.String(),
+		PaymentMethod: paymentMethod,
+		Payload:       payload,
+	}
+
+	data, err := json.Marshal(fingerprintPayload)
+	if err != nil {
+		return ""
+	}
+
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:])
+}
+
+func (h *OrderHandler) cleanupExpiredCreateEntriesLocked(now time.Time) {
+	for key, entry := range h.recentCreateByKey {
+		if now.After(entry.expiresAt) {
+			delete(h.recentCreateByKey, key)
+		}
+	}
+}
+
+func (h *OrderHandler) tryAcquireCreateKey(key string) (existingOrderID *uuid.UUID, canProceed bool, waiting bool) {
+	h.createOrderMu.Lock()
+	defer h.createOrderMu.Unlock()
+
+	now := time.Now()
+	h.cleanupExpiredCreateEntriesLocked(now)
+
+	if key == "" {
+		return nil, true, false
+	}
+
+	if existing, ok := h.recentCreateByKey[key]; ok && now.Before(existing.expiresAt) {
+		id := existing.orderID
+		return &id, false, false
+	}
+
+	if _, ok := h.inFlightCreateByKey[key]; ok {
+		return nil, false, true
+	}
+
+	h.inFlightCreateByKey[key] = struct{}{}
+	return nil, true, false
+}
+
+func (h *OrderHandler) releaseCreateKey(key string) {
+	if key == "" {
+		return
+	}
+
+	h.createOrderMu.Lock()
+	defer h.createOrderMu.Unlock()
+	delete(h.inFlightCreateByKey, key)
+}
+
+func (h *OrderHandler) markCreateCompleted(key string, orderID uuid.UUID) {
+	if key == "" {
+		return
+	}
+
+	h.createOrderMu.Lock()
+	defer h.createOrderMu.Unlock()
+
+	delete(h.inFlightCreateByKey, key)
+	h.recentCreateByKey[key] = recentCreatedOrder{
+		orderID:   orderID,
+		expiresAt: time.Now().Add(15 * time.Second),
+	}
+}
+
+func (h *OrderHandler) resolveExistingOrAcquire(key string) (*uuid.UUID, bool) {
+	if key == "" {
+		return nil, true
+	}
+
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		existingID, canProceed, waiting := h.tryAcquireCreateKey(key)
+		if existingID != nil {
+			return existingID, false
+		}
+		if canProceed {
+			return nil, true
+		}
+		if !waiting {
+			return nil, false
+		}
+		if time.Now().After(deadline) {
+			return nil, false
+		}
+		time.Sleep(75 * time.Millisecond)
+	}
+}
+
 func (h *OrderHandler) CreateOrder(c *fiber.Ctx) error {
 	payload := new(CreateOrderPayload)
 	if err := c.BodyParser(payload); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse JSON"})
 	}
 	waiterID, _ := uuid.Parse(c.Locals("user_id").(string))
+
+	createKey := h.buildCreateFingerprint(waiterID, "", *payload)
+	existingID, canProceed := h.resolveExistingOrAcquire(createKey)
+	if existingID != nil {
+		existingOrder, err := h.orderService.GetOrderByID(*existingID)
+		if err == nil {
+			return c.Status(fiber.StatusOK).JSON(existingOrder)
+		}
+	}
+	if !canProceed {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "duplicate order request in progress"})
+	}
+	defer h.releaseCreateKey(createKey)
+
 	order, err := h.orderService.CreateOrder(waiterID, payload.TableNumber, payload.OrderType, payload.CustomerName, payload.DeliveryAddress, payload.DeliveryPhone, payload.DeliveryNotes, payload.Items, payload.ParentOrderID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
+	h.markCreateCompleted(createKey, order.ID)
 	return c.Status(fiber.StatusCreated).JSON(order)
 }
 
@@ -240,6 +371,19 @@ func (h *OrderHandler) CreateOrderWithPayment(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "payment_method must be 'efectivo' or 'transferencia'"})
 	}
 
+	createKey := h.buildCreateFingerprint(waiterID, paymentMethod, payload)
+	existingID, canProceed := h.resolveExistingOrAcquire(createKey)
+	if existingID != nil {
+		existingOrder, err := h.orderService.GetOrderByID(*existingID)
+		if err == nil {
+			return c.Status(fiber.StatusOK).JSON(existingOrder)
+		}
+	}
+	if !canProceed {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "duplicate order request in progress"})
+	}
+	defer h.releaseCreateKey(createKey)
+
 	// 4. Crear la orden primero
 	order, err := h.orderService.CreateOrder(waiterID, payload.TableNumber, payload.OrderType, payload.CustomerName, payload.DeliveryAddress, payload.DeliveryPhone, payload.DeliveryNotes, payload.Items, payload.ParentOrderID)
 	if err != nil {
@@ -293,6 +437,7 @@ func (h *OrderHandler) CreateOrderWithPayment(c *fiber.Ctx) error {
 		}
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "could not update order with payment data"})
 	}
+	h.markCreateCompleted(createKey, updatedOrder.ID)
 
 	return c.Status(fiber.StatusCreated).JSON(updatedOrder)
 }

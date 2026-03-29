@@ -10,6 +10,7 @@ import type { FilterStatus, PaymentMethodFilter, SortBy } from '../cashierDashbo
 import { StatisticsCard } from '../cashierDashboardShared/StatisticsCard';
 import { CinemaTablesSelector } from '../cashierDashboardShared/CinemaTablesSelector';
 import { OrderIdSearchModal } from '../cashierDashboardShared/OrderIdSearchModal';
+import { WaiterPickerModal } from '../cashierDashboardShared/WaiterPickerModal';
 import { QuickTablePickerModal } from '../cashierDashboardShared/QuickTablePickerModal';
 import { OrdersPanel } from '../cashierDashboardShared/OrdersPanel';
 import { TableOrdersModal } from '../cashierDashboardShared/TableOrdersModal';
@@ -24,6 +25,7 @@ interface CashierDashboardDesktopProps {
   filterStatus: FilterStatus;
   paymentMethodFilter: PaymentMethodFilter;
   searchQuery: string;
+  waiterQuery: string;
   orderIdQuery: string;
   sortBy: SortBy;
   selectedTable: number | null;
@@ -44,6 +46,7 @@ interface CashierDashboardDesktopProps {
   onFilterStatusChange: (status: FilterStatus) => void;
   onPaymentMethodFilterChange: (method: PaymentMethodFilter) => void;
   onSearchQueryChange: (query: string) => void;
+  onWaiterQueryChange: (query: string) => void;
   onOrderIdQueryChange: (query: string) => void;
   onSortByChange: (sortBy: SortBy) => void;
   onClearFilters: () => void;
@@ -70,6 +73,7 @@ export const CashierDashboardDesktop: React.FC<CashierDashboardDesktopProps> = (
   filterStatus,
   paymentMethodFilter,
   searchQuery,
+  waiterQuery,
   orderIdQuery,
   sortBy,
   selectedTable,
@@ -84,6 +88,7 @@ export const CashierDashboardDesktop: React.FC<CashierDashboardDesktopProps> = (
   onFilterStatusChange,
   onPaymentMethodFilterChange,
   onSearchQueryChange,
+  onWaiterQueryChange,
   onOrderIdQueryChange,
   onSortByChange,
   onClearFilters,
@@ -110,6 +115,7 @@ export const CashierDashboardDesktop: React.FC<CashierDashboardDesktopProps> = (
   const [viewMode, setViewMode] = useState<'tables' | 'urgent'>('tables');
   const [isTableModalOpen, setIsTableModalOpen] = useState(false);
   const [isOrderSearchModalOpen, setIsOrderSearchModalOpen] = useState(false);
+  const [isWaiterPickerOpen, setIsWaiterPickerOpen] = useState(false);
   const [isQuickTablePickerOpen, setIsQuickTablePickerOpen] = useState(false);
 
   const isPorCobrarStatus = (status: string) => status === 'entregado' || status === 'pendiente_aprobacion';
@@ -124,6 +130,27 @@ export const CashierDashboardDesktop: React.FC<CashierDashboardDesktopProps> = (
   const deliveredOrders = allOrders.filter((o) => isPorCobrarStatus(o.status));
   const paidOrders = allOrders.filter((o) => o.status === 'pagado');
   const tableNumbers = useMemo(() => Object.keys(ordersByTable).map(Number).sort((a, b) => a - b), [ordersByTable]);
+  const waiterOptions = useMemo(() => {
+    const waiterMap = new Map<string, { ordersCount: number; tables: Set<number> }>();
+
+    allOrders.forEach((order) => {
+      const waiterName = (order.waiter_name || '').trim();
+      if (!waiterName) return;
+
+      const current = waiterMap.get(waiterName) || { ordersCount: 0, tables: new Set<number>() };
+      current.ordersCount += 1;
+      current.tables.add(order.table_number);
+      waiterMap.set(waiterName, current);
+    });
+
+    return Array.from(waiterMap.entries())
+      .map(([name, value]) => ({
+        name,
+        ordersCount: value.ordersCount,
+        tablesCount: value.tables.size,
+      }))
+      .sort((a, b) => b.ordersCount - a.ordersCount || a.name.localeCompare(b.name));
+  }, [allOrders]);
 
   const urgentGroupedOrders = useMemo(() => {
     const orderById = new Map<string, Order>();
@@ -191,6 +218,7 @@ export const CashierDashboardDesktop: React.FC<CashierDashboardDesktopProps> = (
     filterStatus !== 'all',
     paymentMethodFilter !== 'all',
     searchQuery.trim() !== '',
+    waiterQuery.trim() !== '',
     orderIdQuery.trim() !== '',
   ].filter(Boolean).length;
 
@@ -236,6 +264,8 @@ export const CashierDashboardDesktop: React.FC<CashierDashboardDesktopProps> = (
           activeFiltersCount={activeFiltersCount}
           orderIdQuery={orderIdQuery}
           onOpenOrderIdSearch={() => setIsOrderSearchModalOpen(true)}
+          waiterQuery={waiterQuery}
+          onOpenWaiterSearch={() => setIsWaiterPickerOpen(true)}
           quickTablesCount={tableNumbers.length}
           onOpenQuickTableSelect={() => setIsQuickTablePickerOpen(true)}
         />
@@ -486,6 +516,20 @@ export const CashierDashboardDesktop: React.FC<CashierDashboardDesktopProps> = (
             navigate(`/cashier/search/${encodeURIComponent(normalized)}`);
           }}
           onClose={() => setIsOrderSearchModalOpen(false)}
+        />
+
+        <WaiterPickerModal
+          isOpen={isWaiterPickerOpen}
+          waiters={waiterOptions}
+          selectedWaiter={waiterQuery}
+          onSelectWaiter={(waiterName) => {
+            const normalized = waiterName.trim();
+            if (!normalized) return;
+            onWaiterQueryChange(normalized);
+            navigate(`/cashier/search/waiter/${encodeURIComponent(normalized)}`);
+          }}
+          onClear={() => onWaiterQueryChange('')}
+          onClose={() => setIsWaiterPickerOpen(false)}
         />
 
         <QuickTablePickerModal

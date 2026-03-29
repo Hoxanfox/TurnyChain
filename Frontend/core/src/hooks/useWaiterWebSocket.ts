@@ -4,7 +4,7 @@
 // =================================================================
 import { useEffect, useRef } from 'react';
 import { useDispatch } from 'react-redux';
-import { orderUpdated, fetchMyOrders, fetchActiveOrders } from '../features/shared/orders/api/ordersSlice';
+import { orderUpdated, fetchMyOrders } from '../features/shared/orders/api/ordersSlice';
 import type { AppDispatch } from '../app/store';
 import type { Order } from '../types/orders';
 
@@ -26,6 +26,11 @@ export const useWaiterWebSocket = (
   const ws = useRef<WebSocket | null>(null);
   const heartbeatInterval = useRef<ReturnType<typeof setInterval> | null>(null);
   const refreshDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onNotificationRef = useRef(onNotification);
+
+  useEffect(() => {
+    onNotificationRef.current = onNotification;
+  }, [onNotification]);
 
   useEffect(() => {
     // Solo conectar si es mesero
@@ -43,7 +48,6 @@ export const useWaiterWebSocket = (
 
       refreshDebounce.current = setTimeout(() => {
         dispatch(fetchMyOrders());
-        dispatch(fetchActiveOrders({ teamOrders: true }));
       }, 250);
     };
 
@@ -94,6 +98,10 @@ export const useWaiterWebSocket = (
     const handleWebSocketMessage = (message: WebSocketMessage) => {
       switch (message.type) {
         case 'NEW_PENDING_ORDER': {
+          const orderPayload = message.payload as Order | undefined;
+          if (orderPayload?.waiter_id === userId) {
+            break;
+          }
           scheduleOrdersRefresh();
           break;
         }
@@ -136,8 +144,8 @@ export const useWaiterWebSocket = (
 
         // Si la orden fue rechazada, notificar
         if (orderData.status === 'entregado' && orderData.payment_method) {
-          if (onNotification) {
-            onNotification({
+          if (onNotificationRef.current) {
+            onNotificationRef.current({
               title: '❌ Pago Rechazado',
               message: `Mesa ${orderData.table_number} - Por favor reenviar comprobante`,
               type: 'warning'
@@ -148,8 +156,8 @@ export const useWaiterWebSocket = (
 
         // Si la orden fue aprobada, notificar
         if (orderData.status === 'pagado') {
-          if (onNotification) {
-            onNotification({
+          if (onNotificationRef.current) {
+            onNotificationRef.current({
               title: '✅ Pago Aprobado',
               message: `Mesa ${orderData.table_number} - Pago verificado exitosamente`,
               type: 'success'
@@ -190,12 +198,12 @@ export const useWaiterWebSocket = (
         clearTimeout(refreshDebounce.current);
         refreshDebounce.current = null;
       }
-      if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+      if (ws.current && ws.current.readyState !== WebSocket.CLOSED && ws.current.readyState !== WebSocket.CLOSING) {
         ws.current.close();
       }
       ws.current = null;
     };
-  }, [dispatch, onNotification]);
+  }, [dispatch]);
 
   return ws.current;
 };

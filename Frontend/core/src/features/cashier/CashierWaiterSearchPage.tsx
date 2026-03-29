@@ -12,15 +12,15 @@ interface GroupResult {
   members: Order[];
 }
 
-const CashierOrderSearchPage: React.FC = () => {
-  const { orderId } = useParams<{ orderId: string }>();
+const CashierWaiterSearchPage: React.FC = () => {
+  const { waiterName } = useParams<{ waiterName: string }>();
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
   const { activeOrders, status } = useSelector((state: RootState) => state.orders);
 
   const [selectedOrderIdForDetail, setSelectedOrderIdForDetail] = useState<string | null>(null);
 
-  const query = decodeURIComponent(orderId || '').trim().toLowerCase();
+  const query = decodeURIComponent(waiterName || '').trim().toLowerCase();
 
   const getDayKey = (value: Date) =>
     new Intl.DateTimeFormat('en-CA', {
@@ -58,11 +58,11 @@ const CashierOrderSearchPage: React.FC = () => {
       childrenByParent.set(parentId, children);
     });
 
-    const directlyMatchedOrders = todayOrders.filter((order) =>
-      order.id.toLowerCase().includes(query)
+    const matchedOrders = todayOrders.filter((order) =>
+      (order.waiter_name || '').toLowerCase().includes(query)
     );
 
-    if (directlyMatchedOrders.length === 0) return [];
+    if (matchedOrders.length === 0) return [];
 
     const findRootId = (startOrder: Order): string => {
       let current = startOrder;
@@ -75,7 +75,7 @@ const CashierOrderSearchPage: React.FC = () => {
     };
 
     const rootIds = new Set<string>();
-    directlyMatchedOrders.forEach((order) => {
+    matchedOrders.forEach((order) => {
       rootIds.add(findRootId(order));
     });
 
@@ -96,7 +96,14 @@ const CashierOrderSearchPage: React.FC = () => {
       };
 
       appendChildren(root.id);
-      groups.push({ root, members });
+
+      const hasMatchingWaiter = members.some((member) =>
+        (member.waiter_name || '').toLowerCase().includes(query)
+      );
+
+      if (hasMatchingWaiter) {
+        groups.push({ root, members });
+      }
     });
 
     groups.sort((a, b) => new Date(b.root.created_at).getTime() - new Date(a.root.created_at).getTime());
@@ -109,9 +116,9 @@ const CashierOrderSearchPage: React.FC = () => {
         <div className="bg-white rounded-2xl shadow-lg border border-indigo-100 p-4 md:p-6 mb-4">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Resultado de búsqueda por ID</h1>
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Resultado por Mesero</h1>
               <p className="text-sm text-gray-600 mt-1">
-                Consulta: <span className="font-semibold">{query || 'sin valor'}</span>
+                Filtro: <span className="font-semibold">{query || 'sin valor'}</span>
               </p>
               <p className="text-xs text-gray-500 mt-1">Mostrando solo comandas del dia actual</p>
             </div>
@@ -129,8 +136,8 @@ const CashierOrderSearchPage: React.FC = () => {
         ) : groupedResults.length === 0 ? (
           <div className="bg-white rounded-2xl shadow p-10 text-center">
             <p className="text-5xl mb-3">🔎</p>
-            <p className="text-lg font-semibold text-gray-800">No se encontró ninguna comanda para ese ID.</p>
-            <p className="text-sm text-gray-500 mt-2">Prueba con más caracteres del ID.</p>
+            <p className="text-lg font-semibold text-gray-800">No se encontraron comandas para ese mesero.</p>
+            <p className="text-sm text-gray-500 mt-2">Prueba con otro nombre o una parte del nombre.</p>
           </div>
         ) : (
           <div className="space-y-5">
@@ -207,4 +214,4 @@ const CashierOrderSearchPage: React.FC = () => {
   );
 };
 
-export default CashierOrderSearchPage;
+export default CashierWaiterSearchPage;

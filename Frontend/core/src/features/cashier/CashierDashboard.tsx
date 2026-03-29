@@ -221,6 +221,7 @@ const CashierDashboard: React.FC = () => {
     filterStatus: cashierLogic.filterStatus,
     paymentMethodFilter: cashierLogic.paymentMethodFilter,
     searchQuery: cashierLogic.searchQuery,
+    waiterQuery: cashierLogic.waiterQuery,
     orderIdQuery: cashierLogic.orderIdQuery,
     sortBy: cashierLogic.sortBy,
 
@@ -236,6 +237,7 @@ const CashierDashboard: React.FC = () => {
     onFilterStatusChange: cashierLogic.setFilterStatus,
     onPaymentMethodFilterChange: cashierLogic.setPaymentMethodFilter,
     onSearchQueryChange: cashierLogic.setSearchQuery,
+    onWaiterQueryChange: cashierLogic.setWaiterQuery,
     onOrderIdQueryChange: cashierLogic.setOrderIdQuery,
     onSortByChange: cashierLogic.setSortBy,
     onClearFilters: cashierLogic.clearFilters,

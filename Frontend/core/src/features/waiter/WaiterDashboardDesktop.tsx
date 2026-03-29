@@ -40,6 +40,7 @@ import confetti from 'canvas-confetti';
 const WaiterDashboardDesktop: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { tables } = useSelector((state: RootState) => state.tables);
+  const { createOrderStatus } = useSelector((state: RootState) => state.orders);
   const { status } = useSelector((state: RootState) => state.tables);
 
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -194,7 +195,9 @@ const WaiterDashboardDesktop: React.FC = () => {
   // Estado para notas de checkout en orden para llevar
   const [checkoutTakeoutNotes, setCheckoutTakeoutNotes] = useState<string>("");
 
-  const submitOrderWithoutCharge = (notes?: string) => {
+  const submitOrderWithoutCharge = async (notes?: string) => {
+    if (createOrderStatus === 'loading') return;
+
     const customerNameForPayload =
       orderType === 'llevar'
         ? (notes || '')
@@ -217,7 +220,12 @@ const WaiterDashboardDesktop: React.FC = () => {
       payload.delivery_notes = notes;
     }
 
-    dispatch(addNewOrder({ orderData: payload }));
+    try {
+      await dispatch(addNewOrder({ orderData: payload })).unwrap();
+    } catch (error) {
+      toast.error('No se pudo enviar la comanda. Intenta nuevamente.');
+      return;
+    }
 
     toast('📌 Comanda enviada por cobrar', {
       icon: '🧾',
@@ -278,13 +286,15 @@ const WaiterDashboardDesktop: React.FC = () => {
     setPendingTakeoutNotes('');
   };
 
-  const handleConfirmSendWithoutCharge = () => {
+  const handleConfirmSendWithoutCharge = async () => {
     setIsSendWithoutChargeModalOpen(false);
-    submitOrderWithoutCharge(pendingSendWithoutChargeNotes);
+    await submitOrderWithoutCharge(pendingSendWithoutChargeNotes);
     setPendingSendWithoutChargeNotes('');
   };
 
-  const handleConfirmPaymentBeforeSend = (paymentMethod: 'efectivo' | 'transferencia', proofFile: File | null) => {
+  const handleConfirmPaymentBeforeSend = async (paymentMethod: 'efectivo' | 'transferencia', proofFile: File | null) => {
+    if (createOrderStatus === 'loading') return;
+
     // Cerrar el modal de checkout
     setIsCheckoutBeforeSend(false);
 
@@ -318,11 +328,16 @@ const WaiterDashboardDesktop: React.FC = () => {
       hasProofFile: !!proofFile
     });
 
-    dispatch(addNewOrder({
-      orderData: payload,
-      paymentMethod,
-      paymentProofFile: proofFile
-    }));
+    try {
+      await dispatch(addNewOrder({
+        orderData: payload,
+        paymentMethod,
+        paymentProofFile: proofFile
+      })).unwrap();
+    } catch (error) {
+      toast.error('No se pudo cobrar y enviar la comanda. Intenta nuevamente.');
+      return;
+    }
 
     // 🆕 MEJORA UX #3: Feedback celebratorio (versión desktop)
     confetti({

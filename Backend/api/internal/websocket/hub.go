@@ -46,6 +46,13 @@ func (h *Hub) Run() {
 	for {
 		select {
 		case clientInfo := <-h.Register:
+			for connection, existing := range h.clients {
+				if existing.UserID == clientInfo.UserID && existing.Role == clientInfo.Role {
+					log.Printf("♻️ Reemplazando conexión WebSocket previa. Role: %s, UserID: %s", existing.Role, existing.UserID)
+					delete(h.clients, connection)
+					_ = connection.Close()
+				}
+			}
 			h.clients[clientInfo.Conn] = clientInfo
 			log.Printf("✅ Nuevo cliente WebSocket conectado. Role: %s, UserID: %s, Total clientes: %d",
 				clientInfo.Role, clientInfo.UserID, len(h.clients))
