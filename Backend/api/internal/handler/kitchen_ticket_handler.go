@@ -4,6 +4,8 @@
 package handler
 
 import (
+	"fmt"
+
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/domain"
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/service"
 	"github.com/gofiber/fiber/v2"
@@ -155,4 +157,34 @@ func (h *KitchenTicketHandler) PrintGlobalCashTicket(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(response)
+}
+
+// RetryKitchenTicketsPrint encola un nuevo intento de impresión.
+// Solo disponible para rol cajero.
+// POST /api/orders/:orderId/kitchen-tickets/retry
+func (h *KitchenTicketHandler) RetryKitchenTicketsPrint(c *fiber.Ctx) error {
+	role := fmt.Sprint(c.Locals("user_role"))
+	if role != "cajero" {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error": "Solo el cajero puede reintentar impresiones",
+		})
+	}
+
+	orderID, err := uuid.Parse(c.Params("orderId"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Order ID inválido",
+		})
+	}
+
+	if err := h.service.EnqueueOrderPrint(orderID); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "No se pudo encolar reintento de impresión: " + err.Error(),
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "Reintento de impresión encolado",
+	})
 }

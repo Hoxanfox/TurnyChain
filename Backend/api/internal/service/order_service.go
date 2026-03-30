@@ -210,16 +210,9 @@ func (s *orderService) CreateOrder(waiterID uuid.UUID, tableNumber int, orderTyp
 	// INTEGRACIÓN DE IMPRESIÓN (MODIFICADO)
 	// =================================================================
 	if s.kitchenTicketService != nil {
-		// Ejecutamos en una Goroutine para no bloquear la respuesta del API
-		go func(orderID uuid.UUID) {
-			log.Printf("🖨️ Iniciando flujo de impresión para Orden: %s", orderID)
-			_, printErr := s.kitchenTicketService.PrintOrderAllDestinations(orderID)
-			if printErr != nil {
-				log.Printf("❌ Error en PrintOrderAllDestinations: %v", printErr)
-			} else {
-				log.Printf("✅ Impresión enviada con éxito (Estaciones + Caja) para Orden: %s", orderID)
-			}
-		}(createdOrder.ID)
+		if enqueueErr := s.kitchenTicketService.EnqueueOrderPrint(createdOrder.ID); enqueueErr != nil {
+			log.Printf("❌ Error encolando impresión para orden %s: %v", createdOrder.ID, enqueueErr)
+		}
 	}
 	// =================================================================
 

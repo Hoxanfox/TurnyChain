@@ -4,6 +4,7 @@ import OrderGridView from '../../../shared/orders/components/OrderGridView';
 import { QuickProofView } from './QuickProofView';
 import { StationPrintModal } from './StationPrintModal';
 import { formatMoney } from '../../../../utils/formatUtils';
+import { PrintMonitorModal } from './PrintMonitorModal';
 
 interface ProofModalState {
   order: Order;
@@ -25,6 +26,7 @@ interface TableOrdersModalProps {
   onOpenCheckout: (orderId: string, total: number, tableNumber: number) => void;
   onOpenCheckoutGroup: (orderIds: string[], total: number, tableNumber: number) => void;
   onCancelOrder: (orderId: string) => void;
+  onRetryPrint: (orderId: string) => void;
   highlightOrderId?: string | null;
 }
 
@@ -40,6 +42,7 @@ export const TableOrdersModal: React.FC<TableOrdersModalProps> = ({
   onOpenCheckout,
   onOpenCheckoutGroup,
   onCancelOrder,
+  onRetryPrint,
   highlightOrderId = null,
 }) => {
   const isPorCobrarStatus = (status: string) => status === 'entregado' || status === 'pendiente_aprobacion';
@@ -75,6 +78,7 @@ export const TableOrdersModal: React.FC<TableOrdersModalProps> = ({
   const [selectedProofOrder, setSelectedProofOrder] = useState<ProofModalState | null>(null);
   const [filterTab, setFilterTab] = useState<'all' | 'to_collect' | 'pending' | 'paid' | 'cancelled'>('to_collect');
   const [stationPrintOrderId, setStationPrintOrderId] = useState<string | null>(null);
+  const [isPrintMonitorOpen, setIsPrintMonitorOpen] = useState(false);
 
   const orderMatchesTab = (order: Order) => {
     if (filterTab === 'all') return true;
@@ -182,12 +186,21 @@ export const TableOrdersModal: React.FC<TableOrdersModalProps> = ({
                   <p className="text-sm opacity-90">{orders.length} órden{orders.length !== 1 ? 'es' : ''}</p>
                 </div>
               </div>
-              <button
-                onClick={onClose}
-                className="p-2 hover:bg-white hover:bg-opacity-20 rounded-full transition-colors"
-              >
-                <span className="text-2xl">✕</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setIsPrintMonitorOpen(true)}
+                  className="p-2 hover:bg-white hover:bg-opacity-20 rounded-full transition-colors"
+                  title="Monitoreo de impresion"
+                >
+                  <span className="text-xl">🚦</span>
+                </button>
+                <button
+                  onClick={onClose}
+                  className="p-2 hover:bg-white hover:bg-opacity-20 rounded-full transition-colors"
+                >
+                  <span className="text-2xl">✕</span>
+                </button>
+              </div>
             </div>
 
             {/* Estadísticas rápidas */}
@@ -775,6 +788,13 @@ export const TableOrdersModal: React.FC<TableOrdersModalProps> = ({
           </div>
         </div>
       </div>
+
+      <PrintMonitorModal
+        isOpen={isPrintMonitorOpen}
+        onClose={() => setIsPrintMonitorOpen(false)}
+        orders={orders}
+        onRetryPrint={onRetryPrint}
+      />
 
       {/* Modal de Impresión por Estación */}
       <StationPrintModal

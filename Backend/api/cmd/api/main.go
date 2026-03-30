@@ -64,7 +64,7 @@ func main() {
 	authService := service.NewAuthService(userRepo)
 	menuService := service.NewMenuService(menuRepo, wsHub)
 
-	kitchenTicketService := service.NewKitchenTicketService(orderRepo, printerRepo, stationRepo)
+	kitchenTicketService := service.NewKitchenTicketService(orderRepo, printerRepo, stationRepo, wsHub)
 	orderService := service.NewOrderService(orderRepo, tableRepo, menuRepo, ingredientRepo, accompanimentRepo, wsHub, blockchainService, kitchenTicketService)
 	tableService := service.NewTableService(tableRepo)
 	categoryService := service.NewCategoryService(categoryRepo)
@@ -123,7 +123,14 @@ func applyOrderSchemaMigrations(db *sql.DB) error {
 	statements := []string{
 		`ALTER TABLE orders ADD COLUMN IF NOT EXISTS parent_order_id uuid REFERENCES orders(id) ON DELETE SET NULL`,
 		`ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_name varchar(255) NULL`,
+		`ALTER TABLE orders ADD COLUMN IF NOT EXISTS print_status varchar(20) NOT NULL DEFAULT 'pending'`,
+		`ALTER TABLE orders ADD COLUMN IF NOT EXISTS print_attempts integer NOT NULL DEFAULT 0`,
+		`ALTER TABLE orders ADD COLUMN IF NOT EXISTS last_print_error text NULL`,
+		`ALTER TABLE orders ADD COLUMN IF NOT EXISTS printed_at timestamptz NULL`,
+		`ALTER TABLE orders ADD COLUMN IF NOT EXISTS last_print_attempt_at timestamptz NULL`,
+		`UPDATE orders SET print_status = 'pending' WHERE print_status IS NULL`,
 		`CREATE INDEX IF NOT EXISTS orders_parent_order_id_idx ON orders (parent_order_id)`,
+		`CREATE INDEX IF NOT EXISTS orders_print_status_idx ON orders (print_status)`,
 	}
 
 	for _, stmt := range statements {
@@ -132,6 +139,6 @@ func applyOrderSchemaMigrations(db *sql.DB) error {
 		}
 	}
 
-	log.Println("Migraciones de órdenes verificadas: parent_order_id/customer_name")
+	log.Println("Migraciones de órdenes verificadas: parent_order_id/customer_name/print_status")
 	return nil
 }

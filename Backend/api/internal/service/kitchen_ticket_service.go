@@ -13,29 +13,134 @@ import (
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/domain"
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/repository"
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/utils"
+	wshub "github.com/Hoxanfox/TurnyChain/Backend/api/internal/websocket"
 	"github.com/google/uuid"
 )
+
+const (
+	maxPrintRetries      = 3
+	printQueueBufferSize = 256
+	printWorkers         = 2
+)
+
+type printJob struct {
+	orderID uuid.UUID
+}
 
 type KitchenTicketService struct {
 	orderRepo    repository.OrderRepository
 	printerRepo  *repository.PrinterRepository
 	stationRepo  *repository.StationRepository
+	wsHub        *wshub.Hub
 	printerMutex sync.Mutex             // Mutex global para serializar impresiones
 	ipLocks      map[string]*sync.Mutex // Mutex por IP para impresoras que comparten dirección
 	ipLocksGuard sync.RWMutex           // Protege el mapa de ipLocks
+	printQueue   chan printJob
 }
 
 func NewKitchenTicketService(
 	orderRepo repository.OrderRepository,
 	printerRepo *repository.PrinterRepository,
 	stationRepo *repository.StationRepository,
+	wsHub *wshub.Hub,
 ) *KitchenTicketService {
-	return &KitchenTicketService{
+	svc := &KitchenTicketService{
 		orderRepo:   orderRepo,
 		printerRepo: printerRepo,
 		stationRepo: stationRepo,
+		wsHub:       wsHub,
 		ipLocks:     make(map[string]*sync.Mutex),
+		printQueue:  make(chan printJob, printQueueBufferSize),
 	}
+	svc.startPrintWorkers()
+
+	return svc
+}
+
+func (s *KitchenTicketService) startPrintWorkers() {
+	for i := 0; i < printWorkers; i++ {
+		go func(workerID int) {
+			for job := range s.printQueue {
+				log.Printf("🧾 [PrintQueue] Worker %d procesando orden %s", workerID, job.orderID)
+				s.processPrintJob(job.orderID)
+			}
+		}(i + 1)
+	}
+}
+
+func (s *KitchenTicketService) EnqueueOrderPrint(orderID uuid.UUID) error {
+	if _, err := s.orderRepo.UpdateOrderPrintStatus(orderID, "pending", 0, nil, nil); err != nil {
+		return fmt.Errorf("error marcando orden en cola de impresion: %w", err)
+	}
+
+	select {
+	case s.printQueue <- printJob{orderID: orderID}:
+		log.Printf("📥 [PrintQueue] Orden %s agregada a la cola", orderID)
+		return nil
+	default:
+		errText := "cola de impresion llena"
+		if _, updateErr := s.orderRepo.UpdateOrderPrintStatus(orderID, "failed", 0, &errText, nil); updateErr != nil {
+			log.Printf("❌ [PrintQueue] Error actualizando estado tras cola llena: %v", updateErr)
+		}
+		return fmt.Errorf("%s", errText)
+	}
+}
+
+func (s *KitchenTicketService) processPrintJob(orderID uuid.UUID) {
+	var lastErr string
+
+	for attempt := 1; attempt <= maxPrintRetries; attempt++ {
+		if _, err := s.orderRepo.UpdateOrderPrintStatus(orderID, "processing", 1, nil, nil); err != nil {
+			log.Printf("❌ [PrintQueue] Error actualizando estado processing para %s: %v", orderID, err)
+		}
+
+		result, err := s.PrintOrderAllDestinations(orderID)
+		if err == nil && result != nil && result.Success {
+			now := time.Now()
+			if _, updateErr := s.orderRepo.UpdateOrderPrintStatus(orderID, "printed", 0, nil, &now); updateErr != nil {
+				log.Printf("❌ [PrintQueue] Error marcando orden impresa %s: %v", orderID, updateErr)
+			}
+			s.broadcastOrderPrintStatus(orderID)
+			return
+		}
+
+		if err != nil {
+			lastErr = err.Error()
+		} else if result != nil {
+			lastErr = result.Message
+			if len(result.FailedPrints) > 0 {
+				lastErr = result.FailedPrints[0].Error
+			}
+		} else {
+			lastErr = "error desconocido al imprimir"
+		}
+
+		if attempt < maxPrintRetries {
+			backoff := time.Duration(attempt) * time.Second
+			log.Printf("⚠️ [PrintQueue] Reintentando orden %s en %s (intento %d/%d)", orderID, backoff, attempt+1, maxPrintRetries)
+			time.Sleep(backoff)
+		}
+	}
+
+	if _, err := s.orderRepo.UpdateOrderPrintStatus(orderID, "failed", 0, &lastErr, nil); err != nil {
+		log.Printf("❌ [PrintQueue] Error marcando orden fallida %s: %v", orderID, err)
+	}
+	s.broadcastOrderPrintStatus(orderID)
+}
+
+func (s *KitchenTicketService) broadcastOrderPrintStatus(orderID uuid.UUID) {
+	if s.wsHub == nil {
+		return
+	}
+
+	order, err := s.orderRepo.GetOrderByID(orderID)
+	if err != nil {
+		log.Printf("❌ [PrintQueue] Error obteniendo orden para broadcast %s: %v", orderID, err)
+		return
+	}
+
+	s.wsHub.BroadcastMessage("ORDER_PRINT_STATUS_UPDATED", order)
+	s.wsHub.BroadcastMessage("ORDER_UPDATED", order)
 }
 
 // getMutexForIP obtiene o crea un mutex para una dirección IP específica

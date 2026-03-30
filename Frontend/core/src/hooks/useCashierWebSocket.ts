@@ -106,6 +106,10 @@ export const useCashierWebSocket = (
           handleOrderStatusUpdate(message.payload);
           break;
 
+        case 'ORDER_PRINT_STATUS_UPDATED':
+          handleOrderPrintStatusUpdate(message.payload);
+          break;
+
         case 'NEW_PENDING_ORDER':
           console.log('🆕 [Cajero] Nueva orden pendiente:', message.payload);
           if (message.payload) {
@@ -194,6 +198,25 @@ export const useCashierWebSocket = (
 
         dispatch(fetchActiveOrders());
       }
+    };
+
+    const handleOrderPrintStatusUpdate = (order: unknown) => {
+      const orderData = order as Order;
+      if (!orderData) {
+        return;
+      }
+
+      dispatch(orderUpdated(orderData));
+
+      if (orderData.print_status === 'failed' && onNotification) {
+        onNotification({
+          title: '⚠️ Impresion fallida',
+          message: `Mesa ${orderData.table_number}: la comanda no se imprimio`,
+          type: 'warning'
+        });
+      }
+
+      dispatch(fetchActiveOrders());
     };
 
     const playNotificationSound = () => {

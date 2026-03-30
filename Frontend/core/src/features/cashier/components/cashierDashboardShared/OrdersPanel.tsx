@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import type { Order } from '../../../../types/orders';
 import OrderGridView from '../../../shared/orders/components/OrderGridView';
+import { PrintMonitorModal } from './PrintMonitorModal';
 
 interface OrdersPanelProps {
   orders: Order[];
@@ -17,6 +18,8 @@ interface OrdersPanelProps {
   onPreviewTickets?: (orderId: string) => void;
   onCancelOrder?: (orderId: string) => void;
   onRetryLoadOrders?: () => void;
+  onRetryPrint?: (orderId: string) => void;
+  openPrintMonitorSignal?: number;
 }
 
 export const OrdersPanel: React.FC<OrdersPanelProps> = ({
@@ -34,7 +37,17 @@ export const OrdersPanel: React.FC<OrdersPanelProps> = ({
   onPreviewTickets,
   onCancelOrder,
   onRetryLoadOrders,
+  onRetryPrint,
+  openPrintMonitorSignal = 0,
 }) => {
+  const [isPrintMonitorOpen, setIsPrintMonitorOpen] = useState(false);
+
+  useEffect(() => {
+    if (openPrintMonitorSignal > 0) {
+      setIsPrintMonitorOpen(true);
+    }
+  }, [openPrintMonitorSignal]);
+
   const handleCancelOrder = (orderId: string) => {
     if (!window.confirm('¿Seguro que deseas cancelar esta orden? Esta acción no se puede deshacer fácilmente.')) {
       return;
@@ -199,6 +212,13 @@ export const OrdersPanel: React.FC<OrdersPanelProps> = ({
             )}
           </>
         )}
+      />
+
+      <PrintMonitorModal
+        isOpen={isPrintMonitorOpen}
+        onClose={() => setIsPrintMonitorOpen(false)}
+        orders={orders}
+        onRetryPrint={(orderId) => onRetryPrint?.(orderId)}
       />
     </div>
   );

@@ -122,6 +122,10 @@ export const useWaiterWebSocket = (
           handleOrderUpdate(message.payload);
           break;
 
+        case 'ORDER_PRINT_STATUS_UPDATED':
+          handleOrderPrintStatusUpdate(message.payload);
+          break;
+
         case 'PAYMENT_VERIFICATION_PENDING':
           console.log('⏳ [Mesero] Pago en verificación:', message.payload);
           if (message.payload.order) {
@@ -176,6 +180,33 @@ export const useWaiterWebSocket = (
         dispatch(orderUpdated(order as Order));
         scheduleOrdersRefresh();
       }
+    };
+
+    const handleOrderPrintStatusUpdate = (order: unknown) => {
+      const orderData = order as Order;
+      if (!orderData) {
+        return;
+      }
+
+      dispatch(orderUpdated(orderData));
+
+      if (orderData.print_status === 'failed' && onNotificationRef.current) {
+        onNotificationRef.current({
+          title: '❌ Error de impresion',
+          message: `Mesa ${orderData.table_number}: la comanda no se pudo imprimir`,
+          type: 'warning'
+        });
+      }
+
+      if (orderData.print_status === 'printed' && onNotificationRef.current) {
+        onNotificationRef.current({
+          title: '✅ Comanda impresa',
+          message: `Mesa ${orderData.table_number}: impresion confirmada`,
+          type: 'success'
+        });
+      }
+
+      scheduleOrdersRefresh();
     };
 
     const playNotificationSound = () => {

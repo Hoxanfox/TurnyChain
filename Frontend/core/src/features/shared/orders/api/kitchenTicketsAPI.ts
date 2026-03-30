@@ -60,5 +60,15 @@ export const kitchenTicketsAPI = {
     );
     return response.data;
   },
+
+  // Reintentar impresión completa desde backend (solo cajero)
+  retryPrint: async (orderId: string): Promise<{ success: boolean; message: string }> => {
+    const response = await axios.post<{ success: boolean; message: string }>(
+      `/api/orders/${orderId}/kitchen-tickets/retry`,
+      { order_id: orderId },
+      getAuthConfig()
+    );
+    return response.data;
+  },
 };
 

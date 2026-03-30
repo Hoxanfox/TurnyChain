@@ -106,6 +106,12 @@ CREATE TABLE "orders" (
   -- Nuevos campos para el flujo de pagos con evidencia
   "payment_method" varchar(20) NULL,
   "payment_proof_path" text NULL,
+  -- Trazabilidad de impresión
+  "print_status" varchar(20) NOT NULL DEFAULT 'pending',
+  "print_attempts" integer NOT NULL DEFAULT 0,
+  "last_print_error" text NULL,
+  "printed_at" timestamptz NULL,
+  "last_print_attempt_at" timestamptz NULL,
   "created_at" timestamptz NOT NULL DEFAULT (now()),
   "updated_at" timestamptz NOT NULL DEFAULT (now())
 );
@@ -150,6 +156,7 @@ EXECUTE PROCEDURE trigger_set_timestamp();
 CREATE INDEX ON "orders" ("status");
 CREATE INDEX ON "orders" ("waiter_id");
 CREATE INDEX ON "orders" ("parent_order_id");
+CREATE INDEX ON "orders" ("print_status");
 CREATE INDEX ON "menu_items" ("order_count");
 CREATE INDEX ON "menu_items" ("category_id");
 CREATE INDEX ON "printers" ("station_id");

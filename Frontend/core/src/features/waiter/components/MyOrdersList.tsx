@@ -58,6 +58,30 @@ const MyOrdersList: React.FC<MyOrdersListProps> = ({
     return 'bg-gray-200 text-gray-700';
   };
 
+  const getPrintSemaphore = (printStatus?: Order['print_status']) => {
+    if (printStatus === 'printed') {
+      return {
+        color: 'bg-emerald-500',
+        ring: 'ring-emerald-200',
+        text: 'Impresa'
+      };
+    }
+
+    if (printStatus === 'failed') {
+      return {
+        color: 'bg-red-500',
+        ring: 'ring-red-200',
+        text: 'Fallo impresion'
+      };
+    }
+
+    return {
+      color: 'bg-amber-500',
+      ring: 'ring-amber-200',
+      text: 'Pendiente impresion'
+    };
+  };
+
   const orderById = useMemo(() => {
     const map = new Map<string, Order>();
     filteredOrders.forEach((order) => map.set(order.id, order));
@@ -91,6 +115,7 @@ const MyOrdersList: React.FC<MyOrdersListProps> = ({
     (() => {
       const isPayable = order.status === 'entregado' || order.status === 'por_verificar' || order.status === 'pendiente_aprobacion';
       const statusLabel = order.status === 'pendiente_aprobacion' ? 'por_cobrar' : order.status;
+      const printSemaphore = getPrintSemaphore(order.print_status);
 
       return (
     <div className={`bg-white rounded-2xl overflow-hidden border shadow ${isChild ? 'border-gray-200' : 'border-gray-300'}`}>
@@ -107,12 +132,22 @@ const MyOrdersList: React.FC<MyOrdersListProps> = ({
           <span className={`px-3 py-1 rounded-2xl text-sm font-medium ${getStatusClass(order.status)}`}>
             ✅ {statusLabel}
           </span>
+          <span className="inline-flex items-center gap-2 px-2 py-1 rounded-xl bg-slate-100 text-slate-700 text-xs font-semibold">
+            <span className={`h-2.5 w-2.5 rounded-full ${printSemaphore.color} ring-2 ${printSemaphore.ring}`} />
+            {printSemaphore.text}
+          </span>
           {order.payment_method && (
             <span className="text-xs">
               {order.payment_method === 'transferencia' ? '📱' : '💵'}
             </span>
           )}
         </div>
+
+        {order.print_status === 'failed' && order.last_print_error && (
+          <p className="mt-2 text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-2 py-1">
+            Error: {order.last_print_error}
+          </p>
+        )}
 
         {order.parent_order_id && (
           <div className="mt-2">

@@ -7,6 +7,7 @@ interface CashierHeaderProps {
   onToggleStats: () => void;
   onExportReport: () => void;
   onOpenPrintSettings: () => void;
+  onOpenPrintMonitor?: () => void;
   activeFiltersCount?: number;
   orderIdQuery?: string;
   onOpenOrderIdSearch?: () => void;
@@ -22,6 +23,7 @@ export const CashierHeader: React.FC<CashierHeaderProps> = ({
   onToggleStats,
   onExportReport,
   onOpenPrintSettings,
+  onOpenPrintMonitor,
   activeFiltersCount = 0,
   orderIdQuery = '',
   onOpenOrderIdSearch,
@@ -132,6 +134,17 @@ export const CashierHeader: React.FC<CashierHeaderProps> = ({
                 >
                   🖨️ Configurar impresión
                 </button>
+                {onOpenPrintMonitor && (
+                  <button
+                    onClick={() => {
+                      onOpenPrintMonitor();
+                      setIsActionsMenuOpen(false);
+                    }}
+                    className="w-full text-left px-4 py-3 text-violet-700 hover:bg-violet-50 font-semibold border-t border-gray-100"
+                  >
+                    🚦 Monitoreo impresión
+                  </button>
+                )}
                 <button
                   onClick={() => {
                     onExportReport();

@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"errors"
 	"strconv"
+	"time"
 
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/domain"
 	"github.com/google/uuid"
@@ -22,6 +23,7 @@ type OrderRepository interface {
 	ManageOrder(orderID uuid.UUID, updates map[string]interface{}) (*domain.Order, error)
 	UpdateOrderItems(orderID uuid.UUID, items []domain.OrderItem, newTotal float64) error
 	AddPaymentProof(orderID uuid.UUID, method string, proofPath string) (*domain.Order, error)
+	UpdateOrderPrintStatus(orderID uuid.UUID, status string, incrementAttempts int, lastError *string, printedAt *time.Time) (*domain.Order, error)
 }
 
 type orderRepository struct{ db *sql.DB }
@@ -37,10 +39,10 @@ func (r *orderRepository) CreateOrder(order *domain.Order) (*domain.Order, error
 	}
 
 	order.ID = uuid.New()
-	orderQuery := `INSERT INTO orders (id, parent_order_id, waiter_id, table_id, table_number, status, total, order_type, customer_name, delivery_address, delivery_phone, delivery_notes) 
-	               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) 
+	orderQuery := `INSERT INTO orders (id, parent_order_id, waiter_id, table_id, table_number, status, total, order_type, customer_name, delivery_address, delivery_phone, delivery_notes, print_status, print_attempts) 
+	               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) 
                    RETURNING id, created_at`
-	err = tx.QueryRow(orderQuery, order.ID, order.ParentOrderID, order.WaiterID, order.TableID, order.TableNumber, order.Status, order.Total, order.OrderType, order.CustomerName, order.DeliveryAddress, order.DeliveryPhone, order.DeliveryNotes).Scan(&order.ID, &order.CreatedAt)
+	err = tx.QueryRow(orderQuery, order.ID, order.ParentOrderID, order.WaiterID, order.TableID, order.TableNumber, order.Status, order.Total, order.OrderType, order.CustomerName, order.DeliveryAddress, order.DeliveryPhone, order.DeliveryNotes, "pending", 0).Scan(&order.ID, &order.CreatedAt)
 	if err != nil {
 		tx.Rollback()
 		return nil, err
@@ -60,6 +62,9 @@ func (r *orderRepository) CreateOrder(order *domain.Order) (*domain.Order, error
 		return nil, err
 	}
 
+	order.PrintStatus = "pending"
+	order.PrintAttempts = 0
+
 	// Obtener el nombre del mesero
 	waiterQuery := `SELECT username FROM users WHERE id = $1`
 	if err := r.db.QueryRow(waiterQuery, order.WaiterID).Scan(&order.WaiterName); err != nil {
@@ -71,7 +76,7 @@ func (r *orderRepository) CreateOrder(order *domain.Order) (*domain.Order, error
 }
 
 func (r *orderRepository) GetOrders(filters map[string]interface{}) ([]domain.Order, error) {
-	query := `SELECT o.id, o.parent_order_id, o.waiter_id, u.username as waiter_name, o.cashier_id, o.table_number, o.status, o.total, o.order_type, o.customer_name, o.delivery_address, o.delivery_phone, o.delivery_notes, o.payment_method, o.payment_proof_path, o.created_at, o.updated_at 
+	query := `SELECT o.id, o.parent_order_id, o.waiter_id, u.username as waiter_name, o.cashier_id, o.table_number, o.status, o.total, o.order_type, o.customer_name, o.delivery_address, o.delivery_phone, o.delivery_notes, o.payment_method, o.payment_proof_path, o.print_status, o.print_attempts, o.last_print_error, o.printed_at, o.last_print_attempt_at, o.created_at, o.updated_at 
               FROM orders o
               LEFT JOIN users u ON o.waiter_id = u.id
               WHERE 1=1`
@@ -106,10 +111,15 @@ func (r *orderRepository) GetOrders(filters map[string]interface{}) ([]domain.Or
 		var customerName sql.NullString
 		var paymentMethod sql.NullString
 		var paymentProof sql.NullString
+		var printStatus sql.NullString
+		var printAttempts sql.NullInt64
+		var lastPrintError sql.NullString
+		var printedAt sql.NullTime
+		var lastPrintAttemptAt sql.NullTime
 		var deliveryAddress sql.NullString
 		var deliveryPhone sql.NullString
 		var deliveryNotes sql.NullString
-		if err := rows.Scan(&order.ID, &parentOrderID, &order.WaiterID, &waiterName, &cashierID, &order.TableNumber, &order.Status, &order.Total, &order.OrderType, &customerName, &deliveryAddress, &deliveryPhone, &deliveryNotes, &paymentMethod, &paymentProof, &order.CreatedAt, &order.UpdatedAt); err != nil {
+		if err := rows.Scan(&order.ID, &parentOrderID, &order.WaiterID, &waiterName, &cashierID, &order.TableNumber, &order.Status, &order.Total, &order.OrderType, &customerName, &deliveryAddress, &deliveryPhone, &deliveryNotes, &paymentMethod, &paymentProof, &printStatus, &printAttempts, &lastPrintError, &printedAt, &lastPrintAttemptAt, &order.CreatedAt, &order.UpdatedAt); err != nil {
 			return nil, err
 		}
 		if parentOrderID.Valid {
@@ -134,6 +144,25 @@ func (r *orderRepository) GetOrders(filters map[string]interface{}) ([]domain.Or
 		if paymentProof.Valid {
 			pp := paymentProof.String
 			order.PaymentProofPath = &pp
+		}
+		order.PrintStatus = "pending"
+		if printStatus.Valid {
+			order.PrintStatus = printStatus.String
+		}
+		if printAttempts.Valid {
+			order.PrintAttempts = int(printAttempts.Int64)
+		}
+		if lastPrintError.Valid {
+			errText := lastPrintError.String
+			order.LastPrintError = &errText
+		}
+		if printedAt.Valid {
+			t := printedAt.Time
+			order.PrintedAt = &t
+		}
+		if lastPrintAttemptAt.Valid {
+			t := lastPrintAttemptAt.Time
+			order.LastPrintAttemptAt = &t
 		}
 		if deliveryAddress.Valid {
 			addr := deliveryAddress.String
@@ -258,7 +287,7 @@ func (r *orderRepository) loadOrderItems(orderID uuid.UUID) ([]domain.OrderItem,
 
 func (r *orderRepository) GetOrderByID(orderID uuid.UUID) (*domain.Order, error) {
 	order := &domain.Order{}
-	orderQuery := `SELECT o.id, o.parent_order_id, o.waiter_id, u.username as waiter_name, o.cashier_id, o.table_number, o.status, o.total, o.order_type, o.customer_name, o.delivery_address, o.delivery_phone, o.delivery_notes, o.payment_method, o.payment_proof_path, o.created_at, o.updated_at 
+	orderQuery := `SELECT o.id, o.parent_order_id, o.waiter_id, u.username as waiter_name, o.cashier_id, o.table_number, o.status, o.total, o.order_type, o.customer_name, o.delivery_address, o.delivery_phone, o.delivery_notes, o.payment_method, o.payment_proof_path, o.print_status, o.print_attempts, o.last_print_error, o.printed_at, o.last_print_attempt_at, o.created_at, o.updated_at 
 	               FROM orders o
 	               LEFT JOIN users u ON o.waiter_id = u.id
 	               WHERE o.id = $1`
@@ -267,10 +296,15 @@ func (r *orderRepository) GetOrderByID(orderID uuid.UUID) (*domain.Order, error)
 	var customerName sql.NullString
 	var paymentMethod sql.NullString
 	var paymentProof sql.NullString
+	var printStatus sql.NullString
+	var printAttempts sql.NullInt64
+	var lastPrintError sql.NullString
+	var printedAt sql.NullTime
+	var lastPrintAttemptAt sql.NullTime
 	var deliveryAddress sql.NullString
 	var deliveryPhone sql.NullString
 	var deliveryNotes sql.NullString
-	err := r.db.QueryRow(orderQuery, orderID).Scan(&order.ID, &parentOrderID, &order.WaiterID, &waiterName, &order.CashierID, &order.TableNumber, &order.Status, &order.Total, &order.OrderType, &customerName, &deliveryAddress, &deliveryPhone, &deliveryNotes, &paymentMethod, &paymentProof, &order.CreatedAt, &order.UpdatedAt)
+	err := r.db.QueryRow(orderQuery, orderID).Scan(&order.ID, &parentOrderID, &order.WaiterID, &waiterName, &order.CashierID, &order.TableNumber, &order.Status, &order.Total, &order.OrderType, &customerName, &deliveryAddress, &deliveryPhone, &deliveryNotes, &paymentMethod, &paymentProof, &printStatus, &printAttempts, &lastPrintError, &printedAt, &lastPrintAttemptAt, &order.CreatedAt, &order.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -292,6 +326,25 @@ func (r *orderRepository) GetOrderByID(orderID uuid.UUID) (*domain.Order, error)
 	if paymentProof.Valid {
 		pp := paymentProof.String
 		order.PaymentProofPath = &pp
+	}
+	order.PrintStatus = "pending"
+	if printStatus.Valid {
+		order.PrintStatus = printStatus.String
+	}
+	if printAttempts.Valid {
+		order.PrintAttempts = int(printAttempts.Int64)
+	}
+	if lastPrintError.Valid {
+		errText := lastPrintError.String
+		order.LastPrintError = &errText
+	}
+	if printedAt.Valid {
+		t := printedAt.Time
+		order.PrintedAt = &t
+	}
+	if lastPrintAttemptAt.Valid {
+		t := lastPrintAttemptAt.Time
+		order.LastPrintAttemptAt = &t
 	}
 	if deliveryAddress.Valid {
 		addr := deliveryAddress.String
@@ -340,16 +393,21 @@ func (r *orderRepository) LinkOrderToParent(orderID, parentOrderID uuid.UUID) (*
 func (r *orderRepository) UpdateOrderStatus(orderID, userID uuid.UUID, status string) (*domain.Order, error) {
 	order := &domain.Order{}
 	query := `UPDATE orders SET status = $1, cashier_id = $2 WHERE id = $3 
-	          RETURNING id, waiter_id, cashier_id, table_number, status, total, order_type, delivery_address, delivery_phone, delivery_notes, payment_method, payment_proof_path, created_at, updated_at`
+	          RETURNING id, waiter_id, cashier_id, table_number, status, total, order_type, delivery_address, delivery_phone, delivery_notes, payment_method, payment_proof_path, print_status, print_attempts, last_print_error, printed_at, last_print_attempt_at, created_at, updated_at`
 
 	var deliveryAddress sql.NullString
 	var deliveryPhone sql.NullString
 	var deliveryNotes sql.NullString
 	var paymentMethod sql.NullString
 	var paymentProof sql.NullString
+	var printStatus sql.NullString
+	var printAttempts sql.NullInt64
+	var lastPrintError sql.NullString
+	var printedAt sql.NullTime
+	var lastPrintAttemptAt sql.NullTime
 
 	err := r.db.QueryRow(query, status, userID, orderID).Scan(
-		&order.ID, &order.WaiterID, &order.CashierID, &order.TableNumber, &order.Status, &order.Total, &order.OrderType, &deliveryAddress, &deliveryPhone, &deliveryNotes, &paymentMethod, &paymentProof, &order.CreatedAt, &order.UpdatedAt,
+		&order.ID, &order.WaiterID, &order.CashierID, &order.TableNumber, &order.Status, &order.Total, &order.OrderType, &deliveryAddress, &deliveryPhone, &deliveryNotes, &paymentMethod, &paymentProof, &printStatus, &printAttempts, &lastPrintError, &printedAt, &lastPrintAttemptAt, &order.CreatedAt, &order.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -374,6 +432,25 @@ func (r *orderRepository) UpdateOrderStatus(orderID, userID uuid.UUID, status st
 	if paymentProof.Valid {
 		pp := paymentProof.String
 		order.PaymentProofPath = &pp
+	}
+	order.PrintStatus = "pending"
+	if printStatus.Valid {
+		order.PrintStatus = printStatus.String
+	}
+	if printAttempts.Valid {
+		order.PrintAttempts = int(printAttempts.Int64)
+	}
+	if lastPrintError.Valid {
+		errText := lastPrintError.String
+		order.LastPrintError = &errText
+	}
+	if printedAt.Valid {
+		t := printedAt.Time
+		order.PrintedAt = &t
+	}
+	if lastPrintAttemptAt.Valid {
+		t := lastPrintAttemptAt.Time
+		order.LastPrintAttemptAt = &t
 	}
 
 	// Obtener el nombre del mesero
@@ -401,15 +478,20 @@ func (r *orderRepository) ManageOrder(orderID uuid.UUID, updates map[string]inte
 	waiterID, hasWaiter := updates["waiter_id"]
 
 	if hasStatus {
-		query := `UPDATE orders SET status = $1 WHERE id = $2 RETURNING id, waiter_id, cashier_id, table_number, status, total, order_type, delivery_address, delivery_phone, delivery_notes, payment_method, payment_proof_path, created_at, updated_at`
+		query := `UPDATE orders SET status = $1 WHERE id = $2 RETURNING id, waiter_id, cashier_id, table_number, status, total, order_type, delivery_address, delivery_phone, delivery_notes, payment_method, payment_proof_path, print_status, print_attempts, last_print_error, printed_at, last_print_attempt_at, created_at, updated_at`
 
 		var deliveryAddress sql.NullString
 		var deliveryPhone sql.NullString
 		var deliveryNotes sql.NullString
 		var paymentMethod sql.NullString
 		var paymentProof sql.NullString
+		var printStatus sql.NullString
+		var printAttempts sql.NullInt64
+		var lastPrintError sql.NullString
+		var printedAt sql.NullTime
+		var lastPrintAttemptAt sql.NullTime
 
-		err := r.db.QueryRow(query, status, orderID).Scan(&order.ID, &order.WaiterID, &order.CashierID, &order.TableNumber, &order.Status, &order.Total, &order.OrderType, &deliveryAddress, &deliveryPhone, &deliveryNotes, &paymentMethod, &paymentProof, &order.CreatedAt, &order.UpdatedAt)
+		err := r.db.QueryRow(query, status, orderID).Scan(&order.ID, &order.WaiterID, &order.CashierID, &order.TableNumber, &order.Status, &order.Total, &order.OrderType, &deliveryAddress, &deliveryPhone, &deliveryNotes, &paymentMethod, &paymentProof, &printStatus, &printAttempts, &lastPrintError, &printedAt, &lastPrintAttemptAt, &order.CreatedAt, &order.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -433,18 +515,42 @@ func (r *orderRepository) ManageOrder(orderID uuid.UUID, updates map[string]inte
 		if paymentProof.Valid {
 			pp := paymentProof.String
 			order.PaymentProofPath = &pp
+		}
+		order.PrintStatus = "pending"
+		if printStatus.Valid {
+			order.PrintStatus = printStatus.String
+		}
+		if printAttempts.Valid {
+			order.PrintAttempts = int(printAttempts.Int64)
+		}
+		if lastPrintError.Valid {
+			errText := lastPrintError.String
+			order.LastPrintError = &errText
+		}
+		if printedAt.Valid {
+			t := printedAt.Time
+			order.PrintedAt = &t
+		}
+		if lastPrintAttemptAt.Valid {
+			t := lastPrintAttemptAt.Time
+			order.LastPrintAttemptAt = &t
 		}
 	}
 	if hasWaiter {
-		query := `UPDATE orders SET waiter_id = $1 WHERE id = $2 RETURNING id, waiter_id, cashier_id, table_number, status, total, order_type, delivery_address, delivery_phone, delivery_notes, payment_method, payment_proof_path, created_at, updated_at`
+		query := `UPDATE orders SET waiter_id = $1 WHERE id = $2 RETURNING id, waiter_id, cashier_id, table_number, status, total, order_type, delivery_address, delivery_phone, delivery_notes, payment_method, payment_proof_path, print_status, print_attempts, last_print_error, printed_at, last_print_attempt_at, created_at, updated_at`
 
 		var deliveryAddress sql.NullString
 		var deliveryPhone sql.NullString
 		var deliveryNotes sql.NullString
 		var paymentMethod sql.NullString
 		var paymentProof sql.NullString
+		var printStatus sql.NullString
+		var printAttempts sql.NullInt64
+		var lastPrintError sql.NullString
+		var printedAt sql.NullTime
+		var lastPrintAttemptAt sql.NullTime
 
-		err := r.db.QueryRow(query, waiterID, orderID).Scan(&order.ID, &order.WaiterID, &order.CashierID, &order.TableNumber, &order.Status, &order.Total, &order.OrderType, &deliveryAddress, &deliveryPhone, &deliveryNotes, &paymentMethod, &paymentProof, &order.CreatedAt, &order.UpdatedAt)
+		err := r.db.QueryRow(query, waiterID, orderID).Scan(&order.ID, &order.WaiterID, &order.CashierID, &order.TableNumber, &order.Status, &order.Total, &order.OrderType, &deliveryAddress, &deliveryPhone, &deliveryNotes, &paymentMethod, &paymentProof, &printStatus, &printAttempts, &lastPrintError, &printedAt, &lastPrintAttemptAt, &order.CreatedAt, &order.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -468,6 +574,25 @@ func (r *orderRepository) ManageOrder(orderID uuid.UUID, updates map[string]inte
 		if paymentProof.Valid {
 			pp := paymentProof.String
 			order.PaymentProofPath = &pp
+		}
+		order.PrintStatus = "pending"
+		if printStatus.Valid {
+			order.PrintStatus = printStatus.String
+		}
+		if printAttempts.Valid {
+			order.PrintAttempts = int(printAttempts.Int64)
+		}
+		if lastPrintError.Valid {
+			errText := lastPrintError.String
+			order.LastPrintError = &errText
+		}
+		if printedAt.Valid {
+			t := printedAt.Time
+			order.PrintedAt = &t
+		}
+		if lastPrintAttemptAt.Valid {
+			t := lastPrintAttemptAt.Time
+			order.LastPrintAttemptAt = &t
 		}
 	}
 
@@ -547,13 +672,61 @@ func (r *orderRepository) AddPaymentProof(orderID uuid.UUID, method string, proo
 	if proofPath != "" {
 		// Con comprobante
 		query = `UPDATE orders SET payment_method = $1, payment_proof_path = $2, status = $3 WHERE id = $4 
-		          RETURNING id, waiter_id, cashier_id, table_number, status, total, order_type, delivery_address, delivery_phone, delivery_notes, payment_method, payment_proof_path, created_at, updated_at`
-		err = r.db.QueryRow(query, method, proofPath, newStatus, orderID).Scan(&order.ID, &order.WaiterID, &order.CashierID, &order.TableNumber, &order.Status, &order.Total, &order.OrderType, &deliveryAddress, &deliveryPhone, &deliveryNotes, &paymentMethod, &paymentProof, &order.CreatedAt, &order.UpdatedAt)
+		          RETURNING id, waiter_id, cashier_id, table_number, status, total, order_type, delivery_address, delivery_phone, delivery_notes, payment_method, payment_proof_path, print_status, print_attempts, last_print_error, printed_at, last_print_attempt_at, created_at, updated_at`
+		var printStatus sql.NullString
+		var printAttempts sql.NullInt64
+		var lastPrintError sql.NullString
+		var printedAt sql.NullTime
+		var lastPrintAttemptAt sql.NullTime
+		err = r.db.QueryRow(query, method, proofPath, newStatus, orderID).Scan(&order.ID, &order.WaiterID, &order.CashierID, &order.TableNumber, &order.Status, &order.Total, &order.OrderType, &deliveryAddress, &deliveryPhone, &deliveryNotes, &paymentMethod, &paymentProof, &printStatus, &printAttempts, &lastPrintError, &printedAt, &lastPrintAttemptAt, &order.CreatedAt, &order.UpdatedAt)
+		order.PrintStatus = "pending"
+		if printStatus.Valid {
+			order.PrintStatus = printStatus.String
+		}
+		if printAttempts.Valid {
+			order.PrintAttempts = int(printAttempts.Int64)
+		}
+		if lastPrintError.Valid {
+			errText := lastPrintError.String
+			order.LastPrintError = &errText
+		}
+		if printedAt.Valid {
+			t := printedAt.Time
+			order.PrintedAt = &t
+		}
+		if lastPrintAttemptAt.Valid {
+			t := lastPrintAttemptAt.Time
+			order.LastPrintAttemptAt = &t
+		}
 	} else {
 		// Sin comprobante (efectivo)
 		query = `UPDATE orders SET payment_method = $1, status = $2 WHERE id = $3 
-		          RETURNING id, waiter_id, cashier_id, table_number, status, total, order_type, delivery_address, delivery_phone, delivery_notes, payment_method, payment_proof_path, created_at, updated_at`
-		err = r.db.QueryRow(query, method, newStatus, orderID).Scan(&order.ID, &order.WaiterID, &order.CashierID, &order.TableNumber, &order.Status, &order.Total, &order.OrderType, &deliveryAddress, &deliveryPhone, &deliveryNotes, &paymentMethod, &paymentProof, &order.CreatedAt, &order.UpdatedAt)
+		          RETURNING id, waiter_id, cashier_id, table_number, status, total, order_type, delivery_address, delivery_phone, delivery_notes, payment_method, payment_proof_path, print_status, print_attempts, last_print_error, printed_at, last_print_attempt_at, created_at, updated_at`
+		var printStatus sql.NullString
+		var printAttempts sql.NullInt64
+		var lastPrintError sql.NullString
+		var printedAt sql.NullTime
+		var lastPrintAttemptAt sql.NullTime
+		err = r.db.QueryRow(query, method, newStatus, orderID).Scan(&order.ID, &order.WaiterID, &order.CashierID, &order.TableNumber, &order.Status, &order.Total, &order.OrderType, &deliveryAddress, &deliveryPhone, &deliveryNotes, &paymentMethod, &paymentProof, &printStatus, &printAttempts, &lastPrintError, &printedAt, &lastPrintAttemptAt, &order.CreatedAt, &order.UpdatedAt)
+		order.PrintStatus = "pending"
+		if printStatus.Valid {
+			order.PrintStatus = printStatus.String
+		}
+		if printAttempts.Valid {
+			order.PrintAttempts = int(printAttempts.Int64)
+		}
+		if lastPrintError.Valid {
+			errText := lastPrintError.String
+			order.LastPrintError = &errText
+		}
+		if printedAt.Valid {
+			t := printedAt.Time
+			order.PrintedAt = &t
+		}
+		if lastPrintAttemptAt.Valid {
+			t := lastPrintAttemptAt.Time
+			order.LastPrintAttemptAt = &t
+		}
 	}
 
 	if err != nil {
@@ -597,4 +770,22 @@ func (r *orderRepository) AddPaymentProof(orderID uuid.UUID, method string, proo
 	order.Items = items
 
 	return order, nil
+}
+
+func (r *orderRepository) UpdateOrderPrintStatus(orderID uuid.UUID, status string, incrementAttempts int, lastError *string, printedAt *time.Time) (*domain.Order, error) {
+	query := `
+		UPDATE orders
+		SET
+			print_status = $1,
+			print_attempts = COALESCE(print_attempts, 0) + GREATEST($2, 0),
+			last_print_error = $3,
+			printed_at = CASE WHEN $4::timestamptz IS NULL THEN printed_at ELSE $4::timestamptz END,
+			last_print_attempt_at = NOW()
+		WHERE id = $5`
+
+	if _, err := r.db.Exec(query, status, incrementAttempts, lastError, printedAt, orderID); err != nil {
+		return nil, err
+	}
+
+	return r.GetOrderByID(orderID)
 }

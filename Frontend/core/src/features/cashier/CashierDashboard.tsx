@@ -184,6 +184,27 @@ const CashierDashboard: React.FC = () => {
     }
   };
 
+  const handleRetryPrint = async (orderId: string) => {
+    try {
+      const orderDetails = await dispatch(fetchOrderDetails(orderId)).unwrap();
+      const retryResponse = await kitchenTicketsAPI.retryPrint(orderId);
+
+      setNotification({
+        title: '🧾 Reintento en cola',
+        message: `Mesa ${orderDetails.table_number} - ${retryResponse.message}`,
+        type: 'info',
+      });
+
+      dispatch(fetchActiveOrders());
+    } catch {
+      setNotification({
+        title: '❌ Error',
+        message: 'No se pudo encolar el reintento de impresión.',
+        type: 'error',
+      });
+    }
+  };
+
   const handleOpenCheckout = (orderId: string, total: number, tableNumber: number) => {
     setCheckoutOrderId(orderId);
     setCheckoutGroupOrderIds([orderId]);
@@ -254,6 +275,7 @@ const CashierDashboard: React.FC = () => {
     onPreviewTickets: handlePreviewTickets,
     onOpenCheckout: handleOpenCheckout,
     onOpenCheckoutGroup: handleOpenCheckoutGroup,
+    onRetryPrint: handleRetryPrint,
   };
 
   return (

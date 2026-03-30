@@ -62,6 +62,7 @@ interface CashierDashboardDesktopProps {
   onPreviewTickets: (orderId: string) => void;
   onOpenCheckout: (orderId: string, total: number, tableNumber: number) => void;
   onOpenCheckoutGroup: (orderIds: string[], total: number, tableNumber: number) => void;
+  onRetryPrint: (orderId: string) => void;
   onViewProof: () => void;
   onRetryLoadOrders: () => void;
   shortcutTarget?: { tableNumber: number; orderId: string } | null;
@@ -104,6 +105,7 @@ export const CashierDashboardDesktop: React.FC<CashierDashboardDesktopProps> = (
   onPreviewTickets,
   onOpenCheckout,
   onOpenCheckoutGroup,
+  onRetryPrint,
   onRetryLoadOrders,
   shortcutTarget = null,
   shortcutNonce = 0,
@@ -117,6 +119,7 @@ export const CashierDashboardDesktop: React.FC<CashierDashboardDesktopProps> = (
   const [isOrderSearchModalOpen, setIsOrderSearchModalOpen] = useState(false);
   const [isWaiterPickerOpen, setIsWaiterPickerOpen] = useState(false);
   const [isQuickTablePickerOpen, setIsQuickTablePickerOpen] = useState(false);
+  const [openPrintMonitorSignal, setOpenPrintMonitorSignal] = useState(0);
 
   const isPorCobrarStatus = (status: string) => status === 'entregado' || status === 'pendiente_aprobacion';
   const isPayableStatus = (status: string) => status === 'por_verificar' || isPorCobrarStatus(status);
@@ -261,6 +264,7 @@ export const CashierDashboardDesktop: React.FC<CashierDashboardDesktopProps> = (
           onToggleStats={onToggleStats}
           onExportReport={onExportReport}
           onOpenPrintSettings={onOpenPrintSettings}
+          onOpenPrintMonitor={() => setOpenPrintMonitorSignal((prev) => prev + 1)}
           activeFiltersCount={activeFiltersCount}
           orderIdQuery={orderIdQuery}
           onOpenOrderIdSearch={() => setIsOrderSearchModalOpen(true)}
@@ -356,6 +360,8 @@ export const CashierDashboardDesktop: React.FC<CashierDashboardDesktopProps> = (
               onPrintFullCommand={onPrintFullCommand}
               onPreviewTickets={onPreviewTickets}
               onRetryLoadOrders={onRetryLoadOrders}
+              onRetryPrint={onRetryPrint}
+              openPrintMonitorSignal={openPrintMonitorSignal}
             />
           </div>
         ) : (
@@ -501,6 +507,7 @@ export const CashierDashboardDesktop: React.FC<CashierDashboardDesktopProps> = (
           onPreviewTickets={onPreviewTickets}
           onOpenCheckout={onOpenCheckout}
           onOpenCheckoutGroup={onOpenCheckoutGroup}
+          onRetryPrint={onRetryPrint}
           onCancelOrder={(orderId) => onStatusChange(orderId, 'cancelado')}
         />
 

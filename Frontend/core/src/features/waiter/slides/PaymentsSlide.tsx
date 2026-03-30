@@ -192,6 +192,38 @@ const PaymentsSlide: React.FC<PaymentsSlideProps> = ({
     }
   };
 
+  const getPrintSemaphore = (order: Order) => {
+    if (order.print_status === 'printed') {
+      return {
+        dotClass: 'bg-emerald-500',
+        chipClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+        label: 'Impresa',
+      };
+    }
+
+    if (order.print_status === 'failed') {
+      return {
+        dotClass: 'bg-red-500',
+        chipClass: 'bg-red-50 text-red-700 border-red-200',
+        label: 'Fallo impresion',
+      };
+    }
+
+    if (order.print_status === 'processing') {
+      return {
+        dotClass: 'bg-amber-500',
+        chipClass: 'bg-amber-50 text-amber-700 border-amber-200',
+        label: 'Procesando impresion',
+      };
+    }
+
+    return {
+      dotClass: 'bg-slate-400',
+      chipClass: 'bg-slate-50 text-slate-700 border-slate-200',
+      label: 'Pendiente impresion',
+    };
+  };
+
   const orderById = useMemo(() => {
     const map = new Map<string, Order>();
     groupContextOrders.forEach((order) => map.set(order.id, order));
@@ -258,6 +290,7 @@ const PaymentsSlide: React.FC<PaymentsSlideProps> = ({
     const isPorCobrar = order.status === 'entregado' || order.status === 'pendiente_aprobacion';
     const statusLabel = order.status === 'pendiente_aprobacion' ? 'por_cobrar' : order.status;
     const isColleagueOrder = !!currentWaiterId && order.waiter_id !== currentWaiterId;
+    const printSemaphore = getPrintSemaphore(order);
 
     return (
       <div
@@ -319,6 +352,10 @@ const PaymentsSlide: React.FC<PaymentsSlideProps> = ({
                 <span className={`text-xs font-semibold px-2 py-1 rounded-full ${getStatusBadgeClass(order.status)}`}>
                   {order.status === 'por_verificar' && '⏳ '}
                   {statusLabel}
+                </span>
+                <span className={`inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded-full border font-semibold ${printSemaphore.chipClass}`}>
+                  <span className={`h-2.5 w-2.5 rounded-full ${printSemaphore.dotClass}`} />
+                  {printSemaphore.label}
                 </span>
                 {(order.status === 'entregado' && order.payment_method) && (
                   <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded-full font-bold">

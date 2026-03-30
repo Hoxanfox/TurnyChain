@@ -58,6 +58,7 @@ interface CashierDashboardMobileProps {
   onPreviewTickets: (orderId: string) => void;
   onOpenCheckout: (orderId: string, total: number, tableNumber: number) => void;
   onOpenCheckoutGroup: (orderIds: string[], total: number, tableNumber: number) => void;
+  onRetryPrint: (orderId: string) => void;
   onRetryLoadOrders?: () => void;
   shortcutTarget?: { tableNumber: number; orderId: string } | null;
   shortcutNonce?: number;
@@ -96,6 +97,7 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
   onPreviewTickets,
   onOpenCheckout,
   onOpenCheckoutGroup,
+  onRetryPrint,
   onRetryLoadOrders,
   shortcutTarget = null,
   shortcutNonce = 0,
@@ -532,6 +534,7 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
         onPreviewTickets={onPreviewTickets}
         onOpenCheckout={onOpenCheckout}
         onOpenCheckoutGroup={onOpenCheckoutGroup}
+        onRetryPrint={onRetryPrint}
         onCancelOrder={(orderId) => onStatusChange(orderId, 'cancelado')}
       />
 
