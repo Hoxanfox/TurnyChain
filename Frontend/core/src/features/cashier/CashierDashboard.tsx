@@ -196,10 +196,11 @@ const CashierDashboard: React.FC = () => {
       });
 
       dispatch(fetchActiveOrders());
-    } catch {
+    } catch (error: any) {
+      const backendMessage = error?.response?.data?.error || error?.response?.data?.message;
       setNotification({
         title: '❌ Error',
-        message: 'No se pudo encolar el reintento de impresión.',
+        message: backendMessage || 'No se pudo encolar el reintento de impresión.',
         type: 'error',
       });
     }

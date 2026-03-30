@@ -160,13 +160,13 @@ func (h *KitchenTicketHandler) PrintGlobalCashTicket(c *fiber.Ctx) error {
 }
 
 // RetryKitchenTicketsPrint encola un nuevo intento de impresión.
-// Solo disponible para rol cajero.
+// Disponible para roles cajero y admin.
 // POST /api/orders/:orderId/kitchen-tickets/retry
 func (h *KitchenTicketHandler) RetryKitchenTicketsPrint(c *fiber.Ctx) error {
 	role := fmt.Sprint(c.Locals("user_role"))
-	if role != "cajero" {
+	if role != "cajero" && role != "admin" {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-			"error": "Solo el cajero puede reintentar impresiones",
+			"error": "Solo el cajero o admin pueden reintentar impresiones",
 		})
 	}
 

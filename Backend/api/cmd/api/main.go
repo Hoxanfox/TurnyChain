@@ -101,6 +101,10 @@ func main() {
 
 	router.SetupRoutes(app, authHandler, userHandler, menuHandler, orderHandler, tableHandler, categoryHandler, ingredientHandler, accompanimentHandler, wsHandler, stationHandler, printerHandler, kitchenTicketHandler, backupHandler)
 
+	// Alias explícitos para compatibilidad de rutas de impresión de cocina.
+	app.Post("/api/orders/:orderId/kitchen-tickets/print/caja", middleware.Protected(), kitchenTicketHandler.PrintGlobalCashTicket)
+	app.Post("/api/orders/:orderId/kitchen-tickets/retry", middleware.Protected(), kitchenTicketHandler.RetryKitchenTicketsPrint)
+
 	// Alias explícitos para compatibilidad de rutas de backup.
 	app.Get("/api/backups/catalog", middleware.Protected(), backupHandler.ExportCatalogBackup)
 	app.Post("/api/backups/catalog/import", middleware.Protected(), backupHandler.ImportCatalogBackup)

@@ -26,6 +26,11 @@ export const useCashierWebSocket = (
   const ws = useRef<WebSocket | null>(null);
   const heartbeatInterval = useRef<ReturnType<typeof setInterval> | null>(null);
   const isConnecting = useRef(false);
+  const onNotificationRef = useRef(onNotification);
+
+  useEffect(() => {
+    onNotificationRef.current = onNotification;
+  }, [onNotification]);
 
   useEffect(() => {
     // Solo conectar si es cajero
@@ -132,9 +137,9 @@ export const useCashierWebSocket = (
         dispatch(orderUpdated(order as Order));
 
         // Notificación visual
-        if (onNotification) {
+        if (onNotificationRef.current) {
           const isResubmit = data.action === 'resubmitted';
-          onNotification({
+          onNotificationRef.current({
             title: isResubmit ? '🔄 Pago Reenviado' : '🔔 Nueva Verificación de Pago',
             message: `Mesa ${data.table_number} - ${data.method} ($${data.total})`,
             type: 'info'
@@ -157,8 +162,8 @@ export const useCashierWebSocket = (
       if (order) {
         dispatch(orderUpdated(order as Order));
 
-        if (onNotification) {
-          onNotification({
+        if (onNotificationRef.current) {
+          onNotificationRef.current({
             title: '💰 Orden Lista para Cobrar',
             message: `Mesa ${data.table_number} - $${data.total}`,
             type: 'success'
@@ -187,8 +192,8 @@ export const useCashierWebSocket = (
 
         // Notificar si la orden fue pagada
         if (orderData.status === 'pagado') {
-          if (onNotification) {
-            onNotification({
+          if (onNotificationRef.current) {
+            onNotificationRef.current({
               title: '✅ Pago Verificado',
               message: `Mesa ${orderData.table_number} - Pago aprobado`,
               type: 'success'
@@ -208,8 +213,8 @@ export const useCashierWebSocket = (
 
       dispatch(orderUpdated(orderData));
 
-      if (orderData.print_status === 'failed' && onNotification) {
-        onNotification({
+      if (orderData.print_status === 'failed' && onNotificationRef.current) {
+        onNotificationRef.current({
           title: '⚠️ Impresion fallida',
           message: `Mesa ${orderData.table_number}: la comanda no se imprimio`,
           type: 'warning'
@@ -239,16 +244,14 @@ export const useCashierWebSocket = (
         heartbeatInterval.current = null;
       }
 
-      if (ws.current) {
-        if (ws.current.readyState === WebSocket.OPEN || ws.current.readyState === WebSocket.CONNECTING) {
-          ws.current.close();
-        }
+      if (ws.current && ws.current.readyState !== WebSocket.CLOSED && ws.current.readyState !== WebSocket.CLOSING) {
+        ws.current.close();
         ws.current = null;
       }
 
       isConnecting.current = false;
     };
-  }, [dispatch, onNotification]);
+  }, [dispatch]);
 
   return ws.current;
 };

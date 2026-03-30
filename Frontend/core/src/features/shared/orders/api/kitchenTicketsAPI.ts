@@ -63,12 +63,30 @@ export const kitchenTicketsAPI = {
 
   // Reintentar impresión completa desde backend (solo cajero)
   retryPrint: async (orderId: string): Promise<{ success: boolean; message: string }> => {
-    const response = await axios.post<{ success: boolean; message: string }>(
-      `/api/orders/${orderId}/kitchen-tickets/retry`,
-      { order_id: orderId },
-      getAuthConfig()
-    );
-    return response.data;
+    try {
+      const response = await axios.post<{ success: boolean; message: string }>(
+        `/api/orders/${orderId}/kitchen-tickets/retry`,
+        { order_id: orderId },
+        getAuthConfig()
+      );
+      return response.data;
+    } catch (error: any) {
+      // Compatibilidad con despliegues que aun no exponen /retry.
+      if (error?.response?.status === 404) {
+        const printResponse = await axios.post<PrintKitchenTicketsResponse>(
+          `/api/orders/${orderId}/kitchen-tickets/print`,
+          { order_id: orderId, reprint: true },
+          getAuthConfig()
+        );
+
+        return {
+          success: printResponse.data?.success ?? true,
+          message: 'Ruta de reintento no disponible; se ejecuto reimpresion directa.',
+        };
+      }
+
+      throw error;
+    }
   },
 };
 
