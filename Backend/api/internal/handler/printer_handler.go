@@ -4,6 +4,10 @@
 package handler
 
 import (
+	"fmt"
+	"net"
+	"time"
+
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/domain"
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/service"
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/utils"
@@ -41,6 +45,79 @@ func (h *PrinterHandler) GetAllActive(c *fiber.Ctx) error {
 		})
 	}
 	return c.JSON(printers)
+}
+
+// CheckOperational valida conectividad de impresoras activas sin enviar tickets
+// GET /api/printers/operational-check
+func (h *PrinterHandler) CheckOperational(c *fiber.Ctx) error {
+	printers, err := h.service.GetAllActive()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"error":   "Error al obtener impresoras activas: " + err.Error(),
+		})
+	}
+
+	type printerStatus struct {
+		ID    uuid.UUID `json:"id"`
+		Name  string    `json:"name"`
+		OK    bool      `json:"ok"`
+		Error string    `json:"error,omitempty"`
+	}
+
+	statuses := make([]printerStatus, 0, len(printers))
+	operationalCount := 0
+
+	for _, printer := range printers {
+		status := printerStatus{ID: printer.ID, Name: printer.Name, OK: false}
+
+		switch printer.PrinterType {
+		case domain.PrinterTypePDF:
+			status.OK = true
+		default:
+			address := fmt.Sprintf("%s:%d", printer.IPAddress, printer.Port)
+			conn, dialErr := net.DialTimeout("tcp", address, 1200*time.Millisecond)
+			if dialErr != nil {
+				status.Error = dialErr.Error()
+			} else {
+				_ = conn.Close()
+				status.OK = true
+			}
+		}
+
+		if status.OK {
+			operationalCount++
+		}
+		statuses = append(statuses, status)
+	}
+
+	if len(printers) == 0 {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+			"success":           false,
+			"message":           "No hay impresoras activas configuradas",
+			"active_count":      0,
+			"operational_count": 0,
+			"printers":          statuses,
+		})
+	}
+
+	if operationalCount == 0 {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+			"success":           false,
+			"message":           "No hay impresoras operativas en este momento",
+			"active_count":      len(printers),
+			"operational_count": operationalCount,
+			"printers":          statuses,
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"success":           true,
+		"message":           "Hay al menos una impresora operativa",
+		"active_count":      len(printers),
+		"operational_count": operationalCount,
+		"printers":          statuses,
+	})
 }
 
 // GetByID obtiene una impresora por ID

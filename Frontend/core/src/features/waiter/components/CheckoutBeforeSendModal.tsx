@@ -10,11 +10,12 @@ interface CheckoutBeforeSendModalProps {
   orderTotal: number;
   tableNumber: number;
   onClose: () => void;
-  onConfirm: (paymentMethod: 'efectivo' | 'transferencia', proofFile: File | null) => void;
+  onConfirm: (paymentMethod: 'efectivo' | 'transferencia', proofFile: File | null) => Promise<boolean> | boolean;
+  externalSubmitting?: boolean;
 }
 
 const CheckoutBeforeSendModal: React.FC<CheckoutBeforeSendModalProps> = ({
-  orderTotal, tableNumber, onClose, onConfirm
+  orderTotal, tableNumber, onClose, onConfirm, externalSubmitting = false
 }) => {
   const [paymentMethod, setPaymentMethod] = useState<'efectivo' | 'transferencia'>('efectivo');
   const [proofImage, setProofImage] = useState<File | null>(null);
@@ -132,8 +133,8 @@ const CheckoutBeforeSendModal: React.FC<CheckoutBeforeSendModalProps> = ({
     console.log('[CheckoutBeforeSendModal] Imagen eliminada manualmente');
   };
 
-  const handleSubmit = () => {
-    if (isSubmitting) return;
+  const handleSubmit = async () => {
+    if (isSubmitting || externalSubmitting) return;
 
     // Validaciones
     if (paymentMethod === 'transferencia' && !proofImage) {
@@ -144,8 +145,19 @@ const CheckoutBeforeSendModal: React.FC<CheckoutBeforeSendModalProps> = ({
     setIsSubmitting(true);
     // Limpiar localStorage solo al confirmar
     localStorage.removeItem(storageKey);
-    // Confirmar y enviar datos de pago al padre
-    onConfirm(paymentMethod, proofImage);
+    setError(null);
+
+    try {
+      // Confirmar y enviar datos de pago al padre
+      const ok = await onConfirm(paymentMethod, proofImage);
+      if (!ok) {
+        setIsSubmitting(false);
+      }
+    } catch (err) {
+      console.error('[CheckoutBeforeSendModal] Error al confirmar cobro:', err);
+      setError('No se pudo procesar el cobro. Intenta nuevamente.');
+      setIsSubmitting(false);
+    }
   };
 
   // Cleanup on unmount
@@ -173,7 +185,7 @@ const CheckoutBeforeSendModal: React.FC<CheckoutBeforeSendModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            disabled={isSubmitting}
+            disabled={isSubmitting || externalSubmitting}
             className="p-2 bg-green-800 rounded-full hover:bg-green-700 transition-colors"
           >
             <MdClose size={24} />
@@ -191,7 +203,7 @@ const CheckoutBeforeSendModal: React.FC<CheckoutBeforeSendModalProps> = ({
         <div className="flex p-3 gap-2 bg-gray-100">
           <button
             onClick={() => handlePaymentMethodChange('efectivo')}
-            disabled={isSubmitting}
+            disabled={isSubmitting || externalSubmitting}
             className={`flex-1 py-3 rounded-xl flex items-center justify-center gap-2 font-bold transition-all ${
               paymentMethod === 'efectivo' 
                 ? 'bg-white text-green-700 shadow-lg border-2 border-green-200' 
@@ -202,7 +214,7 @@ const CheckoutBeforeSendModal: React.FC<CheckoutBeforeSendModalProps> = ({
           </button>
           <button
             onClick={() => handlePaymentMethodChange('transferencia')}
-            disabled={isSubmitting}
+            disabled={isSubmitting || externalSubmitting}
             className={`flex-1 py-3 rounded-xl flex items-center justify-center gap-2 font-bold transition-all ${
               paymentMethod === 'transferencia' 
                 ? 'bg-white text-blue-700 shadow-lg border-2 border-blue-200' 
@@ -250,7 +262,7 @@ const CheckoutBeforeSendModal: React.FC<CheckoutBeforeSendModalProps> = ({
                 // BOTÓN DE CÁMARA GRANDE
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  disabled={isCompressing || isSubmitting}
+                  disabled={isCompressing || isSubmitting || externalSubmitting}
                   className={`w-full h-48 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center gap-3 transition-all ${
                     isCompressing
                       ? 'border-blue-400 bg-blue-50 cursor-wait'
@@ -283,7 +295,7 @@ const CheckoutBeforeSendModal: React.FC<CheckoutBeforeSendModalProps> = ({
                   {/* Botón para borrar y reintentar */}
                   <button
                     onClick={handleRemovePhoto}
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || externalSubmitting}
                     className="absolute top-3 right-3 bg-red-600 text-white p-2 rounded-full shadow-lg hover:bg-red-700 transition-all active:scale-90"
                   >
                     <MdDelete size={20} />
@@ -310,16 +322,16 @@ const CheckoutBeforeSendModal: React.FC<CheckoutBeforeSendModalProps> = ({
         <div className="p-4 border-t border-gray-200 bg-gray-50">
           <button
             onClick={handleSubmit}
-            disabled={isSubmitting || (paymentMethod === 'transferencia' && !proofImage)}
+            disabled={isSubmitting || externalSubmitting || (paymentMethod === 'transferencia' && !proofImage)}
             className={`w-full py-4 rounded-xl font-black text-lg shadow-lg flex items-center justify-center gap-2 transition-all ${
-              isSubmitting || (paymentMethod === 'transferencia' && !proofImage)
+              isSubmitting || externalSubmitting || (paymentMethod === 'transferencia' && !proofImage)
                 ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 : paymentMethod === 'efectivo'
                   ? 'bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white active:scale-95 shadow-green-300'
                   : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white active:scale-95 shadow-blue-300'
             }`}
           >
-            {isSubmitting
+            {(isSubmitting || externalSubmitting)
               ? '⏳ ENVIANDO...'
               : paymentMethod === 'efectivo'
                 ? '✅ CONFIRMAR Y ENVIAR COMANDA'

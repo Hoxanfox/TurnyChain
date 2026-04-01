@@ -2,18 +2,22 @@
 // ARCHIVO: /src/features/waiter/WaiterDashboardDesktop.tsx
 // Vista de escritorio con layout de columnas
 // =================================================================
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import { addNewOrder } from '../shared/orders/api/ordersSlice.ts';
 import { fetchTables } from '../admin/components/tables/api/tablesSlice.ts';
 import { formatMoney } from '../../utils/formatUtils.ts';
 import type { AppDispatch, RootState } from '../../app/store';
+import { logout } from '../auth/authSlice';
+import { validatePaymentSession, validatePrinterOperational } from '../auth/sessionValidation';
 import type { MenuItem, CartItem } from '../../types/menu';
 import type { Order } from '../../types/orders';
 import OrderDetailModal from '../shared/orders/components/OrderDetailModal.tsx';
 import MyOrdersModal from './components/MyOrdersModal';
 import CheckoutBeforeSendModal from './components/CheckoutBeforeSendModal';
 import ConfirmSendWithoutChargeModal from './components/ConfirmSendWithoutChargeModal';
+import PaymentValidationModal from './components/PaymentValidationModal';
 import WaiterProfileMenu from './components/WaiterProfileMenu';
 import CustomizeOrderItemModal from './components/CustomizeOrderItemModal';
 import MenuDisplay from './components/MenuDisplay';
@@ -33,14 +37,16 @@ import {
   type CustomizationData
 } from './utils/waiterUtils.ts';
 import DeliveryInfoModal from './components/DeliveryInfoModal';
-// Importar toast y confetti para versión desktop
+// Importar toast para versión desktop
 import toast, { Toaster } from 'react-hot-toast';
-import confetti from 'canvas-confetti';
+import { useWaiterWebSocket } from '../../hooks/useWaiterWebSocket';
 
 const WaiterDashboardDesktop: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
+  const navigate = useNavigate();
   const { tables } = useSelector((state: RootState) => state.tables);
   const { createOrderStatus } = useSelector((state: RootState) => state.orders);
+  const { token } = useSelector((state: RootState) => state.auth);
   const { status } = useSelector((state: RootState) => state.tables);
 
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -60,6 +66,11 @@ const WaiterDashboardDesktop: React.FC = () => {
   const [isParentPickerOpen, setIsParentPickerOpen] = useState(false);
   const [selectedParentOrder, setSelectedParentOrder] = useState<Order | null>(null);
   const [isCheckoutBeforeSend, setIsCheckoutBeforeSend] = useState(false);
+  const [isValidationModalOpen, setIsValidationModalOpen] = useState(false);
+  const [validationStep, setValidationStep] = useState<'session' | 'printer' | 'saving'>('session');
+  const [isPaymentFlowRunning, setIsPaymentFlowRunning] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const [lastPaymentAttempt, setLastPaymentAttempt] = useState<{ paymentMethod: 'efectivo' | 'transferencia'; proofFile: File | null } | null>(null);
   const [checkoutOrderTotal, setCheckoutOrderTotal] = useState<number>(0);
   const [checkoutTableNumber, setCheckoutTableNumber] = useState<number>(0);
   const [returnToOrdersModal, setReturnToOrdersModal] = useState<'today' | 'history' | null>(null);
@@ -67,6 +78,30 @@ const WaiterDashboardDesktop: React.FC = () => {
   const [pendingTakeoutNotes, setPendingTakeoutNotes] = useState<string>('');
   const [isSendWithoutChargeModalOpen, setIsSendWithoutChargeModalOpen] = useState(false);
   const [pendingSendWithoutChargeNotes, setPendingSendWithoutChargeNotes] = useState<string>('');
+
+  const buildRequestId = () =>
+    globalThis.crypto?.randomUUID?.() ||
+    `req-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
+
+  const handleWaiterWsNotification = useCallback((options: { title: string; message: string; type: 'info' | 'success' | 'warning' | 'error'; orderId?: string }) => {
+    if (options.orderId) {
+      toast.dismiss(`print-status-${options.orderId}`);
+    }
+
+    toast(options.message, {
+      icon:
+        options.type === 'warning'
+          ? '⚠️'
+          : options.type === 'error'
+          ? '❌'
+          : options.type === 'success'
+          ? '✅'
+          : 'ℹ️',
+      duration: 3200,
+    });
+  }, []);
+
+  useWaiterWebSocket(handleWaiterWsNotification);
 
   // 🆕 MEJORA UX #1: Persistencia del carrito (versión desktop)
   useEffect(() => {
@@ -292,11 +327,42 @@ const WaiterDashboardDesktop: React.FC = () => {
     setPendingSendWithoutChargeNotes('');
   };
 
-  const handleConfirmPaymentBeforeSend = async (paymentMethod: 'efectivo' | 'transferencia', proofFile: File | null) => {
-    if (createOrderStatus === 'loading') return;
+  const runPaymentFlow = async (paymentMethod: 'efectivo' | 'transferencia', proofFile: File | null): Promise<boolean> => {
+    if (createOrderStatus === 'loading' || isPaymentFlowRunning) return false;
 
-    // Cerrar el modal de checkout
-    setIsCheckoutBeforeSend(false);
+    setIsPaymentFlowRunning(true);
+
+    try {
+      setValidationError(null);
+      setValidationStep('session');
+      setIsValidationModalOpen(true);
+
+      const sessionCheck = await validatePaymentSession(token);
+      if (!sessionCheck.ok) {
+        setValidationError(sessionCheck.message);
+        toast.error(sessionCheck.message);
+        if (sessionCheck.shouldLogout) {
+          setIsValidationModalOpen(false);
+          dispatch(logout());
+          navigate('/login', { replace: true });
+        }
+        return false;
+      }
+
+      setValidationStep('printer');
+      const printerCheck = await validatePrinterOperational(token);
+      if (!printerCheck.ok) {
+        setValidationError(printerCheck.message);
+        toast.error(printerCheck.message);
+        if (printerCheck.shouldLogout) {
+          setIsValidationModalOpen(false);
+          dispatch(logout());
+          navigate('/login', { replace: true });
+        }
+        return false;
+      }
+
+      setValidationStep('saving');
 
     // Ahora sí enviar la orden con los datos de pago
     const customerNameForPayload =
@@ -306,7 +372,7 @@ const WaiterDashboardDesktop: React.FC = () => {
         ? (deliveryData?.notes || `Cliente mesa ${checkoutTableNumber}`)
         : undefined;
 
-    let payload = buildOrderPayload(
+      let payload = buildOrderPayload(
       cart,
       tableId,
       tables,
@@ -315,59 +381,80 @@ const WaiterDashboardDesktop: React.FC = () => {
       customerNameForPayload,
       deliveryData || undefined
     );
-    if (!payload) return;
+      if (!payload) {
+        setValidationError('No se pudo construir la comanda. Revisa mesa y productos.');
+        return false;
+      }
 
-    // Agregar delivery_notes si es para llevar y hay notas
-    if (orderType === 'llevar' && checkoutTakeoutNotes) {
-      payload.delivery_notes = checkoutTakeoutNotes;
-    }
+      // Agregar delivery_notes si es para llevar y hay notas
+      if (orderType === 'llevar' && checkoutTakeoutNotes) {
+        payload.delivery_notes = checkoutTakeoutNotes;
+      }
 
-    console.log("Enviando payload de la orden al backend con datos de pago:", {
-      orderData: payload,
-      paymentMethod,
-      hasProofFile: !!proofFile
-    });
-
-    try {
-      await dispatch(addNewOrder({
+      console.log("Enviando payload de la orden al backend con datos de pago:", {
         orderData: payload,
         paymentMethod,
-        paymentProofFile: proofFile
+        hasProofFile: !!proofFile
+      });
+
+      const total = cart.reduce((sum, item) => sum + item.finalPrice, 0);
+      const selectedTable = findTableById(tables, tableId);
+
+      const requestId = buildRequestId();
+      const createdOrder = await dispatch(addNewOrder({
+        orderData: payload,
+        paymentMethod,
+        paymentProofFile: proofFile,
+        requestId,
       })).unwrap();
+
+      toast.success(
+        `💾 Comanda guardada en backend\nMesa ${selectedTable?.table_number || 'N/A'} • ${formatMoney(total)}\nID ${createdOrder.id.substring(0, 8).toUpperCase()}`,
+        {
+          duration: 3200,
+        }
+      );
+
+      toast.loading('🖨️ Enviando a impresora. Te avisaremos cuando termine.', {
+        id: `print-status-${createdOrder.id}`,
+        duration: 5000,
+      });
+
+      setIsValidationModalOpen(false);
+      setValidationError(null);
+      setIsCheckoutBeforeSend(false);
+
+      setCart([]);
+      setTableId('');
+      setOrderType('mesa');
+      setDeliveryData(null);
+      setSelectedParentOrder(null);
+      localStorage.removeItem('waiter-cart-draft-desktop');
+      return true;
     } catch (error) {
+      setValidationError('No se pudo cobrar y enviar la comanda. Intenta nuevamente.');
       toast.error('No se pudo cobrar y enviar la comanda. Intenta nuevamente.');
+      return false;
+    } finally {
+      setIsPaymentFlowRunning(false);
+    }
+  };
+
+  const handleConfirmPaymentBeforeSend = async (paymentMethod: 'efectivo' | 'transferencia', proofFile: File | null): Promise<boolean> => {
+    setLastPaymentAttempt({ paymentMethod, proofFile });
+    return runPaymentFlow(paymentMethod, proofFile);
+  };
+
+  const handleRetryPaymentFlow = async () => {
+    if (!lastPaymentAttempt) {
       return;
     }
+    await runPaymentFlow(lastPaymentAttempt.paymentMethod, lastPaymentAttempt.proofFile);
+  };
 
-    // 🆕 MEJORA UX #3: Feedback celebratorio (versión desktop)
-    confetti({
-      particleCount: 100,
-      spread: 70,
-      origin: { y: 0.6 }
-    });
-
-    const total = cart.reduce((sum, item) => sum + item.finalPrice, 0);
-    const selectedTable = findTableById(tables, tableId);
-    toast.success(
-      `🎉 ¡Orden enviada!\nMesa ${selectedTable?.table_number || 'N/A'} • ${formatMoney(total)}\n${cart.length} productos`,
-      {
-        duration: 4000,
-        style: {
-          background: '#10b981',
-          color: '#fff',
-          fontWeight: 'bold',
-          fontSize: '14px',
-        },
-        icon: '✅',
-      }
-    );
-
-    setCart([]);
-    setTableId('');
-    setOrderType('mesa');
-    setDeliveryData(null);
-    setSelectedParentOrder(null);
-    localStorage.removeItem('waiter-cart-draft-desktop');
+  const handleBackToCheckout = () => {
+    setIsValidationModalOpen(false);
+    setValidationError(null);
   };
 
   const handleSelectOrder = (orderId: string, source?: 'today' | 'history') => {
@@ -680,8 +767,17 @@ const WaiterDashboardDesktop: React.FC = () => {
           tableNumber={checkoutTableNumber}
           onClose={() => setIsCheckoutBeforeSend(false)}
           onConfirm={handleConfirmPaymentBeforeSend}
+          externalSubmitting={isPaymentFlowRunning}
         />
       )}
+      <PaymentValidationModal
+        isOpen={isValidationModalOpen}
+        currentStep={validationStep}
+        tableNumber={checkoutTableNumber}
+        errorMessage={validationError}
+        onRetry={handleRetryPaymentFlow}
+        onBackToCheckout={handleBackToCheckout}
+      />
       {showDeliveryModal && (
         <DeliveryInfoModal
           onClose={() => setShowDeliveryModal(false)}

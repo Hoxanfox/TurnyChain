@@ -12,7 +12,8 @@ export const createOrder = async (
   orderData: NewOrderPayload,
   token: string,
   paymentMethod?: string,
-  paymentProofFile?: File | null
+  paymentProofFile?: File | null,
+  requestId?: string
 ): Promise<Order> => {
   // Si hay datos de pago, usar FormData y el endpoint /with-payment
   if (paymentMethod) {
@@ -40,6 +41,7 @@ export const createOrder = async (
     const config = {
       headers: {
         Authorization: `Bearer ${token}`,
+        ...(requestId ? { 'X-Request-ID': requestId } : {}),
         // NO incluir 'Content-Type' aquí - el navegador lo maneja automáticamente
       }
     };
@@ -53,6 +55,7 @@ export const createOrder = async (
   const config = {
     headers: {
       Authorization: `Bearer ${token}`,
+      ...(requestId ? { 'X-Request-ID': requestId } : {}),
       'Content-Type': 'application/json'
     }
   };

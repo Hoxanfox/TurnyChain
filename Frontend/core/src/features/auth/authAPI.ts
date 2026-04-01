@@ -11,3 +11,12 @@ export const loginUser = async (credentials: LoginCredentials): Promise<{ token:
   const response = await axios.post(`${API_URL}/login`, credentials);
   return response.data;
 };
+
+export const validateSession = async (token: string): Promise<{ valid: boolean; user_id: string; role: string }> => {
+  const response = await axios.get(`${API_URL}/validate`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return response.data;
+};

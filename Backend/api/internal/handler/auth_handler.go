@@ -36,3 +36,11 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 
 	return c.JSON(fiber.Map{"token": token})
 }
+
+func (h *AuthHandler) ValidateSession(c *fiber.Ctx) error {
+	return c.JSON(fiber.Map{
+		"valid":   true,
+		"user_id": c.Locals("user_id"),
+		"role":    c.Locals("user_role"),
+	})
+}

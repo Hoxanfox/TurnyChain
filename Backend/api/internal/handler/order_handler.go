@@ -158,16 +158,20 @@ func (h *OrderHandler) CreateOrder(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse JSON"})
 	}
 	waiterID, _ := uuid.Parse(c.Locals("user_id").(string))
+	requestID := c.Get("X-Request-ID")
+	log.Printf("[CreateOrder] request_id=%s waiter_id=%s table=%d items=%d", requestID, waiterID.String(), payload.TableNumber, len(payload.Items))
 
 	createKey := h.buildCreateFingerprint(waiterID, "", *payload)
 	existingID, canProceed := h.resolveExistingOrAcquire(createKey)
 	if existingID != nil {
 		existingOrder, err := h.orderService.GetOrderByID(*existingID)
 		if err == nil {
+			log.Printf("[CreateOrder] request_id=%s duplicate_resolved existing_order_id=%s", requestID, existingOrder.ID.String())
 			return c.Status(fiber.StatusOK).JSON(existingOrder)
 		}
 	}
 	if !canProceed {
+		log.Printf("[CreateOrder] request_id=%s duplicate_in_progress", requestID)
 		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "duplicate order request in progress"})
 	}
 	defer h.releaseCreateKey(createKey)
@@ -177,6 +181,7 @@ func (h *OrderHandler) CreateOrder(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 	h.markCreateCompleted(createKey, order.ID)
+	log.Printf("[CreateOrder] request_id=%s created_order_id=%s", requestID, order.ID.String())
 	return c.Status(fiber.StatusCreated).JSON(order)
 }
 
@@ -350,6 +355,7 @@ func (h *OrderHandler) UploadPaymentProof(c *fiber.Ctx) error {
 func (h *OrderHandler) CreateOrderWithPayment(c *fiber.Ctx) error {
 	// 1. Obtener el user_id del token
 	waiterID, _ := uuid.Parse(c.Locals("user_id").(string))
+	requestID := c.Get("X-Request-ID")
 
 	// 2. Parsear order_data (JSON string)
 	orderDataStr := c.FormValue("order_data")
@@ -370,16 +376,19 @@ func (h *OrderHandler) CreateOrderWithPayment(c *fiber.Ctx) error {
 	if paymentMethod != "efectivo" && paymentMethod != "transferencia" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "payment_method must be 'efectivo' or 'transferencia'"})
 	}
+	log.Printf("[CreateOrderWithPayment] request_id=%s waiter_id=%s table=%d items=%d payment_method=%s", requestID, waiterID.String(), payload.TableNumber, len(payload.Items), paymentMethod)
 
 	createKey := h.buildCreateFingerprint(waiterID, paymentMethod, payload)
 	existingID, canProceed := h.resolveExistingOrAcquire(createKey)
 	if existingID != nil {
 		existingOrder, err := h.orderService.GetOrderByID(*existingID)
 		if err == nil {
+			log.Printf("[CreateOrderWithPayment] request_id=%s duplicate_resolved existing_order_id=%s", requestID, existingOrder.ID.String())
 			return c.Status(fiber.StatusOK).JSON(existingOrder)
 		}
 	}
 	if !canProceed {
+		log.Printf("[CreateOrderWithPayment] request_id=%s duplicate_in_progress", requestID)
 		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "duplicate order request in progress"})
 	}
 	defer h.releaseCreateKey(createKey)
@@ -438,6 +447,7 @@ func (h *OrderHandler) CreateOrderWithPayment(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "could not update order with payment data"})
 	}
 	h.markCreateCompleted(createKey, updatedOrder.ID)
+	log.Printf("[CreateOrderWithPayment] request_id=%s created_order_id=%s", requestID, updatedOrder.ID.String())
 
 	return c.Status(fiber.StatusCreated).JSON(updatedOrder)
 }

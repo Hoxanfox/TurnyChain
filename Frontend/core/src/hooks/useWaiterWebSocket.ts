@@ -17,6 +17,7 @@ interface NotificationOptions {
   title: string;
   message: string;
   type: 'info' | 'success' | 'warning' | 'error';
+  orderId?: string;
 }
 
 export const useWaiterWebSocket = (
@@ -152,7 +153,8 @@ export const useWaiterWebSocket = (
             onNotificationRef.current({
               title: '❌ Pago Rechazado',
               message: `Mesa ${orderData.table_number} - Por favor reenviar comprobante`,
-              type: 'warning'
+              type: 'warning',
+              orderId: orderData.id,
             });
           }
           playNotificationSound();
@@ -164,7 +166,8 @@ export const useWaiterWebSocket = (
             onNotificationRef.current({
               title: '✅ Pago Aprobado',
               message: `Mesa ${orderData.table_number} - Pago verificado exitosamente`,
-              type: 'success'
+              type: 'success',
+              orderId: orderData.id,
             });
           }
         }
@@ -194,7 +197,8 @@ export const useWaiterWebSocket = (
         onNotificationRef.current({
           title: '❌ Error de impresion',
           message: `Mesa ${orderData.table_number}: la comanda no se pudo imprimir`,
-          type: 'warning'
+          type: 'warning',
+          orderId: orderData.id,
         });
       }
 
@@ -202,7 +206,8 @@ export const useWaiterWebSocket = (
         onNotificationRef.current({
           title: '✅ Comanda impresa',
           message: `Mesa ${orderData.table_number}: impresion confirmada`,
-          type: 'success'
+          type: 'success',
+          orderId: orderData.id,
         });
       }
 

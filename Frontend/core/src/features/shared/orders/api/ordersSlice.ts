@@ -81,7 +81,8 @@ export const addNewOrder = createAsyncThunk(
     payload: {
       orderData: NewOrderPayload;
       paymentMethod?: string;
-      paymentProofFile?: File | null
+      paymentProofFile?: File | null;
+      requestId?: string;
     },
     { getState, rejectWithValue }
   ) => {
@@ -92,7 +93,8 @@ export const addNewOrder = createAsyncThunk(
         payload.orderData,
         token,
         payload.paymentMethod,
-        payload.paymentProofFile
+        payload.paymentProofFile,
+        payload.requestId
       );
     }
     catch (error: any) { return rejectWithValue(error.response?.data?.error); }
