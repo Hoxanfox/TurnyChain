@@ -128,6 +128,13 @@ const WaiterDashboard: React.FC = () => {
     globalThis.crypto?.randomUUID?.() ||
     `req-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
 
+  const waitForMinStepDuration = async (stepStartMs: number, minDurationMs = 800) => {
+    const elapsed = Date.now() - stepStartMs;
+    if (elapsed < minDurationMs) {
+      await new Promise((resolve) => setTimeout(resolve, minDurationMs - elapsed));
+    }
+  };
+
   // 🆕 MEJORA UX #1: Persistencia del carrito (Efecto Zeigarnik)
   // Recuperar carrito guardado al montar el componente
   useEffect(() => {
@@ -430,7 +437,9 @@ const WaiterDashboard: React.FC = () => {
       setValidationStep('session');
       setIsValidationModalOpen(true);
 
+      let stepStartedAt = Date.now();
       const sessionCheck = await validatePaymentSession(token);
+      await waitForMinStepDuration(stepStartedAt);
       if (!sessionCheck.ok) {
         setValidationError(sessionCheck.message);
         toast.error(sessionCheck.message);
@@ -443,7 +452,9 @@ const WaiterDashboard: React.FC = () => {
       }
 
       setValidationStep('printer');
+      stepStartedAt = Date.now();
       const printerCheck = await validatePrinterOperational(token);
+      await waitForMinStepDuration(stepStartedAt);
       if (!printerCheck.ok) {
         setValidationError(printerCheck.message);
         toast.error(printerCheck.message);
@@ -456,6 +467,7 @@ const WaiterDashboard: React.FC = () => {
       }
 
       setValidationStep('saving');
+      stepStartedAt = Date.now();
 
     // Ahora sí enviar la orden con los datos de pago
     const customerNameForPayload =
@@ -500,6 +512,8 @@ const WaiterDashboard: React.FC = () => {
         paymentProofFile: proofFile,
         requestId,
       })).unwrap();
+
+      await waitForMinStepDuration(stepStartedAt, 700);
 
       toast.success(
         `💾 Comanda guardada en backend\nMesa ${selectedTable?.table_number || 'N/A'} • ${formatMoney(total)}\nID ${createdOrder.id.substring(0, 8).toUpperCase()}`,

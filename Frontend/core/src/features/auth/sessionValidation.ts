@@ -1,6 +1,5 @@
 import axios from 'axios';
 import { jwtDecode } from 'jwt-decode';
-import { validateSession } from './authAPI';
 
 type SessionValidationResult = {
   ok: boolean;
@@ -50,7 +49,14 @@ export async function validatePaymentSession(token: string | null): Promise<Sess
   }
 
   try {
-    await validateSession(token);
+    // Usamos una ruta protegida estable para evitar 404 en despliegues antiguos
+    // que no exponen /api/auth/validate.
+    await axios.get('/api/tables', {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
     return {
       ok: true,
       message: 'Sesion valida',
@@ -58,38 +64,6 @@ export async function validatePaymentSession(token: string | null): Promise<Sess
     };
   } catch (error: unknown) {
     if (axios.isAxiosError(error)) {
-      // Compatibilidad: si el backend aún no tiene /api/auth/validate desplegado,
-      // hacemos una verificación mínima contra otra ruta protegida existente.
-      if (error.response?.status === 404) {
-        try {
-          await axios.get('/api/tables', {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          });
-
-          return {
-            ok: true,
-            message: 'Sesion valida',
-            shouldLogout: false,
-          };
-        } catch (fallbackError: unknown) {
-          if (axios.isAxiosError(fallbackError) && (fallbackError.response?.status === 401 || fallbackError.response?.status === 403)) {
-            return {
-              ok: false,
-              message: 'La sesion ya no es valida en el servidor. Inicia sesion nuevamente.',
-              shouldLogout: true,
-            };
-          }
-
-          return {
-            ok: false,
-            message: 'No se pudo validar la sesion. Intenta nuevamente.',
-            shouldLogout: false,
-          };
-        }
-      }
-
       if (error.response?.status === 401 || error.response?.status === 403) {
         return {
           ok: false,
@@ -125,23 +99,27 @@ export async function validatePrinterOperational(token: string | null): Promise<
   }
 
   try {
-    const response = await axios.get('/api/printers/operational-check', {
+    const response = await axios.get('/api/printers/active', {
       headers: {
         Authorization: `Bearer ${token}`,
       },
     });
 
-    if (response.data?.success !== true) {
+    const activePrinters = Array.isArray(response.data)
+      ? response.data
+      : [];
+
+    if (activePrinters.length === 0) {
       return {
         ok: false,
-        message: response.data?.message || 'No hay impresoras operativas disponibles.',
+        message: 'No hay impresoras activas configuradas.',
         shouldLogout: false,
       };
     }
 
     return {
       ok: true,
-      message: 'Impresora operativa',
+      message: 'Impresora activa disponible',
       shouldLogout: false,
     };
   } catch (error: unknown) {
@@ -151,6 +129,23 @@ export async function validatePrinterOperational(token: string | null): Promise<
           ok: false,
           message: 'La sesion ya no es valida en el servidor. Inicia sesion nuevamente.',
           shouldLogout: true,
+        };
+      }
+
+      const printers = Array.isArray(error.response?.data?.printers)
+        ? error.response?.data?.printers
+        : [];
+
+      const firstFailedPrinter = printers.find((printer: { ok?: boolean; name?: string; error?: string }) => printer?.ok === false);
+
+      if (firstFailedPrinter?.name || firstFailedPrinter?.error) {
+        const printerLabel = firstFailedPrinter?.name ? ` (${firstFailedPrinter.name})` : '';
+        const printerReason = firstFailedPrinter?.error ? ` Motivo: ${firstFailedPrinter.error}.` : '';
+
+        return {
+          ok: false,
+          message: `No hay impresoras operativas${printerLabel}.${printerReason}`,
+          shouldLogout: false,
         };
       }
 

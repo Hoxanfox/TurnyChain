@@ -92,7 +92,7 @@ func (h *PrinterHandler) CheckOperational(c *fiber.Ctx) error {
 	}
 
 	if len(printers) == 0 {
-		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+		return c.JSON(fiber.Map{
 			"success":           false,
 			"message":           "No hay impresoras activas configuradas",
 			"active_count":      0,
@@ -102,7 +102,7 @@ func (h *PrinterHandler) CheckOperational(c *fiber.Ctx) error {
 	}
 
 	if operationalCount == 0 {
-		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+		return c.JSON(fiber.Map{
 			"success":           false,
 			"message":           "No hay impresoras operativas en este momento",
 			"active_count":      len(printers),

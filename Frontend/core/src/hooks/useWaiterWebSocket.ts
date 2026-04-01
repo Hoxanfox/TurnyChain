@@ -27,6 +27,7 @@ export const useWaiterWebSocket = (
   const ws = useRef<WebSocket | null>(null);
   const heartbeatInterval = useRef<ReturnType<typeof setInterval> | null>(null);
   const refreshDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastRefreshByOrder = useRef<Record<string, number>>({});
   const onNotificationRef = useRef(onNotification);
 
   useEffect(() => {
@@ -42,7 +43,20 @@ export const useWaiterWebSocket = (
     }
 
     const userId = localStorage.getItem('user_id') || 'unknown';
-    const scheduleOrdersRefresh = () => {
+    const scheduleOrdersRefresh = (orderId?: string) => {
+      if (orderId) {
+        const now = Date.now();
+        const lastRefresh = lastRefreshByOrder.current[orderId] || 0;
+
+        // Evita doble refresh cuando llegan eventos consecutivos
+        // de la misma orden (p. ej. ORDER_UPDATED y ORDER_PRINT_STATUS_UPDATED).
+        if (now - lastRefresh < 2000) {
+          return;
+        }
+
+        lastRefreshByOrder.current[orderId] = now;
+      }
+
       if (refreshDebounce.current) {
         clearTimeout(refreshDebounce.current);
       }
@@ -131,7 +145,7 @@ export const useWaiterWebSocket = (
           console.log('⏳ [Mesero] Pago en verificación:', message.payload);
           if (message.payload.order) {
             dispatch(orderUpdated(message.payload.order as Order));
-            scheduleOrdersRefresh();
+            scheduleOrdersRefresh((message.payload.order as Order).id);
           }
           break;
 
@@ -172,7 +186,7 @@ export const useWaiterWebSocket = (
           }
         }
 
-        scheduleOrdersRefresh();
+        scheduleOrdersRefresh(orderData.id);
       }
     };
 
@@ -180,8 +194,9 @@ export const useWaiterWebSocket = (
       console.log('📊 [Mesero] Orden actualizada:', order);
 
       if (order) {
-        dispatch(orderUpdated(order as Order));
-        scheduleOrdersRefresh();
+        const orderData = order as Order;
+        dispatch(orderUpdated(orderData));
+        scheduleOrdersRefresh(orderData.id);
       }
     };
 
@@ -211,7 +226,7 @@ export const useWaiterWebSocket = (
         });
       }
 
-      scheduleOrdersRefresh();
+      scheduleOrdersRefresh(orderData.id);
     };
 
     const playNotificationSound = () => {
@@ -234,6 +249,7 @@ export const useWaiterWebSocket = (
         clearTimeout(refreshDebounce.current);
         refreshDebounce.current = null;
       }
+      lastRefreshByOrder.current = {};
       if (ws.current && ws.current.readyState !== WebSocket.CLOSED && ws.current.readyState !== WebSocket.CLOSING) {
         ws.current.close();
       }
