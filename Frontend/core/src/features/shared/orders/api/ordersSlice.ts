@@ -86,6 +86,10 @@ export const addNewOrder = createAsyncThunk(
     },
     { getState, rejectWithValue }
   ) => {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      return rejectWithValue('Sin conexion a internet. Verifica tu red antes de enviar la comanda.');
+    }
+
     const token = (getState() as RootState).auth.token;
     if (!token) return rejectWithValue('No se encontró el token');
     try {

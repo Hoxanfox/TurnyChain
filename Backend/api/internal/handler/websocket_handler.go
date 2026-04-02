@@ -34,9 +34,8 @@ func (h *WebSocketHandler) HandleConnection(c *websocket.Conn) {
 	// Registrar el nuevo cliente en el hub
 	h.hub.Register <- clientInfo
 	defer func() {
-		// Al terminar la conexión, desregistrarlo
+		// El hub centraliza el cierre/desregistro para evitar carreras.
 		h.hub.Unregister <- c
-		c.Close()
 	}()
 
 	log.Printf("🔌 Nueva conexión WebSocket establecida. UserID: %s, Role: %s", userID, role)

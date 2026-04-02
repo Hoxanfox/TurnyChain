@@ -5,6 +5,7 @@ package handler
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/domain"
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/service"
@@ -177,7 +178,7 @@ func (h *KitchenTicketHandler) RetryKitchenTicketsPrint(c *fiber.Ctx) error {
 		})
 	}
 
-	if err := h.service.EnqueueOrderPrint(orderID); err != nil {
+	if err := h.service.EnqueueOrderPrintRetry(orderID); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "No se pudo encolar reintento de impresión: " + err.Error(),
 		})
@@ -186,5 +187,71 @@ func (h *KitchenTicketHandler) RetryKitchenTicketsPrint(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"success": true,
 		"message": "Reintento de impresión encolado",
+	})
+}
+
+// RetryRecentFailedKitchenTickets encola reintentos para órdenes fallidas recientes.
+// Disponible para roles admin y cajero.
+// POST /api/orders/kitchen-tickets/retry-failed-recent
+func (h *KitchenTicketHandler) RetryRecentFailedKitchenTickets(c *fiber.Ctx) error {
+	role := fmt.Sprint(c.Locals("user_role"))
+	if role != "cajero" && role != "admin" {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error": "Solo el cajero o admin pueden reintentar impresiones fallidas",
+		})
+	}
+
+	type request struct {
+		TableNumber     *int `json:"table_number"`
+		LookbackMinutes *int `json:"lookback_minutes"`
+		CooldownMinutes *int `json:"cooldown_minutes"`
+		MaxAttempts     *int `json:"max_attempts"`
+	}
+
+	var req request
+	if err := c.BodyParser(&req); err != nil {
+		req = request{}
+	}
+
+	lookback := 180
+	cooldown := 5
+	maxAttempts := 8
+
+	if req.LookbackMinutes != nil && *req.LookbackMinutes > 0 {
+		lookback = *req.LookbackMinutes
+	}
+	if req.CooldownMinutes != nil && *req.CooldownMinutes > 0 {
+		cooldown = *req.CooldownMinutes
+	}
+	if req.MaxAttempts != nil && *req.MaxAttempts > 0 {
+		maxAttempts = *req.MaxAttempts
+	}
+
+	if req.TableNumber == nil {
+		if tableRaw := c.Query("table_number"); tableRaw != "" {
+			if parsed, err := strconv.Atoi(tableRaw); err == nil {
+				req.TableNumber = &parsed
+			}
+		}
+	}
+
+	queued, selected, err := h.service.EnqueueFailedRecentPrints(req.TableNumber, lookback, cooldown*60, maxAttempts)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "No se pudo encolar reintentos recientes: " + err.Error(),
+		})
+	}
+
+	target := "global"
+	if req.TableNumber != nil {
+		target = fmt.Sprintf("mesa %d", *req.TableNumber)
+	}
+
+	return c.JSON(fiber.Map{
+		"success":         true,
+		"target":          target,
+		"selected_orders": selected,
+		"queued_orders":   queued,
+		"message":         fmt.Sprintf("Se encolaron %d de %d órdenes fallidas recientes (%s)", queued, selected, target),
 	})
 }

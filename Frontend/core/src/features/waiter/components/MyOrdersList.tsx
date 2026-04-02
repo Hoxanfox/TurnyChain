@@ -75,10 +75,18 @@ const MyOrdersList: React.FC<MyOrdersListProps> = ({
       };
     }
 
+    if (printStatus === 'processing' || printStatus === 'printing') {
+      return {
+        color: 'bg-amber-500',
+        ring: 'ring-amber-200',
+        text: 'Imprimiendo'
+      };
+    }
+
     return {
       color: 'bg-amber-500',
       ring: 'ring-amber-200',
-      text: 'Pendiente impresion'
+      text: 'En cola impresion'
     };
   };
 

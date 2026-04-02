@@ -32,8 +32,9 @@ import {
   decrementItemQuantity,
   toggleItemTakeout,
   buildOrderPayload,
-  canSendOrder,
+  canSendOrderWithConnectivity,
   findTableById,
+  isClientOnline,
   type CustomizationData
 } from './utils/waiterUtils.ts';
 import DeliveryInfoModal from './components/DeliveryInfoModal';
@@ -78,6 +79,7 @@ const WaiterDashboardDesktop: React.FC = () => {
   const [pendingTakeoutNotes, setPendingTakeoutNotes] = useState<string>('');
   const [isSendWithoutChargeModalOpen, setIsSendWithoutChargeModalOpen] = useState(false);
   const [pendingSendWithoutChargeNotes, setPendingSendWithoutChargeNotes] = useState<string>('');
+  const [isOnline, setIsOnline] = useState<boolean>(isClientOnline());
 
   const buildRequestId = () =>
     globalThis.crypto?.randomUUID?.() ||
@@ -152,6 +154,25 @@ const WaiterDashboardDesktop: React.FC = () => {
   useEffect(() => {
     dispatch(fetchTables());
   }, [dispatch]);
+
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      toast.success('Conexion restablecida. Ya puedes enviar comandas.');
+    };
+    const handleOffline = () => {
+      setIsOnline(false);
+      toast.error('Sin conexion. No se enviaran comandas hasta reconectar.');
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   const handleConfirmCustomization = (customizationData: CustomizationData) => {
     if (!customizingItem) return;
@@ -239,6 +260,10 @@ const WaiterDashboardDesktop: React.FC = () => {
 
   const submitOrderWithoutCharge = async (notes?: string) => {
     if (createOrderStatus === 'loading') return;
+    if (!isOnline) {
+      toast.error('Sin conexion a internet. Revisa tu red antes de enviar.');
+      return;
+    }
 
     const customerNameForPayload =
       orderType === 'llevar'
@@ -283,7 +308,12 @@ const WaiterDashboardDesktop: React.FC = () => {
   };
 
   const handleSendOrder = (notes?: string, mode: 'charge' | 'send' = 'charge') => {
-    if (!canSendOrder(cart, tableId)) return;
+    if (!canSendOrderWithConnectivity(cart, tableId, isOnline)) {
+      if (!isOnline) {
+        toast.error('Sin conexion a internet. Revisa tu red antes de enviar.');
+      }
+      return;
+    }
 
     // Si es domicilio y no hay datos de entrega, mostrar modal
     if (orderType === 'domicilio' && !deliveryData) {
@@ -336,6 +366,10 @@ const WaiterDashboardDesktop: React.FC = () => {
 
   const runPaymentFlow = async (paymentMethod: 'efectivo' | 'transferencia', proofFile: File | null): Promise<boolean> => {
     if (createOrderStatus === 'loading' || isPaymentFlowRunning) return false;
+    if (!isOnline) {
+      toast.error('Sin conexion a internet. No se puede validar ni enviar la comanda.');
+      return false;
+    }
 
     setIsPaymentFlowRunning(true);
 
@@ -782,6 +816,7 @@ const WaiterDashboardDesktop: React.FC = () => {
           onClose={() => setIsCheckoutBeforeSend(false)}
           onConfirm={handleConfirmPaymentBeforeSend}
           externalSubmitting={isPaymentFlowRunning}
+          isOnline={isOnline}
         />
       )}
       <PaymentValidationModal

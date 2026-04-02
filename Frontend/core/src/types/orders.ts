@@ -51,7 +51,7 @@ export interface Order {
   delivery_phone?: string;
   delivery_notes?: string;
   customer_name?: string; // Nuevo: nombre del cliente para llevar/domicilio
-  print_status?: 'pending' | 'processing' | 'printed' | 'failed' | 'partial';
+  print_status?: 'pending' | 'queued' | 'processing' | 'printing' | 'printed' | 'failed' | 'partial';
   print_attempts?: number;
   last_print_error?: string;
   printed_at?: string;

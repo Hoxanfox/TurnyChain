@@ -12,10 +12,11 @@ interface CheckoutBeforeSendModalProps {
   onClose: () => void;
   onConfirm: (paymentMethod: 'efectivo' | 'transferencia', proofFile: File | null) => Promise<boolean> | boolean;
   externalSubmitting?: boolean;
+  isOnline?: boolean;
 }
 
 const CheckoutBeforeSendModal: React.FC<CheckoutBeforeSendModalProps> = ({
-  orderTotal, tableNumber, onClose, onConfirm, externalSubmitting = false
+  orderTotal, tableNumber, onClose, onConfirm, externalSubmitting = false, isOnline = true
 }) => {
   const [paymentMethod, setPaymentMethod] = useState<'efectivo' | 'transferencia'>('efectivo');
   const [proofImage, setProofImage] = useState<File | null>(null);
@@ -135,6 +136,11 @@ const CheckoutBeforeSendModal: React.FC<CheckoutBeforeSendModalProps> = ({
 
   const handleSubmit = async () => {
     if (isSubmitting || externalSubmitting) return;
+
+    if (!isOnline) {
+      setError('Sin conexion a internet. Reconecta para enviar la comanda.');
+      return;
+    }
 
     // Validaciones
     if (paymentMethod === 'transferencia' && !proofImage) {
@@ -318,13 +324,19 @@ const CheckoutBeforeSendModal: React.FC<CheckoutBeforeSendModalProps> = ({
           </div>
         )}
 
+        {!isOnline && (
+          <div className="mx-6 mb-4 p-3 bg-amber-50 border-2 border-amber-300 rounded-lg">
+            <p className="text-sm text-amber-700 font-semibold">📡 Sin conexion a internet. El envio esta bloqueado temporalmente.</p>
+          </div>
+        )}
+
         {/* FOOTER DE ACCIÓN */}
         <div className="p-4 border-t border-gray-200 bg-gray-50">
           <button
             onClick={handleSubmit}
-            disabled={isSubmitting || externalSubmitting || (paymentMethod === 'transferencia' && !proofImage)}
+            disabled={isSubmitting || externalSubmitting || !isOnline || (paymentMethod === 'transferencia' && !proofImage)}
             className={`w-full py-4 rounded-xl font-black text-lg shadow-lg flex items-center justify-center gap-2 transition-all ${
-              isSubmitting || externalSubmitting || (paymentMethod === 'transferencia' && !proofImage)
+              isSubmitting || externalSubmitting || !isOnline || (paymentMethod === 'transferencia' && !proofImage)
                 ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 : paymentMethod === 'efectivo'
                   ? 'bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white active:scale-95 shadow-green-300'

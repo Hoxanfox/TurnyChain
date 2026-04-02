@@ -4,7 +4,7 @@
 // =================================================================
 import { useEffect, useRef } from 'react';
 import { useDispatch } from 'react-redux';
-import { orderUpdated, fetchMyOrders } from '../features/shared/orders/api/ordersSlice';
+import { orderUpdated, fetchMyOrders, fetchActiveOrders } from '../features/shared/orders/api/ordersSlice';
 import type { AppDispatch } from '../app/store';
 import type { Order } from '../types/orders';
 
@@ -27,6 +27,9 @@ export const useWaiterWebSocket = (
   const ws = useRef<WebSocket | null>(null);
   const heartbeatInterval = useRef<ReturnType<typeof setInterval> | null>(null);
   const refreshDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectAttempts = useRef(0);
+  const shouldReconnect = useRef(true);
   const lastRefreshByOrder = useRef<Record<string, number>>({});
   const onNotificationRef = useRef(onNotification);
 
@@ -42,15 +45,23 @@ export const useWaiterWebSocket = (
       return;
     }
 
+    shouldReconnect.current = true;
+
     const userId = localStorage.getItem('user_id') || 'unknown';
-    const scheduleOrdersRefresh = (orderId?: string) => {
+    const scheduleOrdersRefresh = (
+      orderId?: string,
+      options?: { force?: boolean; includeTeamOrders?: boolean }
+    ) => {
+      const force = options?.force === true;
+      const includeTeamOrders = options?.includeTeamOrders === true;
+
       if (orderId) {
         const now = Date.now();
         const lastRefresh = lastRefreshByOrder.current[orderId] || 0;
 
         // Evita doble refresh cuando llegan eventos consecutivos
         // de la misma orden (p. ej. ORDER_UPDATED y ORDER_PRINT_STATUS_UPDATED).
-        if (now - lastRefresh < 2000) {
+        if (!force && now - lastRefresh < 2000) {
           return;
         }
 
@@ -63,52 +74,11 @@ export const useWaiterWebSocket = (
 
       refreshDebounce.current = setTimeout(() => {
         dispatch(fetchMyOrders());
-      }, 250);
+        if (includeTeamOrders) {
+          dispatch(fetchActiveOrders({ teamOrders: true }));
+        }
+      }, force ? 120 : 250);
     };
-
-    if (!ws.current) {
-      const userRole = localStorage.getItem('user_role') || 'unknown';
-
-      const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-      const wsUrl = `${protocol}://${window.location.host}/ws?user_id=${userId}&role=${userRole}`;
-
-      console.log(`🔌 [Mesero] Conectando WebSocket como ${userRole} (${userId})`);
-
-      ws.current = new WebSocket(wsUrl);
-
-      ws.current.onopen = () => {
-        console.log('✅ [Mesero] WebSocket conectado exitosamente');
-
-        // Heartbeat
-        heartbeatInterval.current = setInterval(() => {
-          if (ws.current?.readyState === WebSocket.OPEN) {
-            ws.current.send(JSON.stringify({ type: 'ping' }));
-          }
-        }, 30000);
-      };
-
-      ws.current.onmessage = (event) => {
-        try {
-          const message: WebSocketMessage = JSON.parse(event.data);
-          console.log('📨 [Mesero] Mensaje recibido:', message);
-
-          handleWebSocketMessage(message);
-        } catch (error) {
-          console.error('❌ [Mesero] Error al parsear mensaje:', error);
-        }
-      };
-
-      ws.current.onerror = (error) => {
-        console.error('❌ [Mesero] Error en WebSocket:', error);
-      };
-
-      ws.current.onclose = () => {
-        console.log('👋 [Mesero] WebSocket desconectado');
-        if (heartbeatInterval.current) {
-          clearInterval(heartbeatInterval.current);
-        }
-      };
-    }
 
     const handleWebSocketMessage = (message: WebSocketMessage) => {
       switch (message.type) {
@@ -226,7 +196,7 @@ export const useWaiterWebSocket = (
         });
       }
 
-      scheduleOrdersRefresh(orderData.id);
+      scheduleOrdersRefresh(orderData.id, { force: true, includeTeamOrders: true });
     };
 
     const playNotificationSound = () => {
@@ -241,18 +211,110 @@ export const useWaiterWebSocket = (
       }
     };
 
+    const clearReconnectTimer = () => {
+      if (reconnectTimeout.current) {
+        clearTimeout(reconnectTimeout.current);
+        reconnectTimeout.current = null;
+      }
+    };
+
+    const connectWebSocket = () => {
+      if (
+        ws.current?.readyState === WebSocket.OPEN ||
+        ws.current?.readyState === WebSocket.CONNECTING
+      ) {
+        return;
+      }
+
+      const currentRole = localStorage.getItem('user_role') || 'unknown';
+      const currentUserID = localStorage.getItem('user_id') || userId;
+      const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+      const wsUrl = `${protocol}://${window.location.host}/ws?user_id=${currentUserID}&role=${currentRole}`;
+
+      console.log(`🔌 [Mesero] Conectando WebSocket como ${currentRole} (${currentUserID})`);
+
+      ws.current = new WebSocket(wsUrl);
+
+      ws.current.onopen = () => {
+        console.log('✅ [Mesero] WebSocket conectado exitosamente');
+        reconnectAttempts.current = 0;
+        clearReconnectTimer();
+
+        // Sincroniza datos al reconectar por si se perdieron eventos mientras estuvo caído.
+        scheduleOrdersRefresh(undefined, { force: true, includeTeamOrders: true });
+
+        // Heartbeat
+        heartbeatInterval.current = setInterval(() => {
+          if (ws.current?.readyState === WebSocket.OPEN) {
+            ws.current.send(JSON.stringify({ type: 'ping' }));
+          }
+        }, 30000);
+      };
+
+      ws.current.onmessage = (event) => {
+        try {
+          const message: WebSocketMessage = JSON.parse(event.data);
+          console.log('📨 [Mesero] Mensaje recibido:', message);
+
+          handleWebSocketMessage(message);
+        } catch (error) {
+          console.error('❌ [Mesero] Error al parsear mensaje:', error);
+        }
+      };
+
+      ws.current.onerror = (error) => {
+        console.error('❌ [Mesero] Error en WebSocket:', error);
+      };
+
+      ws.current.onclose = () => {
+        console.log('👋 [Mesero] WebSocket desconectado');
+
+        if (heartbeatInterval.current) {
+          clearInterval(heartbeatInterval.current);
+          heartbeatInterval.current = null;
+        }
+
+        ws.current = null;
+
+        if (!shouldReconnect.current) {
+          return;
+        }
+
+        const nextAttempt = reconnectAttempts.current + 1;
+        reconnectAttempts.current = nextAttempt;
+        const delayMs = Math.min(1000 * Math.pow(2, nextAttempt-1), 10000);
+
+        console.log(`🔁 [Mesero] Reintentando WebSocket en ${delayMs}ms (intento ${nextAttempt})`);
+        clearReconnectTimer();
+        reconnectTimeout.current = setTimeout(() => {
+          connectWebSocket();
+        }, delayMs);
+      };
+    };
+
+    connectWebSocket();
+
     return () => {
+      shouldReconnect.current = false;
+
       if (heartbeatInterval.current) {
         clearInterval(heartbeatInterval.current);
+        heartbeatInterval.current = null;
       }
+
+      clearReconnectTimer();
+
       if (refreshDebounce.current) {
         clearTimeout(refreshDebounce.current);
         refreshDebounce.current = null;
       }
+
       lastRefreshByOrder.current = {};
+
       if (ws.current && ws.current.readyState !== WebSocket.CLOSED && ws.current.readyState !== WebSocket.CLOSING) {
         ws.current.close();
       }
+
       ws.current = null;
     };
   }, [dispatch]);

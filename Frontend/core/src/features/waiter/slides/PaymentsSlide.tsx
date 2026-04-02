@@ -209,11 +209,11 @@ const PaymentsSlide: React.FC<PaymentsSlideProps> = ({
       };
     }
 
-    if (order.print_status === 'processing') {
+    if (order.print_status === 'processing' || order.print_status === 'printing') {
       return {
         dotClass: 'bg-amber-500',
         chipClass: 'bg-amber-50 text-amber-700 border-amber-200',
-        label: 'Procesando impresion',
+        label: 'Imprimiendo',
       };
     }
 

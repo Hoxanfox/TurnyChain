@@ -7,6 +7,10 @@ package service
 import (
 	"fmt"
 	"log"
+	"net"
+	"os"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -18,10 +22,27 @@ import (
 )
 
 const (
-	maxPrintRetries      = 3
-	printQueueBufferSize = 256
-	printWorkers         = 2
+	maxPrintRetries         = 3
+	printQueueBufferSize    = 256
+	printWorkers            = 2
+	recoveryModeEnv         = "PRINT_RECOVERY_MODE"
+	recoveryLookbackEnv     = "PRINT_RECOVERY_LOOKBACK_MINUTES"
+	autoRetryEnabledEnv     = "PRINT_AUTO_RETRY_ENABLED"
+	autoRetryIntervalEnv    = "PRINT_AUTO_RETRY_INTERVAL_SECONDS"
+	autoRetryLookbackEnv    = "PRINT_AUTO_RETRY_LOOKBACK_MINUTES"
+	autoRetryCooldownEnv    = "PRINT_AUTO_RETRY_COOLDOWN_MINUTES"
+	autoRetryCooldownSecEnv = "PRINT_AUTO_RETRY_COOLDOWN_SECONDS"
+	autoRetryMaxEnv         = "PRINT_AUTO_RETRY_MAX_ATTEMPTS"
+	healthcheckTimeoutMs    = "PRINT_HEALTHCHECK_TIMEOUT_MS"
 )
+
+type printQueueSnapshot struct {
+	QueuedOrderIDs     []string `json:"queued_order_ids"`
+	ProcessingOrderIDs []string `json:"processing_order_ids"`
+	QueuedCount        int      `json:"queued_count"`
+	ProcessingCount    int      `json:"processing_count"`
+	UpdatedAt          string   `json:"updated_at"`
+}
 
 type printJob struct {
 	orderID uuid.UUID
@@ -36,6 +57,9 @@ type KitchenTicketService struct {
 	ipLocks      map[string]*sync.Mutex // Mutex por IP para impresoras que comparten dirección
 	ipLocksGuard sync.RWMutex           // Protege el mapa de ipLocks
 	printQueue   chan printJob
+	queueStateMu sync.Mutex
+	queuedIDs    []uuid.UUID
+	processing   map[uuid.UUID]time.Time
 }
 
 func NewKitchenTicketService(
@@ -51,53 +75,363 @@ func NewKitchenTicketService(
 		wsHub:       wsHub,
 		ipLocks:     make(map[string]*sync.Mutex),
 		printQueue:  make(chan printJob, printQueueBufferSize),
+		processing:  make(map[uuid.UUID]time.Time),
 	}
 	svc.startPrintWorkers()
+	go svc.recoverPendingPrintJobs()
+	go svc.startAutoRetryFailedLoop()
 
 	return svc
+}
+
+func (s *KitchenTicketService) startAutoRetryFailedLoop() {
+	enabled, intervalSeconds, lookbackMinutes, cooldownSeconds, maxAttempts := s.getAutoRetryConfig()
+	if !enabled {
+		log.Printf("ℹ️ [PrintQueue] Auto-retry de fallidas deshabilitado (%s=false)", autoRetryEnabledEnv)
+		return
+	}
+
+	log.Printf("♻️ [PrintQueue] Auto-retry activo: interval=%ds lookback=%dmin cooldown=%ds max_attempts=%d",
+		intervalSeconds, lookbackMinutes, cooldownSeconds, maxAttempts)
+
+	ticker := time.NewTicker(time.Duration(intervalSeconds) * time.Second)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		queued, selected, err := s.EnqueueFailedRecentPrints(nil, lookbackMinutes, cooldownSeconds, maxAttempts)
+		if err != nil {
+			log.Printf("❌ [PrintQueue] Auto-retry fallidas error: %v", err)
+			continue
+		}
+		if queued > 0 {
+			log.Printf("♻️ [PrintQueue] Auto-retry encoló %d/%d ordenes fallidas recientes", queued, selected)
+		}
+	}
+}
+
+func (s *KitchenTicketService) getAutoRetryConfig() (bool, int, int, int, int) {
+	enabled := strings.EqualFold(strings.TrimSpace(os.Getenv(autoRetryEnabledEnv)), "true")
+	intervalSeconds := 60
+	lookbackMinutes := 180
+	cooldownSeconds := 5 * 60
+	maxAttempts := 8
+
+	if raw := strings.TrimSpace(os.Getenv(autoRetryIntervalEnv)); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil && parsed > 0 {
+			intervalSeconds = parsed
+		}
+	}
+	if raw := strings.TrimSpace(os.Getenv(autoRetryLookbackEnv)); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil && parsed >= 0 {
+			lookbackMinutes = parsed
+		}
+	}
+	if raw := strings.TrimSpace(os.Getenv(autoRetryCooldownSecEnv)); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil && parsed > 0 {
+			cooldownSeconds = parsed
+		}
+	} else if raw := strings.TrimSpace(os.Getenv(autoRetryCooldownEnv)); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil && parsed > 0 {
+			cooldownSeconds = parsed * 60
+		}
+	}
+	if raw := strings.TrimSpace(os.Getenv(autoRetryMaxEnv)); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil && parsed >= 0 {
+			maxAttempts = parsed
+		}
+	}
+
+	return enabled, intervalSeconds, lookbackMinutes, cooldownSeconds, maxAttempts
+}
+
+func (s *KitchenTicketService) recoverPendingPrintJobs() {
+	enabled, createdAfter, lastAttemptAfter, recoveryLabel := s.getRecoveryFilters()
+	if !enabled {
+		log.Printf("ℹ️ [PrintQueue] Recovery deshabilitado por %s=off", recoveryModeEnv)
+		return
+	}
+
+	statuses := []string{"queued", "printing"}
+	orderIDs, err := s.orderRepo.GetRecoverableOrderIDsByPrintStatus(statuses, createdAfter, lastAttemptAfter)
+	if err != nil {
+		log.Printf("❌ [PrintQueue] Error recuperando ordenes pendientes al iniciar: %v", err)
+		return
+	}
+
+	if len(orderIDs) == 0 {
+		log.Printf("ℹ️ [PrintQueue] Recovery sin pendientes para criterio %s", recoveryLabel)
+		return
+	}
+
+	log.Printf("🔁 [PrintQueue] Recuperando %d ordenes pendientes de impresion (%s)", len(orderIDs), recoveryLabel)
+	for _, orderID := range orderIDs {
+		if err := s.enqueueOrderPrint(orderID, false); err != nil {
+			log.Printf("❌ [PrintQueue] Error re-encolando orden %s al iniciar: %v", orderID, err)
+		}
+	}
+}
+
+func (s *KitchenTicketService) getRecoveryFilters() (bool, *time.Time, *time.Time, string) {
+	mode := strings.TrimSpace(strings.ToLower(os.Getenv(recoveryModeEnv)))
+	if mode == "" {
+		mode = "recent"
+	}
+
+	now := time.Now().UTC()
+	bogotaLoc, err := time.LoadLocation("America/Bogota")
+	if err != nil {
+		bogotaLoc = time.FixedZone("COT", -5*60*60)
+	}
+	nowBogota := now.In(bogotaLoc)
+	dayStartBogota := time.Date(nowBogota.Year(), nowBogota.Month(), nowBogota.Day(), 0, 0, 0, 0, bogotaLoc)
+	dayStart := dayStartBogota.UTC()
+	lookbackMinutes := 180
+
+	if raw := strings.TrimSpace(os.Getenv(recoveryLookbackEnv)); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil && parsed > 0 {
+			lookbackMinutes = parsed
+		}
+	}
+
+	recent := now.Add(-time.Duration(lookbackMinutes) * time.Minute)
+	formatLabel := func(t time.Time) string {
+		return fmt.Sprintf("created_at >= %s (Bogota: %s)", t.Format(time.RFC3339), t.In(bogotaLoc).Format("2006-01-02 15:04:05 -07:00 MST"))
+	}
+
+	switch mode {
+	case "off", "disabled", "none":
+		return false, nil, nil, "disabled"
+	case "all":
+		return true, nil, nil, "all"
+	case "today":
+		return true, &dayStart, nil, formatLabel(dayStart)
+	case "recent":
+		return true, &recent, nil, formatLabel(recent)
+	default:
+		log.Printf("⚠️ [PrintQueue] Valor desconocido en %s=%s, usando modo recent", recoveryModeEnv, mode)
+		return true, &recent, nil, formatLabel(recent)
+	}
 }
 
 func (s *KitchenTicketService) startPrintWorkers() {
 	for i := 0; i < printWorkers; i++ {
 		go func(workerID int) {
 			for job := range s.printQueue {
+				s.markDequeuedToProcessing(job.orderID)
 				log.Printf("🧾 [PrintQueue] Worker %d procesando orden %s", workerID, job.orderID)
-				s.processPrintJob(job.orderID)
+				s.safeProcessPrintJob(job.orderID)
+				s.markCompleted(job.orderID)
 			}
 		}(i + 1)
 	}
 }
 
 func (s *KitchenTicketService) EnqueueOrderPrint(orderID uuid.UUID) error {
-	if _, err := s.orderRepo.UpdateOrderPrintStatus(orderID, "pending", 0, nil, nil); err != nil {
+	return s.enqueueOrderPrint(orderID, false)
+}
+
+func (s *KitchenTicketService) EnqueueOrderPrintRetry(orderID uuid.UUID) error {
+	return s.enqueueOrderPrint(orderID, true)
+}
+
+func (s *KitchenTicketService) EnqueueFailedRecentPrints(tableNumber *int, lookbackMinutes, cooldownSeconds, maxAttempts int) (int, int, error) {
+	if lookbackMinutes < 0 {
+		lookbackMinutes = 180
+	}
+	if cooldownSeconds <= 0 {
+		cooldownSeconds = 5 * 60
+	}
+	if maxAttempts < 0 {
+		maxAttempts = 8
+	}
+
+	now := time.Now().UTC()
+	var createdAfter *time.Time
+	if lookbackMinutes > 0 {
+		t := now.Add(-time.Duration(lookbackMinutes) * time.Minute)
+		createdAfter = &t
+	}
+	lastAttemptBefore := now.Add(-time.Duration(cooldownSeconds) * time.Second)
+
+	orderIDs, err := s.orderRepo.GetRetryableFailedOrderIDs(createdAfter, lastAttemptBefore, maxAttempts, tableNumber)
+	if err != nil {
+		return 0, 0, fmt.Errorf("error consultando fallidas reintentables: %w", err)
+	}
+
+	if len(orderIDs) == 0 {
+		return 0, 0, nil
+	}
+
+	queued := 0
+	for _, orderID := range orderIDs {
+		if err := s.enqueueOrderPrint(orderID, false); err != nil {
+			log.Printf("❌ [PrintQueue] Error encolando fallida %s: %v", orderID, err)
+			continue
+		}
+		queued++
+	}
+
+	return queued, len(orderIDs), nil
+}
+
+func (s *KitchenTicketService) enqueueOrderPrint(orderID uuid.UUID, allowOverwritePrinted bool) error {
+	_, updated, err := s.orderRepo.UpdateOrderPrintStatusGuarded(orderID, "queued", 0, nil, nil, allowOverwritePrinted)
+	if err != nil {
 		return fmt.Errorf("error marcando orden en cola de impresion: %w", err)
+	}
+
+	if !updated {
+		log.Printf("ℹ️ [PrintQueue] Orden %s ya esta impresa. No se re-encola automaticamente", orderID)
+		return nil
 	}
 
 	select {
 	case s.printQueue <- printJob{orderID: orderID}:
+		s.markEnqueued(orderID)
 		log.Printf("📥 [PrintQueue] Orden %s agregada a la cola", orderID)
 		return nil
 	default:
-		errText := "cola de impresion llena"
-		if _, updateErr := s.orderRepo.UpdateOrderPrintStatus(orderID, "failed", 0, &errText, nil); updateErr != nil {
-			log.Printf("❌ [PrintQueue] Error actualizando estado tras cola llena: %v", updateErr)
-		}
-		return fmt.Errorf("%s", errText)
+		log.Printf("⚠️ [PrintQueue] Cola llena para orden %s. Activando encolado diferido.", orderID)
+		go s.retryEnqueue(orderID)
+		return nil
 	}
 }
 
+func (s *KitchenTicketService) retryEnqueue(orderID uuid.UUID) {
+	for attempt := 1; attempt <= 5; attempt++ {
+		time.Sleep(time.Duration(attempt) * 500 * time.Millisecond)
+
+		select {
+		case s.printQueue <- printJob{orderID: orderID}:
+			s.markEnqueued(orderID)
+			log.Printf("📥 [PrintQueue] Orden %s re-encolada correctamente (intento %d/5)", orderID, attempt)
+			return
+		default:
+			log.Printf("⚠️ [PrintQueue] Cola aun llena para orden %s (intento %d/5)", orderID, attempt)
+		}
+	}
+
+	errText := "cola de impresion saturada tras reintentos"
+	if _, _, updateErr := s.orderRepo.UpdateOrderPrintStatusGuarded(orderID, "failed", 1, &errText, nil, false); updateErr != nil {
+		log.Printf("❌ [PrintQueue] Error actualizando estado tras saturacion %s: %v", orderID, updateErr)
+	}
+	s.broadcastOrderPrintStatus(orderID)
+}
+
+func (s *KitchenTicketService) markEnqueued(orderID uuid.UUID) {
+	s.queueStateMu.Lock()
+	defer s.queueStateMu.Unlock()
+
+	if _, exists := s.processing[orderID]; exists {
+		return
+	}
+
+	for _, id := range s.queuedIDs {
+		if id == orderID {
+			return
+		}
+	}
+
+	s.queuedIDs = append(s.queuedIDs, orderID)
+	s.broadcastQueueSnapshotLocked()
+}
+
+func (s *KitchenTicketService) markDequeuedToProcessing(orderID uuid.UUID) {
+	s.queueStateMu.Lock()
+	defer s.queueStateMu.Unlock()
+
+	filtered := make([]uuid.UUID, 0, len(s.queuedIDs))
+	for _, id := range s.queuedIDs {
+		if id != orderID {
+			filtered = append(filtered, id)
+		}
+	}
+	s.queuedIDs = filtered
+	s.processing[orderID] = time.Now().UTC()
+	s.broadcastQueueSnapshotLocked()
+}
+
+func (s *KitchenTicketService) markCompleted(orderID uuid.UUID) {
+	s.queueStateMu.Lock()
+	defer s.queueStateMu.Unlock()
+
+	delete(s.processing, orderID)
+	s.broadcastQueueSnapshotLocked()
+}
+
+func (s *KitchenTicketService) buildQueueSnapshotLocked() printQueueSnapshot {
+	queued := make([]string, 0, len(s.queuedIDs))
+	for _, id := range s.queuedIDs {
+		queued = append(queued, id.String())
+	}
+
+	processing := make([]string, 0, len(s.processing))
+	for id := range s.processing {
+		processing = append(processing, id.String())
+	}
+
+	return printQueueSnapshot{
+		QueuedOrderIDs:     queued,
+		ProcessingOrderIDs: processing,
+		QueuedCount:        len(queued),
+		ProcessingCount:    len(processing),
+		UpdatedAt:          time.Now().UTC().Format(time.RFC3339),
+	}
+}
+
+func (s *KitchenTicketService) broadcastQueueSnapshotLocked() {
+	if s.wsHub == nil {
+		return
+	}
+
+	snapshot := s.buildQueueSnapshotLocked()
+	go s.wsHub.BroadcastMessage("PRINT_QUEUE_UPDATED", snapshot)
+}
+
+func (s *KitchenTicketService) safeProcessPrintJob(orderID uuid.UUID) {
+	defer func() {
+		if r := recover(); r != nil {
+			errText := fmt.Sprintf("panic en worker de impresion: %v", r)
+			log.Printf("❌ [PrintQueue] %s | orden %s", errText, orderID)
+			if _, _, err := s.orderRepo.UpdateOrderPrintStatusGuarded(orderID, "failed", 1, &errText, nil, false); err != nil {
+				log.Printf("❌ [PrintQueue] Error marcando failed tras panic %s: %v", orderID, err)
+			}
+			s.broadcastOrderPrintStatus(orderID)
+		}
+	}()
+
+	s.processPrintJob(orderID)
+}
+
 func (s *KitchenTicketService) processPrintJob(orderID uuid.UUID) {
+	reachable, healthErr := s.hasReachableActivePrinter()
+	if healthErr != nil {
+		log.Printf("⚠️ [PrintQueue] Health-check impresoras falló para orden %s: %v", orderID, healthErr)
+	}
+	if !reachable {
+		errText := "impresoras offline: no hay impresoras activas alcanzables, reintenta cuando se restablezca la conectividad"
+		if _, _, err := s.orderRepo.UpdateOrderPrintStatusGuarded(orderID, "failed", 1, &errText, nil, false); err != nil {
+			log.Printf("❌ [PrintQueue] Error marcando failed por health-check %s: %v", orderID, err)
+		}
+		s.broadcastOrderPrintStatus(orderID)
+		return
+	}
+
 	var lastErr string
 
 	for attempt := 1; attempt <= maxPrintRetries; attempt++ {
-		if _, err := s.orderRepo.UpdateOrderPrintStatus(orderID, "processing", 1, nil, nil); err != nil {
-			log.Printf("❌ [PrintQueue] Error actualizando estado processing para %s: %v", orderID, err)
+		order, updated, err := s.orderRepo.UpdateOrderPrintStatusGuarded(orderID, "printing", attempt, nil, nil, false)
+		if err != nil {
+			log.Printf("❌ [PrintQueue] Error actualizando estado printing para %s: %v", orderID, err)
+		} else if !updated && order != nil && order.PrintStatus == "printed" {
+			log.Printf("ℹ️ [PrintQueue] Orden %s ya impresa. Se omite procesamiento duplicado", orderID)
+			return
 		}
 
 		result, err := s.PrintOrderAllDestinations(orderID)
 		if err == nil && result != nil && result.Success {
 			now := time.Now()
-			if _, updateErr := s.orderRepo.UpdateOrderPrintStatus(orderID, "printed", 0, nil, &now); updateErr != nil {
+			if _, _, updateErr := s.orderRepo.UpdateOrderPrintStatusGuarded(orderID, "printed", 0, nil, &now, false); updateErr != nil {
 				log.Printf("❌ [PrintQueue] Error marcando orden impresa %s: %v", orderID, updateErr)
 			}
 			s.broadcastOrderPrintStatus(orderID)
@@ -122,10 +456,42 @@ func (s *KitchenTicketService) processPrintJob(orderID uuid.UUID) {
 		}
 	}
 
-	if _, err := s.orderRepo.UpdateOrderPrintStatus(orderID, "failed", 0, &lastErr, nil); err != nil {
+	if _, _, err := s.orderRepo.UpdateOrderPrintStatusGuarded(orderID, "failed", 0, &lastErr, nil, false); err != nil {
 		log.Printf("❌ [PrintQueue] Error marcando orden fallida %s: %v", orderID, err)
 	}
 	s.broadcastOrderPrintStatus(orderID)
+}
+
+func (s *KitchenTicketService) hasReachableActivePrinter() (bool, error) {
+	printers, err := s.printerRepo.GetAllActive()
+	if err != nil {
+		return false, err
+	}
+	if len(printers) == 0 {
+		return false, nil
+	}
+
+	timeout := 800 * time.Millisecond
+	if raw := strings.TrimSpace(os.Getenv(healthcheckTimeoutMs)); raw != "" {
+		if parsed, parseErr := strconv.Atoi(raw); parseErr == nil && parsed > 0 {
+			timeout = time.Duration(parsed) * time.Millisecond
+		}
+	}
+
+	for _, printer := range printers {
+		if printer.PrinterType != domain.PrinterTypeESCPOS {
+			return true, nil
+		}
+
+		address := fmt.Sprintf("%s:%d", printer.IPAddress, printer.Port)
+		conn, dialErr := net.DialTimeout("tcp", address, timeout)
+		if dialErr == nil {
+			_ = conn.Close()
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 func (s *KitchenTicketService) broadcastOrderPrintStatus(orderID uuid.UUID) {

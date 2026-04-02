@@ -213,6 +213,21 @@ export const canSendOrder = (cart: CartItem[], tableId: string): boolean => {
   return tableId !== '' && cart.length > 0;
 };
 
+export const isClientOnline = (): boolean => {
+  if (typeof navigator === 'undefined') {
+    return true;
+  }
+  return navigator.onLine;
+};
+
+export const canSendOrderWithConnectivity = (
+  cart: CartItem[],
+  tableId: string,
+  isOnline: boolean
+): boolean => {
+  return isOnline && canSendOrder(cart, tableId);
+};
+
 /**
  * Calcula el total del carrito
  */

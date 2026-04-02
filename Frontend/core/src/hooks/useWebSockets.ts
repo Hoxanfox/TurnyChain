@@ -6,6 +6,7 @@ import { useEffect, useRef } from 'react';
 import { useDispatch } from 'react-redux';
 import { orderAdded, orderUpdated } from '../features/shared/orders/api/ordersSlice.ts';
 import { menuItemAdded, menuItemUpdated, menuItemRemoved } from '../features/admin/components/menu/api/menuSlice.ts';
+import { backendErrorReceived } from '../features/admin/api/backendLogsSlice.ts';
 import type { AppDispatch } from '../app/store';
 import type { Order } from '../types/orders';
 import type { MenuItem } from '../types/menu';
@@ -93,6 +94,22 @@ export const useWebSockets = () => {
           dispatch(menuItemUpdated(message.payload as MenuItem));
         } else if (message.type === 'MENU_ITEM_DELETED') {
           dispatch(menuItemRemoved(message.payload as { id: string }));
+        } else if (message.type === 'BACKEND_ERROR_LOG') {
+          const payload = message.payload as {
+            timestamp?: string;
+            message?: string;
+            method?: string;
+            path?: string;
+            status?: number;
+          };
+
+          dispatch(backendErrorReceived({
+            timestamp: payload.timestamp || new Date().toISOString(),
+            message: payload.message || 'internal server error',
+            method: payload.method,
+            path: payload.path,
+            status: payload.status,
+          }));
         }
 
       } catch (error) {

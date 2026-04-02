@@ -1,5 +1,5 @@
 import React from 'react';
-import type { Order } from '../../../../types/orders';
+import type { Order } from '../../../types/orders';
 
 interface PrintMonitorModalProps {
   isOpen: boolean;
@@ -13,7 +13,7 @@ const getPrintMeta = (order: Order) => {
     return {
       color: 'bg-emerald-500',
       badge: 'bg-emerald-100 text-emerald-800',
-      label: 'Impresa'
+      label: 'Impresa',
     };
   }
 
@@ -21,7 +21,7 @@ const getPrintMeta = (order: Order) => {
     return {
       color: 'bg-red-500',
       badge: 'bg-red-100 text-red-800',
-      label: 'Fallo impresion'
+      label: 'Fallo impresion',
     };
   }
 
@@ -29,18 +29,18 @@ const getPrintMeta = (order: Order) => {
     return {
       color: 'bg-amber-500',
       badge: 'bg-amber-100 text-amber-800',
-      label: 'Imprimiendo'
+      label: 'Imprimiendo',
     };
   }
 
   return {
     color: 'bg-slate-400',
     badge: 'bg-slate-100 text-slate-700',
-    label: 'Pendiente'
+    label: 'En cola',
   };
 };
 
-export const PrintMonitorModal: React.FC<PrintMonitorModalProps> = ({
+const PrintMonitorModal: React.FC<PrintMonitorModalProps> = ({
   isOpen,
   onClose,
   orders,
@@ -57,13 +57,13 @@ export const PrintMonitorModal: React.FC<PrintMonitorModalProps> = ({
   const failedCount = monitoredOrders.filter((order) => order.print_status === 'failed').length;
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4">
+    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 p-4">
       <div className="w-full max-w-3xl rounded-2xl bg-white shadow-2xl overflow-hidden">
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
           <div>
-            <h3 className="text-lg font-bold text-slate-900">Monitoreo de impresion</h3>
+            <h3 className="text-lg font-bold text-slate-900">Monitor de impresion (Admin)</h3>
             <p className="text-xs text-slate-500">
-              {monitoredOrders.length} comandas en esta mesa · {failedCount} con fallo
+              {monitoredOrders.length} comandas en mesa seleccionada · {failedCount} con fallo
             </p>
           </div>
           <button
@@ -121,3 +121,5 @@ export const PrintMonitorModal: React.FC<PrintMonitorModalProps> = ({
     </div>
   );
 };
+
+export default PrintMonitorModal;

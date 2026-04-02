@@ -24,6 +24,10 @@ type OrderRepository interface {
 	UpdateOrderItems(orderID uuid.UUID, items []domain.OrderItem, newTotal float64) error
 	AddPaymentProof(orderID uuid.UUID, method string, proofPath string) (*domain.Order, error)
 	UpdateOrderPrintStatus(orderID uuid.UUID, status string, incrementAttempts int, lastError *string, printedAt *time.Time) (*domain.Order, error)
+	UpdateOrderPrintStatusGuarded(orderID uuid.UUID, status string, incrementAttempts int, lastError *string, printedAt *time.Time, allowOverwritePrinted bool) (*domain.Order, bool, error)
+	GetOrderIDsByPrintStatus(statuses []string) ([]uuid.UUID, error)
+	GetRecoverableOrderIDsByPrintStatus(statuses []string, createdAfter *time.Time, lastAttemptAfter *time.Time) ([]uuid.UUID, error)
+	GetRetryableFailedOrderIDs(createdAfter *time.Time, lastAttemptBefore time.Time, maxAttempts int, tableNumber *int) ([]uuid.UUID, error)
 }
 
 type orderRepository struct{ db *sql.DB }
@@ -42,7 +46,7 @@ func (r *orderRepository) CreateOrder(order *domain.Order) (*domain.Order, error
 	orderQuery := `INSERT INTO orders (id, parent_order_id, waiter_id, table_id, table_number, status, total, order_type, customer_name, delivery_address, delivery_phone, delivery_notes, print_status, print_attempts) 
 	               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) 
                    RETURNING id, created_at`
-	err = tx.QueryRow(orderQuery, order.ID, order.ParentOrderID, order.WaiterID, order.TableID, order.TableNumber, order.Status, order.Total, order.OrderType, order.CustomerName, order.DeliveryAddress, order.DeliveryPhone, order.DeliveryNotes, "pending", 0).Scan(&order.ID, &order.CreatedAt)
+	err = tx.QueryRow(orderQuery, order.ID, order.ParentOrderID, order.WaiterID, order.TableID, order.TableNumber, order.Status, order.Total, order.OrderType, order.CustomerName, order.DeliveryAddress, order.DeliveryPhone, order.DeliveryNotes, "queued", 0).Scan(&order.ID, &order.CreatedAt)
 	if err != nil {
 		tx.Rollback()
 		return nil, err
@@ -62,7 +66,7 @@ func (r *orderRepository) CreateOrder(order *domain.Order) (*domain.Order, error
 		return nil, err
 	}
 
-	order.PrintStatus = "pending"
+	order.PrintStatus = "queued"
 	order.PrintAttempts = 0
 
 	// Obtener el nombre del mesero
@@ -145,7 +149,7 @@ func (r *orderRepository) GetOrders(filters map[string]interface{}) ([]domain.Or
 			pp := paymentProof.String
 			order.PaymentProofPath = &pp
 		}
-		order.PrintStatus = "pending"
+		order.PrintStatus = "queued"
 		if printStatus.Valid {
 			order.PrintStatus = printStatus.String
 		}
@@ -327,7 +331,7 @@ func (r *orderRepository) GetOrderByID(orderID uuid.UUID) (*domain.Order, error)
 		pp := paymentProof.String
 		order.PaymentProofPath = &pp
 	}
-	order.PrintStatus = "pending"
+	order.PrintStatus = "queued"
 	if printStatus.Valid {
 		order.PrintStatus = printStatus.String
 	}
@@ -433,7 +437,7 @@ func (r *orderRepository) UpdateOrderStatus(orderID, userID uuid.UUID, status st
 		pp := paymentProof.String
 		order.PaymentProofPath = &pp
 	}
-	order.PrintStatus = "pending"
+	order.PrintStatus = "queued"
 	if printStatus.Valid {
 		order.PrintStatus = printStatus.String
 	}
@@ -516,7 +520,7 @@ func (r *orderRepository) ManageOrder(orderID uuid.UUID, updates map[string]inte
 			pp := paymentProof.String
 			order.PaymentProofPath = &pp
 		}
-		order.PrintStatus = "pending"
+		order.PrintStatus = "queued"
 		if printStatus.Valid {
 			order.PrintStatus = printStatus.String
 		}
@@ -575,7 +579,7 @@ func (r *orderRepository) ManageOrder(orderID uuid.UUID, updates map[string]inte
 			pp := paymentProof.String
 			order.PaymentProofPath = &pp
 		}
-		order.PrintStatus = "pending"
+		order.PrintStatus = "queued"
 		if printStatus.Valid {
 			order.PrintStatus = printStatus.String
 		}
@@ -679,7 +683,7 @@ func (r *orderRepository) AddPaymentProof(orderID uuid.UUID, method string, proo
 		var printedAt sql.NullTime
 		var lastPrintAttemptAt sql.NullTime
 		err = r.db.QueryRow(query, method, proofPath, newStatus, orderID).Scan(&order.ID, &order.WaiterID, &order.CashierID, &order.TableNumber, &order.Status, &order.Total, &order.OrderType, &deliveryAddress, &deliveryPhone, &deliveryNotes, &paymentMethod, &paymentProof, &printStatus, &printAttempts, &lastPrintError, &printedAt, &lastPrintAttemptAt, &order.CreatedAt, &order.UpdatedAt)
-		order.PrintStatus = "pending"
+		order.PrintStatus = "queued"
 		if printStatus.Valid {
 			order.PrintStatus = printStatus.String
 		}
@@ -708,7 +712,7 @@ func (r *orderRepository) AddPaymentProof(orderID uuid.UUID, method string, proo
 		var printedAt sql.NullTime
 		var lastPrintAttemptAt sql.NullTime
 		err = r.db.QueryRow(query, method, newStatus, orderID).Scan(&order.ID, &order.WaiterID, &order.CashierID, &order.TableNumber, &order.Status, &order.Total, &order.OrderType, &deliveryAddress, &deliveryPhone, &deliveryNotes, &paymentMethod, &paymentProof, &printStatus, &printAttempts, &lastPrintError, &printedAt, &lastPrintAttemptAt, &order.CreatedAt, &order.UpdatedAt)
-		order.PrintStatus = "pending"
+		order.PrintStatus = "queued"
 		if printStatus.Valid {
 			order.PrintStatus = printStatus.String
 		}
@@ -773,19 +777,138 @@ func (r *orderRepository) AddPaymentProof(orderID uuid.UUID, method string, proo
 }
 
 func (r *orderRepository) UpdateOrderPrintStatus(orderID uuid.UUID, status string, incrementAttempts int, lastError *string, printedAt *time.Time) (*domain.Order, error) {
+	order, _, err := r.UpdateOrderPrintStatusGuarded(orderID, status, incrementAttempts, lastError, printedAt, true)
+	return order, err
+}
+
+func (r *orderRepository) UpdateOrderPrintStatusGuarded(orderID uuid.UUID, status string, incrementAttempts int, lastError *string, printedAt *time.Time, allowOverwritePrinted bool) (*domain.Order, bool, error) {
 	query := `
 		UPDATE orders
 		SET
-			print_status = $1,
+			print_status = $1::varchar,
 			print_attempts = COALESCE(print_attempts, 0) + GREATEST($2, 0),
 			last_print_error = $3,
-			printed_at = CASE WHEN $4::timestamptz IS NULL THEN printed_at ELSE $4::timestamptz END,
+			printed_at = CASE
+				WHEN $4::timestamptz IS NOT NULL THEN $4::timestamptz
+				WHEN $1::varchar = 'printed'::varchar THEN printed_at
+				ELSE NULL
+			END,
 			last_print_attempt_at = NOW()
-		WHERE id = $5`
+		WHERE id = $5
+		  AND ($6::boolean OR COALESCE(print_status, 'queued'::varchar) <> 'printed'::varchar)`
 
-	if _, err := r.db.Exec(query, status, incrementAttempts, lastError, printedAt, orderID); err != nil {
+	result, err := r.db.Exec(query, status, incrementAttempts, lastError, printedAt, orderID, allowOverwritePrinted)
+	if err != nil {
+		return nil, false, err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return nil, false, err
+	}
+
+	order, err := r.GetOrderByID(orderID)
+	if err != nil {
+		return nil, false, err
+	}
+
+	return order, rowsAffected > 0, nil
+}
+
+func (r *orderRepository) GetOrderIDsByPrintStatus(statuses []string) ([]uuid.UUID, error) {
+	return r.GetRecoverableOrderIDsByPrintStatus(statuses, nil, nil)
+}
+
+func (r *orderRepository) GetRecoverableOrderIDsByPrintStatus(statuses []string, createdAfter *time.Time, lastAttemptAfter *time.Time) ([]uuid.UUID, error) {
+	query := `SELECT id FROM orders WHERE print_status = ANY($1)`
+	args := []interface{}{pq.Array(statuses)}
+
+	if createdAfter != nil && lastAttemptAfter != nil {
+		query += ` AND (created_at >= $2 OR (last_print_attempt_at IS NOT NULL AND last_print_attempt_at >= $3))`
+		args = append(args, *createdAfter, *lastAttemptAfter)
+	} else if createdAfter != nil {
+		query += ` AND created_at >= $2`
+		args = append(args, *createdAfter)
+	} else if lastAttemptAfter != nil {
+		query += ` AND last_print_attempt_at IS NOT NULL AND last_print_attempt_at >= $2`
+		args = append(args, *lastAttemptAfter)
+	}
+
+	query += ` ORDER BY created_at DESC`
+
+	rows, err := r.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	ids := make([]uuid.UUID, 0)
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+
+	if err := rows.Err(); err != nil {
 		return nil, err
 	}
 
-	return r.GetOrderByID(orderID)
+	return ids, nil
+}
+
+func (r *orderRepository) GetRetryableFailedOrderIDs(createdAfter *time.Time, lastAttemptBefore time.Time, maxAttempts int, tableNumber *int) ([]uuid.UUID, error) {
+	query := `
+		SELECT id
+		FROM orders
+		WHERE print_status = 'failed'`
+
+	args := make([]interface{}, 0)
+	argID := 1
+
+	if createdAfter != nil {
+		query += ` AND created_at >= $` + strconv.Itoa(argID)
+		args = append(args, *createdAfter)
+		argID++
+	}
+
+	if maxAttempts > 0 {
+		query += ` AND COALESCE(print_attempts, 0) < $` + strconv.Itoa(argID)
+		args = append(args, maxAttempts)
+		argID++
+	}
+
+	query += ` AND (last_print_attempt_at IS NULL OR last_print_attempt_at <= $` + strconv.Itoa(argID) + `)`
+	args = append(args, lastAttemptBefore)
+	argID++
+
+	if tableNumber != nil {
+		query += ` AND table_number = $` + strconv.Itoa(argID)
+		args = append(args, *tableNumber)
+		argID++
+	}
+
+	query += ` ORDER BY created_at DESC`
+
+	rows, err := r.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	ids := make([]uuid.UUID, 0)
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return ids, nil
 }

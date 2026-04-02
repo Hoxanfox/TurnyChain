@@ -11,6 +11,7 @@ import tablesReducer from '../features/admin/components/tables/api/tablesSlice.t
 import categoriesReducer from '../features/admin/components/categories/api/categoriesSlice.ts';
 import ingredientsReducer from '../features/admin/components/ingredients/api/ingredientsSlice.ts';
 import accompanimentsReducer from '../features/admin/components/accompaniments/api/accompanimentsSlice.ts';
+import backendLogsReducer from '../features/admin/api/backendLogsSlice.ts';
 
 const appReducer = combineReducers({
   auth: authReducer,
@@ -21,6 +22,7 @@ const appReducer = combineReducers({
   categories: categoriesReducer,
   ingredients: ingredientsReducer,
   accompaniments: accompanimentsReducer,
+  backendLogs: backendLogsReducer,
 });
 
 const rootReducer: typeof appReducer = (state, action) => {

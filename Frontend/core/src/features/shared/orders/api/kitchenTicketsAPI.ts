@@ -88,5 +88,25 @@ export const kitchenTicketsAPI = {
       throw error;
     }
   },
+
+  retryRecentFailed: async (options?: {
+    table_number?: number;
+    lookback_minutes?: number;
+    cooldown_minutes?: number;
+    max_attempts?: number;
+  }): Promise<{
+    success: boolean;
+    target: string;
+    selected_orders: number;
+    queued_orders: number;
+    message: string;
+  }> => {
+    const response = await axios.post(
+      '/api/orders/kitchen-tickets/retry-failed-recent',
+      options || {},
+      getAuthConfig()
+    );
+    return response.data;
+  },
 };
 
