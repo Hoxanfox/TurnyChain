@@ -25,7 +25,10 @@ export const useCashierWebSocket = (
   const dispatch = useDispatch<AppDispatch>();
   const ws = useRef<WebSocket | null>(null);
   const heartbeatInterval = useRef<ReturnType<typeof setInterval> | null>(null);
-  const isConnecting = useRef(false);
+  const reconnectTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectAttempts = useRef(0);
+  const shouldReconnect = useRef(true);
+  const refreshDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onNotificationRef = useRef(onNotification);
 
   useEffect(() => {
@@ -40,57 +43,19 @@ export const useCashierWebSocket = (
       return;
     }
 
-    // Evitar múltiples conexiones simultáneas
-    if (ws.current?.readyState === WebSocket.OPEN || ws.current?.readyState === WebSocket.CONNECTING || isConnecting.current) {
-      console.log('⚠️ [Cajero] Ya existe una conexión WebSocket activa o en progreso');
-      return;
-    }
-
-    isConnecting.current = true;
+    shouldReconnect.current = true;
     const userId = localStorage.getItem('user_id') || 'unknown';
 
-    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const wsUrl = `${protocol}://${window.location.host}/ws?user_id=${userId}&role=${userRole}`;
+    const scheduleActiveOrdersRefresh = (options?: { force?: boolean }) => {
+      const force = options?.force === true;
 
-    console.log(`🔌 [Cajero] Conectando WebSocket como ${userRole} (${userId})`);
-
-    ws.current = new WebSocket(wsUrl);
-
-    ws.current.onopen = () => {
-      console.log('✅ [Cajero] WebSocket conectado exitosamente');
-      isConnecting.current = false;
-
-      // Heartbeat
-      heartbeatInterval.current = setInterval(() => {
-        if (ws.current?.readyState === WebSocket.OPEN) {
-          ws.current.send(JSON.stringify({ type: 'ping' }));
-        }
-      }, 30000);
-    };
-
-    ws.current.onmessage = (event) => {
-      try {
-        const message: WebSocketMessage = JSON.parse(event.data);
-        console.log('📨 [Cajero] Mensaje recibido:', message);
-
-        handleWebSocketMessage(message);
-      } catch (error) {
-        console.error('❌ [Cajero] Error al parsear mensaje:', error);
+      if (refreshDebounce.current) {
+        clearTimeout(refreshDebounce.current);
       }
-    };
 
-    ws.current.onerror = (error) => {
-      console.error('❌ [Cajero] Error en WebSocket:', error);
-      isConnecting.current = false;
-    };
-
-    ws.current.onclose = () => {
-      console.log('👋 [Cajero] WebSocket desconectado');
-      isConnecting.current = false;
-      if (heartbeatInterval.current) {
-        clearInterval(heartbeatInterval.current);
-        heartbeatInterval.current = null;
-      }
+      refreshDebounce.current = setTimeout(() => {
+        dispatch(fetchActiveOrders());
+      }, force ? 120 : 250);
     };
 
     const handleWebSocketMessage = (message: WebSocketMessage) => {
@@ -150,7 +115,7 @@ export const useCashierWebSocket = (
         playNotificationSound();
 
         // Recargar órdenes para asegurar sincronización
-        dispatch(fetchActiveOrders());
+        scheduleActiveOrdersRefresh();
       }
     };
 
@@ -170,7 +135,7 @@ export const useCashierWebSocket = (
           });
         }
 
-        dispatch(fetchActiveOrders());
+        scheduleActiveOrdersRefresh();
       }
     };
 
@@ -179,7 +144,7 @@ export const useCashierWebSocket = (
 
       if (order) {
         dispatch(orderUpdated(order as Order));
-        dispatch(fetchActiveOrders());
+        scheduleActiveOrdersRefresh();
       }
     };
 
@@ -201,7 +166,7 @@ export const useCashierWebSocket = (
           }
         }
 
-        dispatch(fetchActiveOrders());
+        scheduleActiveOrdersRefresh();
       }
     };
 
@@ -221,7 +186,7 @@ export const useCashierWebSocket = (
         });
       }
 
-      dispatch(fetchActiveOrders());
+      scheduleActiveOrdersRefresh();
     };
 
     const playNotificationSound = () => {
@@ -236,20 +201,116 @@ export const useCashierWebSocket = (
       }
     };
 
+    const clearReconnectTimer = () => {
+      if (reconnectTimeout.current) {
+        clearTimeout(reconnectTimeout.current);
+        reconnectTimeout.current = null;
+      }
+    };
+
+    const connectWebSocket = () => {
+      if (
+        ws.current?.readyState === WebSocket.OPEN ||
+        ws.current?.readyState === WebSocket.CONNECTING
+      ) {
+        return;
+      }
+
+      const currentRole = localStorage.getItem('user_role') || 'unknown';
+      const currentUserID = localStorage.getItem('user_id') || userId;
+      const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+      const wsUrl = `${protocol}://${window.location.host}/ws?user_id=${currentUserID}&role=${currentRole}`;
+
+      console.log(`🔌 [Cajero] Conectando WebSocket como ${currentRole} (${currentUserID})`);
+
+      ws.current = new WebSocket(wsUrl);
+
+      ws.current.onopen = () => {
+        console.log('✅ [Cajero] WebSocket conectado exitosamente');
+        reconnectAttempts.current = 0;
+        clearReconnectTimer();
+
+        // Sincroniza datos al reconectar por si se perdieron eventos.
+        scheduleActiveOrdersRefresh({ force: true });
+
+        // Heartbeat
+        if (heartbeatInterval.current) {
+          clearInterval(heartbeatInterval.current);
+        }
+        heartbeatInterval.current = setInterval(() => {
+          if (ws.current?.readyState === WebSocket.OPEN) {
+            ws.current.send(JSON.stringify({ type: 'ping' }));
+          }
+        }, 30000);
+      };
+
+      ws.current.onmessage = (event) => {
+        try {
+          const message: WebSocketMessage = JSON.parse(event.data);
+          console.log('📨 [Cajero] Mensaje recibido:', message);
+
+          handleWebSocketMessage(message);
+        } catch (error) {
+          console.error('❌ [Cajero] Error al parsear mensaje:', error);
+        }
+      };
+
+      ws.current.onerror = (error) => {
+        console.error('❌ [Cajero] Error en WebSocket:', error);
+      };
+
+      ws.current.onclose = () => {
+        console.log('👋 [Cajero] WebSocket desconectado');
+
+        if (heartbeatInterval.current) {
+          clearInterval(heartbeatInterval.current);
+          heartbeatInterval.current = null;
+        }
+
+        ws.current = null;
+
+        if (!shouldReconnect.current) {
+          return;
+        }
+
+        const nextAttempt = reconnectAttempts.current + 1;
+        reconnectAttempts.current = nextAttempt;
+        const delayMs = Math.min(1000 * Math.pow(2, nextAttempt - 1), 10000);
+
+        console.log(`🔁 [Cajero] Reintentando WebSocket en ${delayMs}ms (intento ${nextAttempt})`);
+        clearReconnectTimer();
+        reconnectTimeout.current = setTimeout(() => {
+          connectWebSocket();
+        }, delayMs);
+      };
+    };
+
+    connectWebSocket();
+
     return () => {
       console.log('🧹 [Cajero] Limpiando WebSocket...');
+
+      shouldReconnect.current = false;
 
       if (heartbeatInterval.current) {
         clearInterval(heartbeatInterval.current);
         heartbeatInterval.current = null;
       }
 
-      if (ws.current && ws.current.readyState !== WebSocket.CLOSED && ws.current.readyState !== WebSocket.CLOSING) {
-        ws.current.close();
-        ws.current = null;
+      clearReconnectTimer();
+
+      if (refreshDebounce.current) {
+        clearTimeout(refreshDebounce.current);
+        refreshDebounce.current = null;
       }
 
-      isConnecting.current = false;
+      if (ws.current && ws.current.readyState !== WebSocket.CLOSED && ws.current.readyState !== WebSocket.CLOSING) {
+        ws.current.close();
+      }
+
+      ws.current = null;
+
+      reconnectAttempts.current = 0;
     };
   }, [dispatch]);
 
