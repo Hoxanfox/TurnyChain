@@ -3,7 +3,7 @@
 // =================================================================
 import React, { useState, useMemo } from 'react';
 import { formatMoney } from '../../../utils/formatUtils.ts';
-import type { MenuItem } from '../../../types/menu'; // CORRECCIÓN: Se elimina la importación de CartItem
+import type { MenuItem, CartItem } from '../../../types/menu';
 import type { Accompaniment } from '../../../types/accompaniments';
 import type { Ingredient } from '../../../types/ingredients';
 
@@ -18,17 +18,33 @@ interface CustomizationData {
 }
 
 interface CustomizeOrderItemModalProps {
-  item: MenuItem;
+  item: MenuItem | CartItem;
   onConfirm: (customizationData: CustomizationData) => void;
   onClose: () => void;
 }
 
 const CustomizeOrderItemModal: React.FC<CustomizeOrderItemModalProps> = ({ item, onConfirm, onClose }) => {
   const [price, setPrice] = useState(item.price);
-  const [selectedAccompaniments, setSelectedAccompaniments] = useState<Accompaniment[]>(item.accompaniments || []);
-  const [removedIngredients, setRemovedIngredients] = useState<Ingredient[]>([]);
-  const [notes, setNotes] = useState('');
-  const [quantity, setQuantity] = useState(1); // NUEVO: estado para cantidad
+  const [selectedAccompaniments, setSelectedAccompaniments] = useState<Accompaniment[]>(
+    'selectedAccompaniments' in item && item.selectedAccompaniments
+      ? item.selectedAccompaniments
+      : item.accompaniments || []
+  );
+  const [removedIngredients, setRemovedIngredients] = useState<Ingredient[]>(
+    'removedIngredients' in item && item.removedIngredients
+      ? item.removedIngredients
+      : []
+  );
+  const [notes, setNotes] = useState(
+    'notes' in item && item.notes
+      ? item.notes
+      : ''
+  );
+  const [quantity, setQuantity] = useState(
+    'quantity' in item && item.quantity
+      ? item.quantity
+      : 1
+  ); // NUEVO: estado para cantidad
 
   const handleAccompanimentToggle = (accompaniment: Accompaniment) => {
     setSelectedAccompaniments(prev => 
