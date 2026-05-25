@@ -45,6 +45,7 @@ func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *
 	orders.Post("/", orderHandler.CreateOrder)
 	orders.Post("/with-payment", orderHandler.CreateOrderWithPayment) // Nueva ruta para orden con pago
 	orders.Get("/", orderHandler.GetOrders)
+	orders.Get("/today", orderHandler.GetOrdersToday)
 	orders.Get("/:id", orderHandler.GetOrderByID)
 	orders.Put("/:id/status", orderHandler.UpdateOrderStatus)
 	orders.Put("/:id/manage", orderHandler.ManageOrder)

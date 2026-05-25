@@ -92,22 +92,18 @@ const WaiterDashboardDesktop: React.FC = () => {
     }
   };
 
+  const [hasWsNotification, setHasWsNotification] = useState(false);
+  const [wsNotificationCount, setWsNotificationCount] = useState(0);
+  const [lastWsNotification, setLastWsNotification] = useState<string | null>(null);
+
   const handleWaiterWsNotification = useCallback((options: { title: string; message: string; type: 'info' | 'success' | 'warning' | 'error'; orderId?: string }) => {
     if (options.orderId) {
       toast.dismiss(`print-status-${options.orderId}`);
     }
 
-    toast(options.message, {
-      icon:
-        options.type === 'warning'
-          ? '⚠️'
-          : options.type === 'error'
-          ? '❌'
-          : options.type === 'success'
-          ? '✅'
-          : 'ℹ️',
-      duration: 3200,
-    });
+    setHasWsNotification(true);
+    setWsNotificationCount((prev) => prev + 1);
+    setLastWsNotification(options.message || options.title);
   }, []);
 
   useWaiterWebSocket(handleWaiterWsNotification);
@@ -543,6 +539,25 @@ const WaiterDashboardDesktop: React.FC = () => {
         <header className="bg-gradient-to-r from-indigo-600 to-indigo-700 shadow-md px-6 py-2.5 flex justify-between items-center">
           <h1 className="text-xl font-bold text-white">Panel Mesero</h1>
           <div className="flex gap-3">
+            <button
+              onClick={() => {
+                setHasWsNotification(false);
+                setWsNotificationCount(0);
+              }}
+              title={lastWsNotification || 'Notificaciones'}
+              className={`relative w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold transition-colors ${
+                hasWsNotification
+                  ? 'bg-emerald-500 text-white shadow-sm'
+                  : 'bg-white/20 text-white hover:bg-white/30'
+              }`}
+            >
+              🔔
+              {wsNotificationCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-white text-emerald-700 text-[10px] font-bold flex items-center justify-center">
+                  {wsNotificationCount > 9 ? '9+' : wsNotificationCount}
+                </span>
+              )}
+            </button>
             <button
               onClick={() => setIsMyOrdersModalOpen(true)}
               className="bg-white text-indigo-700 px-4 py-1.5 rounded-lg shadow-sm hover:bg-gray-50 transition-colors font-medium"

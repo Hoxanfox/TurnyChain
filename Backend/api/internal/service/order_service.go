@@ -7,6 +7,7 @@ import (
 	"errors"
 	"log"
 	"sort"
+	"time"
 
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/domain"
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/repository"
@@ -16,7 +17,7 @@ import (
 
 type OrderService interface {
 	CreateOrder(waiterID uuid.UUID, tableNumber int, orderType string, customerName, deliveryAddress, deliveryPhone, deliveryNotes *string, items []domain.OrderItem, parentOrderID *uuid.UUID) (*domain.Order, error)
-	GetOrders(userRole string, userID uuid.UUID, status string, myOrders string, teamOrders string) ([]domain.Order, error)
+	GetOrders(userRole string, userID uuid.UUID, status string, myOrders string, teamOrders string, createdAfter *time.Time, createdBefore *time.Time) ([]domain.Order, error)
 	GetOrderByID(orderID uuid.UUID) (*domain.Order, error)
 	EditOrder(orderID, userID uuid.UUID, editReq domain.EditOrderRequest) (*domain.Order, error)
 	LinkOrderToParent(orderID, parentOrderID uuid.UUID) (*domain.Order, error)
@@ -254,10 +255,16 @@ func (s *orderService) LinkOrderToParent(orderID, parentOrderID uuid.UUID) (*dom
 	return linkedOrder, nil
 }
 
-func (s *orderService) GetOrders(userRole string, userID uuid.UUID, status string, myOrders string, teamOrders string) ([]domain.Order, error) {
+func (s *orderService) GetOrders(userRole string, userID uuid.UUID, status string, myOrders string, teamOrders string, createdAfter *time.Time, createdBefore *time.Time) ([]domain.Order, error) {
 	filters := make(map[string]interface{})
 	if status != "" {
 		filters["status"] = status
+	}
+	if createdAfter != nil {
+		filters["created_after"] = *createdAfter
+	}
+	if createdBefore != nil {
+		filters["created_before"] = *createdBefore
 	}
 
 	// Si my_orders=true, filtrar por waiter_id independientemente del rol

@@ -99,6 +99,18 @@ func (r *orderRepository) GetOrders(filters map[string]interface{}) ([]domain.Or
 		args = append(args, waiterID)
 		argId++
 	}
+	if createdAfter, ok := filters["created_after"]; ok {
+		query += " AND o.created_at >= $" + strconv.Itoa(argId)
+		args = append(args, createdAfter)
+		argId++
+	}
+	if createdBefore, ok := filters["created_before"]; ok {
+		query += " AND o.created_at < $" + strconv.Itoa(argId)
+		args = append(args, createdBefore)
+		argId++
+	}
+
+	query += " ORDER BY o.created_at DESC"
 
 	rows, err := r.db.Query(query, args...)
 	if err != nil {

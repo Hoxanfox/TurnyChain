@@ -2,7 +2,7 @@
 // ARCHIVO 3: /src/features/orders/ordersSlice.ts
 // =================================================================
 import { createSlice, createAsyncThunk, type PayloadAction } from '@reduxjs/toolkit';
-import { createOrder, getOrders, getOrderDetails, updateOrderStatus, manageOrderAsAdmin, editOrder } from './ordersAPI.ts';
+import { createOrder, getTodayOrders, getOrderDetails, updateOrderStatus, manageOrderAsAdmin, editOrder } from './ordersAPI.ts';
 import type { Order, NewOrderPayload, EditOrderRequest } from '../../../../types/orders.ts';
 import type { RootState } from '../../../../app/store.ts';
 
@@ -36,7 +36,7 @@ export const fetchActiveOrders = createAsyncThunk('orders/fetchActive', async (o
   }
   try { 
     console.log('🔄 [fetchActiveOrders] Solicitando órdenes activas...');
-    const orders = await getOrders(token, undefined, false, options?.teamOrders === true);
+    const orders = await getTodayOrders(token, undefined, false, options?.teamOrders === true);
     console.log('✅ [fetchActiveOrders] Órdenes recibidas:', orders?.length || 0, 'órdenes');
     console.log('📦 [fetchActiveOrders] Primera orden (muestra):', orders?.[0]);
     return orders;
@@ -56,7 +56,7 @@ export const fetchMyOrders = createAsyncThunk('orders/fetchMyOrders', async (_, 
     }
     try { 
       console.log('🔄 [fetchMyOrders] Solicitando mis órdenes...');
-      const orders = await getOrders(token, undefined, true); // Agregado true para filtrar por mesero
+      const orders = await getTodayOrders(token, undefined, true); // Agregado true para filtrar por mesero
       console.log('✅ [fetchMyOrders] Órdenes recibidas:', orders?.length || 0, 'órdenes');
       console.log('📦 [fetchMyOrders] Primera orden (muestra):', orders?.[0]);
       return orders;

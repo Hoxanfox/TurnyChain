@@ -96,6 +96,38 @@ export const getOrders = async (token: string, status?: string, filterByWaiter?:
   }
 };
 
+export const getTodayOrders = async (token: string, status?: string, filterByWaiter?: boolean, teamOrders?: boolean): Promise<Order[]> => {
+  console.log('🌐 [API] getTodayOrders llamado con:', { status, filterByWaiter, teamOrders });
+  const config = {
+    headers: { Authorization: `Bearer ${token}` },
+    params: {
+      status,
+      my_orders: filterByWaiter ? 'true' : undefined,
+      team_orders: teamOrders ? 'true' : undefined
+    }
+  };
+  console.log('📤 [API] Haciendo petición GET a:', `${API_URL}/today`, 'con params:', config.params);
+  try {
+    const response = await axios.get(`${API_URL}/today`, config);
+    console.log('📥 [API] Respuesta recibida:', {
+      status: response.status,
+      dataType: typeof response.data,
+      isArray: Array.isArray(response.data),
+      count: Array.isArray(response.data) ? response.data.length : 'N/A',
+      firstItem: Array.isArray(response.data) && response.data.length > 0 ? response.data[0] : null
+    });
+    return response.data;
+  } catch (error: any) {
+    console.error('❌ [API] Error en getTodayOrders:', {
+      message: error.message,
+      status: error.response?.status,
+      data: error.response?.data,
+      config: error.config
+    });
+    throw error;
+  }
+};
+
 export const getOrderDetails = async (orderId: string, token: string): Promise<Order> => {
   const config = { headers: { Authorization: `Bearer ${token}` } };
   const response = await axios.get(`${API_URL}/${orderId}`, config);

@@ -54,7 +54,6 @@ import { formatMoney } from '../../utils/formatUtils.ts';
 import DeliveryInfoModal from './components/DeliveryInfoModal';
 // Importar toast y confetti
 import toast, { Toaster } from 'react-hot-toast';
-import confetti from 'canvas-confetti';
 
 const WaiterDashboard: React.FC = () => {
     // Estado para nota especial de checkout en pedidos para llevar
@@ -67,30 +66,18 @@ const WaiterDashboard: React.FC = () => {
   const swiperRef = useRef<SwiperType | null>(null);
   const isDesktop = useIsDesktop();
 
+  const [hasWsNotification, setHasWsNotification] = useState(false);
+  const [wsNotificationCount, setWsNotificationCount] = useState(0);
+  const [lastWsNotification, setLastWsNotification] = useState<string | null>(null);
+
   const handleWaiterWsNotification = useCallback((options: { title: string; message: string; type: 'info' | 'success' | 'warning' | 'error'; orderId?: string }) => {
     if (options.orderId) {
       toast.dismiss(`print-status-${options.orderId}`);
     }
 
-    toast(options.message, {
-      icon:
-        options.type === 'warning'
-          ? '⚠️'
-          : options.type === 'error'
-          ? '❌'
-          : options.type === 'success'
-          ? '✅'
-          : 'ℹ️',
-      duration: 3200,
-    });
-
-    if (options.type === 'success' && options.title === '✅ Comanda impresa') {
-      confetti({
-        particleCount: 80,
-        spread: 55,
-        origin: { y: 0.6 },
-      });
-    }
+    setHasWsNotification(true);
+    setWsNotificationCount((prev) => prev + 1);
+    setLastWsNotification(options.message || options.title);
   }, []);
 
   useWaiterWebSocket(handleWaiterWsNotification);
@@ -611,6 +598,25 @@ const WaiterDashboard: React.FC = () => {
         <header className="bg-gradient-to-r from-indigo-600 to-indigo-700 shadow-md px-4 py-2 flex justify-between items-center">
           <h1 className="text-lg font-bold text-white">Mesero</h1>
           <div className="flex gap-2 items-center">
+            <button
+              onClick={() => {
+                setHasWsNotification(false);
+                setWsNotificationCount(0);
+              }}
+              title={lastWsNotification || 'Notificaciones'}
+              className={`relative w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold transition-colors ${
+                hasWsNotification
+                  ? 'bg-emerald-500 text-white shadow-sm'
+                  : 'bg-white/20 text-white hover:bg-white/30'
+              }`}
+            >
+              🔔
+              {wsNotificationCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-white text-emerald-700 text-[10px] font-bold flex items-center justify-center">
+                  {wsNotificationCount > 9 ? '9+' : wsNotificationCount}
+                </span>
+              )}
+            </button>
             <button
               onClick={() => swiperRef.current?.slideTo(3)}
               className="bg-white text-indigo-700 px-3 py-1.5 rounded-lg shadow-sm hover:bg-gray-50 transition-colors text-sm font-medium"

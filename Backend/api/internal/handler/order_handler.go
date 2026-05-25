@@ -5,8 +5,8 @@ package handler
 
 import (
 	"crypto/sha256"
-	"encoding/json"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -21,10 +21,10 @@ import (
 )
 
 type OrderHandler struct {
-	orderService         service.OrderService
-	createOrderMu        sync.Mutex
-	recentCreateByKey    map[string]recentCreatedOrder
-	inFlightCreateByKey  map[string]struct{}
+	orderService        service.OrderService
+	createOrderMu       sync.Mutex
+	recentCreateByKey   map[string]recentCreatedOrder
+	inFlightCreateByKey map[string]struct{}
 }
 
 type recentCreatedOrder struct {
@@ -191,16 +191,58 @@ func (h *OrderHandler) GetOrders(c *fiber.Ctx) error {
 	status := c.Query("status")
 	myOrders := c.Query("my_orders") // Nuevo parámetro
 	teamOrders := c.Query("team_orders")
+	fromParam := c.Query("from")
+	toParam := c.Query("to")
+	var createdAfter *time.Time
+	var createdBefore *time.Time
+	if fromParam != "" {
+		parsed, err := time.Parse(time.RFC3339, fromParam)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid from date, use RFC3339"})
+		}
+		createdAfter = &parsed
+	}
+	if toParam != "" {
+		parsed, err := time.Parse(time.RFC3339, toParam)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid to date, use RFC3339"})
+		}
+		createdBefore = &parsed
+	}
 
 	log.Printf("📥 [GetOrders] Request - UserID: %s, Role: %s, Status: %s, MyOrders: %s, TeamOrders: %s", userID, userRole, status, myOrders, teamOrders)
 
-	orders, err := h.orderService.GetOrders(userRole, userID, status, myOrders, teamOrders)
+	orders, err := h.orderService.GetOrders(userRole, userID, status, myOrders, teamOrders, createdAfter, createdBefore)
 	if err != nil {
 		log.Printf("❌ [GetOrders] Error: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not retrieve orders", "details": err.Error()})
 	}
-	
+
 	log.Printf("✅ [GetOrders] Returning %d orders", len(orders))
+	return c.JSON(orders)
+}
+
+func (h *OrderHandler) GetOrdersToday(c *fiber.Ctx) error {
+	userID, _ := uuid.Parse(c.Locals("user_id").(string))
+	userRole := c.Locals("user_role").(string)
+	status := c.Query("status")
+	myOrders := c.Query("my_orders")
+	teamOrders := c.Query("team_orders")
+
+	location := time.Now().Location()
+	now := time.Now().In(location)
+	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, location)
+	endOfDay := startOfDay.Add(24 * time.Hour)
+
+	log.Printf("📥 [GetOrdersToday] Request - UserID: %s, Role: %s, Status: %s, MyOrders: %s, TeamOrders: %s", userID, userRole, status, myOrders, teamOrders)
+
+	orders, err := h.orderService.GetOrders(userRole, userID, status, myOrders, teamOrders, &startOfDay, &endOfDay)
+	if err != nil {
+		log.Printf("❌ [GetOrdersToday] Error: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not retrieve orders", "details": err.Error()})
+	}
+
+	log.Printf("✅ [GetOrdersToday] Returning %d orders", len(orders))
 	return c.JSON(orders)
 }
 
@@ -497,4 +539,3 @@ func (h *OrderHandler) LinkOrder(c *fiber.Ctx) error {
 
 	return c.JSON(updatedOrder)
 }
-
