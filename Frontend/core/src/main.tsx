@@ -2,12 +2,22 @@
 // ARCHIVO 7: /src/main.tsx
 // Propósito: Envolver la aplicación con el Provider de Redux.
 // =================================================================
+import { scan } from 'react-scan'
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { Provider } from 'react-redux'
 import { store } from './app/store'
 import App from './App.tsx'
 import './index.css'
+
+const reactScanEnabled = import.meta.env.VITE_REACT_SCAN !== 'false';
+
+if (import.meta.env.DEV && reactScanEnabled) {
+  scan({
+    enabled: true,
+    log: true,
+  })
+}
 
 // ===================================================================
 // FIX PARA 100VH EN MÓVILES - Calcula la altura real de la ventana

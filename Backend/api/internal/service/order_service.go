@@ -27,14 +27,14 @@ type OrderService interface {
 }
 
 type orderService struct {
-orderRepo         repository.OrderRepository
-tableRepo         repository.TableRepository
-menuRepo          repository.MenuRepository
-ingredientRepo    repository.IngredientRepository
-accompanimentRepo repository.AccompanimentRepository
-wsHub             *wshub.Hub
-blockchain        BlockchainService
-kitchenTicketService *KitchenTicketService
+	orderRepo            repository.OrderRepository
+	tableRepo            repository.TableRepository
+	menuRepo             repository.MenuRepository
+	ingredientRepo       repository.IngredientRepository
+	accompanimentRepo    repository.AccompanimentRepository
+	wsHub                *wshub.Hub
+	blockchain           BlockchainService
+	kitchenTicketService *KitchenTicketService
 }
 
 func NewOrderService(
@@ -48,14 +48,14 @@ func NewOrderService(
 	kitchenTicketService *KitchenTicketService,
 ) OrderService {
 	return &orderService{
-		 orderRepo:         orderRepo,
-		 tableRepo:         tableRepo,
-		 menuRepo:          menuRepo,
-		 ingredientRepo:    ingredientRepo,
-		 accompanimentRepo: accompanimentRepo,
-		 wsHub:             wsHub,
-		 blockchain:        bc,
-		 kitchenTicketService: kitchenTicketService,
+		orderRepo:            orderRepo,
+		tableRepo:            tableRepo,
+		menuRepo:             menuRepo,
+		ingredientRepo:       ingredientRepo,
+		accompanimentRepo:    accompanimentRepo,
+		wsHub:                wsHub,
+		blockchain:           bc,
+		kitchenTicketService: kitchenTicketService,
 	}
 }
 
@@ -187,7 +187,7 @@ func (s *orderService) CreateOrder(waiterID uuid.UUID, tableNumber int, orderTyp
 	}
 
 	order := &domain.Order{
-		ParentOrderID:  parentOrderID,
+		ParentOrderID:   parentOrderID,
 		WaiterID:        waiterID,
 		TableID:         table.ID,
 		TableNumber:     table.TableNumber,
@@ -218,7 +218,7 @@ func (s *orderService) CreateOrder(waiterID uuid.UUID, tableNumber int, orderTyp
 
 	// Notificar vía WebSockets
 	s.wsHub.BroadcastMessage("NEW_PENDING_ORDER", createdOrder)
-	
+
 	return createdOrder, nil
 }
 
@@ -388,10 +388,13 @@ func (s *orderService) UpdateOrderStatus(orderID, userID uuid.UUID, newStatus st
 		} else {
 			// Ejecutar en goroutine para no bloquear al usuario
 			go func(ord *domain.Order) {
-				_, err := s.blockchain.NotarizeOrder(ord)
+				txHash, err := s.blockchain.NotarizeOrder(ord)
 				if err != nil {
 					log.Printf("❌ Error Blockchain: %v", err)
 				} else {
+					if updateErr := s.orderRepo.UpdateOrderBlockchainTxHash(ord.ID, txHash); updateErr != nil {
+						log.Printf("⚠️ No se pudo guardar hash blockchain para orden %s: %v", ord.ID, updateErr)
+					}
 					log.Printf("✅ Orden %s notarizada en blockchain correctamente", ord.ID)
 				}
 			}(fullOrder)

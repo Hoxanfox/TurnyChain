@@ -106,6 +106,8 @@ CREATE TABLE "orders" (
   -- Nuevos campos para el flujo de pagos con evidencia
   "payment_method" varchar(20) NULL,
   "payment_proof_path" text NULL,
+  -- Hash de transaccion en blockchain (Arbitrum)
+  "blockchain_tx_hash" text NULL,
   -- Trazabilidad de impresión
   "print_status" varchar(20) NOT NULL DEFAULT 'pending',
   "print_attempts" integer NOT NULL DEFAULT 0,
@@ -157,6 +159,8 @@ CREATE INDEX ON "orders" ("status");
 CREATE INDEX ON "orders" ("waiter_id");
 CREATE INDEX ON "orders" ("parent_order_id");
 CREATE INDEX ON "orders" ("print_status");
+CREATE INDEX ON "orders" ("blockchain_tx_hash");
+CREATE INDEX ON "orders" ("updated_at");
 CREATE INDEX ON "menu_items" ("order_count");
 CREATE INDEX ON "menu_items" ("category_id");
 CREATE INDEX ON "printers" ("station_id");

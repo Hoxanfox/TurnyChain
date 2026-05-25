@@ -43,18 +43,18 @@ func (c *Customizations) Scan(value interface{}) error {
 }
 
 type Order struct {
-	ID          uuid.UUID   `json:"id" db:"id"`
-	ParentOrderID *uuid.UUID `json:"parent_order_id,omitempty" db:"parent_order_id"`
-	WaiterID    uuid.UUID   `json:"waiter_id" db:"waiter_id"`
-	WaiterName  string      `json:"waiter_name,omitempty" db:"waiter_name"`
-	CashierID   *uuid.UUID  `json:"cashier_id,omitempty" db:"cashier_id"`
-	TableID     uuid.UUID   `json:"table_id" db:"table_id"`
-	TableNumber int         `json:"table_number" db:"table_number"`
-	Status      string      `json:"status" db:"status"`
-	Total       float64     `json:"total" db:"total"`
-	Items       []OrderItem `json:"items"`
-	CreatedAt   time.Time   `json:"created_at" db:"created_at"`
-	UpdatedAt   time.Time   `json:"updated_at" db:"updated_at"`
+	ID            uuid.UUID   `json:"id" db:"id"`
+	ParentOrderID *uuid.UUID  `json:"parent_order_id,omitempty" db:"parent_order_id"`
+	WaiterID      uuid.UUID   `json:"waiter_id" db:"waiter_id"`
+	WaiterName    string      `json:"waiter_name,omitempty" db:"waiter_name"`
+	CashierID     *uuid.UUID  `json:"cashier_id,omitempty" db:"cashier_id"`
+	TableID       uuid.UUID   `json:"table_id" db:"table_id"`
+	TableNumber   int         `json:"table_number" db:"table_number"`
+	Status        string      `json:"status" db:"status"`
+	Total         float64     `json:"total" db:"total"`
+	Items         []OrderItem `json:"items"`
+	CreatedAt     time.Time   `json:"created_at" db:"created_at"`
+	UpdatedAt     time.Time   `json:"updated_at" db:"updated_at"`
 	// Tipo de orden: "mesa" (permite híbridos), "llevar" (todo empacado), "domicilio" (todo empacado + dirección)
 	OrderType string `json:"order_type" db:"order_type"`
 	// Nombre del cliente (obligatorio para "llevar" y "domicilio")
@@ -66,12 +66,13 @@ type Order struct {
 	// Nuevos campos para el flujo de pago con evidencia
 	PaymentMethod    *string `json:"payment_method,omitempty" db:"payment_method"`
 	PaymentProofPath *string `json:"payment_proof_path,omitempty" db:"payment_proof_path"`
+	BlockchainTxHash *string `json:"blockchain_tx_hash,omitempty" db:"blockchain_tx_hash"`
 	// Estado de impresión de comandas
-	PrintStatus          string     `json:"print_status" db:"print_status"`
-	PrintAttempts        int        `json:"print_attempts" db:"print_attempts"`
-	LastPrintError       *string    `json:"last_print_error,omitempty" db:"last_print_error"`
-	PrintedAt            *time.Time `json:"printed_at,omitempty" db:"printed_at"`
-	LastPrintAttemptAt   *time.Time `json:"last_print_attempt_at,omitempty" db:"last_print_attempt_at"`
+	PrintStatus        string     `json:"print_status" db:"print_status"`
+	PrintAttempts      int        `json:"print_attempts" db:"print_attempts"`
+	LastPrintError     *string    `json:"last_print_error,omitempty" db:"last_print_error"`
+	PrintedAt          *time.Time `json:"printed_at,omitempty" db:"printed_at"`
+	LastPrintAttemptAt *time.Time `json:"last_print_attempt_at,omitempty" db:"last_print_attempt_at"`
 }
 
 type OrderItem struct {
@@ -92,9 +93,9 @@ type OrderItem struct {
 // EditOrderRequest estructura para edición granular de órdenes
 type EditOrderRequest struct {
 	// Operaciones sobre items
-	AddItems    []OrderItem      `json:"add_items,omitempty"`    // Items nuevos a agregar
-	UpdateItems []UpdateItemOp   `json:"update_items,omitempty"` // Items a modificar (por índice)
-	RemoveItems []int            `json:"remove_items,omitempty"` // Índices de items a eliminar
+	AddItems    []OrderItem    `json:"add_items,omitempty"`    // Items nuevos a agregar
+	UpdateItems []UpdateItemOp `json:"update_items,omitempty"` // Items a modificar (por índice)
+	RemoveItems []int          `json:"remove_items,omitempty"` // Índices de items a eliminar
 	// Modificaciones a nivel de orden
 	OrderType       *string `json:"order_type,omitempty"`       // "mesa", "llevar", "domicilio"
 	DeliveryAddress *string `json:"delivery_address,omitempty"` // Cambiar dirección de entrega

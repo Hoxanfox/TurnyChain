@@ -69,6 +69,7 @@ func main() {
 
 	kitchenTicketService := service.NewKitchenTicketService(orderRepo, printerRepo, stationRepo, wsHub)
 	orderService := service.NewOrderService(orderRepo, tableRepo, menuRepo, ingredientRepo, accompanimentRepo, wsHub, blockchainService, kitchenTicketService)
+	invoiceService := service.NewInvoiceService(orderRepo)
 	tableService := service.NewTableService(tableRepo)
 	categoryService := service.NewCategoryService(categoryRepo)
 	ingredientService := service.NewIngredientService(ingredientRepo)
@@ -82,6 +83,7 @@ func main() {
 	authHandler := handler.NewAuthHandler(authService)
 	menuHandler := handler.NewMenuHandler(menuService)
 	orderHandler := handler.NewOrderHandler(orderService)
+	invoiceHandler := handler.NewInvoiceHandler(invoiceService)
 	tableHandler := handler.NewTableHandler(tableService)
 	categoryHandler := handler.NewCategoryHandler(categoryService)
 	ingredientHandler := handler.NewIngredientHandler(ingredientService)
@@ -135,7 +137,7 @@ func main() {
 	}
 	app.Static("/api/static", uploadsDir)
 
-	router.SetupRoutes(app, authHandler, userHandler, menuHandler, orderHandler, tableHandler, categoryHandler, ingredientHandler, accompanimentHandler, wsHandler, stationHandler, printerHandler, kitchenTicketHandler, backupHandler)
+	router.SetupRoutes(app, authHandler, userHandler, menuHandler, orderHandler, invoiceHandler, tableHandler, categoryHandler, ingredientHandler, accompanimentHandler, wsHandler, stationHandler, printerHandler, kitchenTicketHandler, backupHandler)
 
 	// Alias explícitos para compatibilidad de rutas de impresión de cocina.
 	app.Post("/api/orders/:orderId/kitchen-tickets/print/caja", middleware.Protected(), kitchenTicketHandler.PrintGlobalCashTicket)
@@ -164,6 +166,7 @@ func applyOrderSchemaMigrations(db *sql.DB) error {
 	statements := []string{
 		`ALTER TABLE orders ADD COLUMN IF NOT EXISTS parent_order_id uuid REFERENCES orders(id) ON DELETE SET NULL`,
 		`ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_name varchar(255) NULL`,
+		`ALTER TABLE orders ADD COLUMN IF NOT EXISTS blockchain_tx_hash text NULL`,
 		`ALTER TABLE orders ADD COLUMN IF NOT EXISTS print_status varchar(20) NOT NULL DEFAULT 'queued'`,
 		`ALTER TABLE orders ADD COLUMN IF NOT EXISTS print_attempts integer NOT NULL DEFAULT 0`,
 		`ALTER TABLE orders ADD COLUMN IF NOT EXISTS last_print_error text NULL`,
@@ -174,6 +177,8 @@ func applyOrderSchemaMigrations(db *sql.DB) error {
 		`UPDATE orders SET print_status = 'printing' WHERE print_status = 'processing'`,
 		`CREATE INDEX IF NOT EXISTS orders_parent_order_id_idx ON orders (parent_order_id)`,
 		`CREATE INDEX IF NOT EXISTS orders_print_status_idx ON orders (print_status)`,
+		`CREATE INDEX IF NOT EXISTS orders_blockchain_tx_hash_idx ON orders (blockchain_tx_hash)`,
+		`CREATE INDEX IF NOT EXISTS orders_updated_at_idx ON orders (updated_at)`,
 	}
 
 	for _, stmt := range statements {

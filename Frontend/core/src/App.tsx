@@ -12,6 +12,7 @@ import WaiterDashboard from './features/waiter/WaiterDashboard';
 import CashierDashboard from './features/cashier/CashierDashboard';
 import CashierOrderSearchPage from './features/cashier/CashierOrderSearchPage';
 import CashierWaiterSearchPage from './features/cashier/CashierWaiterSearchPage';
+import CashierInvoiceHistoryPage from './features/cashier/components/cashierDashboardMobile/pages/CashierInvoiceHistoryPage';
 import type { User } from './types/auth';
 import { useWebSockets } from './hooks/useWebSockets'; // <-- 1. IMPORTAR EL HOOK
 
@@ -47,6 +48,12 @@ const CashierWaiterRoute: React.FC<{ user: User | null }> = ({ user }) => {
   return <CashierWaiterSearchPage />;
 };
 
+const CashierHistoryRoute: React.FC<{ user: User | null }> = ({ user }) => {
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role !== 'cajero') return <Navigate to="/dashboard" replace />;
+  return <CashierInvoiceHistoryPage />;
+};
+
 const App: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
 
@@ -59,6 +66,7 @@ const App: React.FC = () => {
         <Route path="/dashboard" element={<ProtectedRoute user={user} />} />
         <Route path="/cashier/search/:orderId" element={<CashierRoute user={user} />} />
         <Route path="/cashier/search/waiter/:waiterName" element={<CashierWaiterRoute user={user} />} />
+        <Route path="/cashier/history" element={<CashierHistoryRoute user={user} />} />
         <Route path="*" element={<Navigate to={user ? "/dashboard" : "/login"} replace />} />
       </Routes>
     </Router>

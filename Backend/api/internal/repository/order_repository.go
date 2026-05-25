@@ -23,6 +23,8 @@ type OrderRepository interface {
 	ManageOrder(orderID uuid.UUID, updates map[string]interface{}) (*domain.Order, error)
 	UpdateOrderItems(orderID uuid.UUID, items []domain.OrderItem, newTotal float64) error
 	AddPaymentProof(orderID uuid.UUID, method string, proofPath string) (*domain.Order, error)
+	UpdateOrderBlockchainTxHash(orderID uuid.UUID, txHash string) error
+	GetInvoiceHistory(query string, from *time.Time, to *time.Time, limit int, offset int) ([]domain.InvoiceHistoryItem, error)
 	UpdateOrderPrintStatus(orderID uuid.UUID, status string, incrementAttempts int, lastError *string, printedAt *time.Time) (*domain.Order, error)
 	UpdateOrderPrintStatusGuarded(orderID uuid.UUID, status string, incrementAttempts int, lastError *string, printedAt *time.Time, allowOverwritePrinted bool) (*domain.Order, bool, error)
 	GetOrderIDsByPrintStatus(statuses []string) ([]uuid.UUID, error)
@@ -80,7 +82,7 @@ func (r *orderRepository) CreateOrder(order *domain.Order) (*domain.Order, error
 }
 
 func (r *orderRepository) GetOrders(filters map[string]interface{}) ([]domain.Order, error) {
-	query := `SELECT o.id, o.parent_order_id, o.waiter_id, u.username as waiter_name, o.cashier_id, o.table_number, o.status, o.total, o.order_type, o.customer_name, o.delivery_address, o.delivery_phone, o.delivery_notes, o.payment_method, o.payment_proof_path, o.print_status, o.print_attempts, o.last_print_error, o.printed_at, o.last_print_attempt_at, o.created_at, o.updated_at 
+	query := `SELECT o.id, o.parent_order_id, o.waiter_id, u.username as waiter_name, o.cashier_id, o.table_number, o.status, o.total, o.order_type, o.customer_name, o.delivery_address, o.delivery_phone, o.delivery_notes, o.payment_method, o.payment_proof_path, o.blockchain_tx_hash, o.print_status, o.print_attempts, o.last_print_error, o.printed_at, o.last_print_attempt_at, o.created_at, o.updated_at 
               FROM orders o
               LEFT JOIN users u ON o.waiter_id = u.id
               WHERE 1=1`
@@ -115,6 +117,7 @@ func (r *orderRepository) GetOrders(filters map[string]interface{}) ([]domain.Or
 		var customerName sql.NullString
 		var paymentMethod sql.NullString
 		var paymentProof sql.NullString
+		var blockchainTxHash sql.NullString
 		var printStatus sql.NullString
 		var printAttempts sql.NullInt64
 		var lastPrintError sql.NullString
@@ -123,7 +126,7 @@ func (r *orderRepository) GetOrders(filters map[string]interface{}) ([]domain.Or
 		var deliveryAddress sql.NullString
 		var deliveryPhone sql.NullString
 		var deliveryNotes sql.NullString
-		if err := rows.Scan(&order.ID, &parentOrderID, &order.WaiterID, &waiterName, &cashierID, &order.TableNumber, &order.Status, &order.Total, &order.OrderType, &customerName, &deliveryAddress, &deliveryPhone, &deliveryNotes, &paymentMethod, &paymentProof, &printStatus, &printAttempts, &lastPrintError, &printedAt, &lastPrintAttemptAt, &order.CreatedAt, &order.UpdatedAt); err != nil {
+		if err := rows.Scan(&order.ID, &parentOrderID, &order.WaiterID, &waiterName, &cashierID, &order.TableNumber, &order.Status, &order.Total, &order.OrderType, &customerName, &deliveryAddress, &deliveryPhone, &deliveryNotes, &paymentMethod, &paymentProof, &blockchainTxHash, &printStatus, &printAttempts, &lastPrintError, &printedAt, &lastPrintAttemptAt, &order.CreatedAt, &order.UpdatedAt); err != nil {
 			return nil, err
 		}
 		if parentOrderID.Valid {
@@ -148,6 +151,10 @@ func (r *orderRepository) GetOrders(filters map[string]interface{}) ([]domain.Or
 		if paymentProof.Valid {
 			pp := paymentProof.String
 			order.PaymentProofPath = &pp
+		}
+		if blockchainTxHash.Valid {
+			hash := blockchainTxHash.String
+			order.BlockchainTxHash = &hash
 		}
 		order.PrintStatus = "queued"
 		if printStatus.Valid {
@@ -291,7 +298,7 @@ func (r *orderRepository) loadOrderItems(orderID uuid.UUID) ([]domain.OrderItem,
 
 func (r *orderRepository) GetOrderByID(orderID uuid.UUID) (*domain.Order, error) {
 	order := &domain.Order{}
-	orderQuery := `SELECT o.id, o.parent_order_id, o.waiter_id, u.username as waiter_name, o.cashier_id, o.table_number, o.status, o.total, o.order_type, o.customer_name, o.delivery_address, o.delivery_phone, o.delivery_notes, o.payment_method, o.payment_proof_path, o.print_status, o.print_attempts, o.last_print_error, o.printed_at, o.last_print_attempt_at, o.created_at, o.updated_at 
+	orderQuery := `SELECT o.id, o.parent_order_id, o.waiter_id, u.username as waiter_name, o.cashier_id, o.table_number, o.status, o.total, o.order_type, o.customer_name, o.delivery_address, o.delivery_phone, o.delivery_notes, o.payment_method, o.payment_proof_path, o.blockchain_tx_hash, o.print_status, o.print_attempts, o.last_print_error, o.printed_at, o.last_print_attempt_at, o.created_at, o.updated_at 
 	               FROM orders o
 	               LEFT JOIN users u ON o.waiter_id = u.id
 	               WHERE o.id = $1`
@@ -300,6 +307,7 @@ func (r *orderRepository) GetOrderByID(orderID uuid.UUID) (*domain.Order, error)
 	var customerName sql.NullString
 	var paymentMethod sql.NullString
 	var paymentProof sql.NullString
+	var blockchainTxHash sql.NullString
 	var printStatus sql.NullString
 	var printAttempts sql.NullInt64
 	var lastPrintError sql.NullString
@@ -308,7 +316,7 @@ func (r *orderRepository) GetOrderByID(orderID uuid.UUID) (*domain.Order, error)
 	var deliveryAddress sql.NullString
 	var deliveryPhone sql.NullString
 	var deliveryNotes sql.NullString
-	err := r.db.QueryRow(orderQuery, orderID).Scan(&order.ID, &parentOrderID, &order.WaiterID, &waiterName, &order.CashierID, &order.TableNumber, &order.Status, &order.Total, &order.OrderType, &customerName, &deliveryAddress, &deliveryPhone, &deliveryNotes, &paymentMethod, &paymentProof, &printStatus, &printAttempts, &lastPrintError, &printedAt, &lastPrintAttemptAt, &order.CreatedAt, &order.UpdatedAt)
+	err := r.db.QueryRow(orderQuery, orderID).Scan(&order.ID, &parentOrderID, &order.WaiterID, &waiterName, &order.CashierID, &order.TableNumber, &order.Status, &order.Total, &order.OrderType, &customerName, &deliveryAddress, &deliveryPhone, &deliveryNotes, &paymentMethod, &paymentProof, &blockchainTxHash, &printStatus, &printAttempts, &lastPrintError, &printedAt, &lastPrintAttemptAt, &order.CreatedAt, &order.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -330,6 +338,10 @@ func (r *orderRepository) GetOrderByID(orderID uuid.UUID) (*domain.Order, error)
 	if paymentProof.Valid {
 		pp := paymentProof.String
 		order.PaymentProofPath = &pp
+	}
+	if blockchainTxHash.Valid {
+		hash := blockchainTxHash.String
+		order.BlockchainTxHash = &hash
 	}
 	order.PrintStatus = "queued"
 	if printStatus.Valid {
@@ -397,13 +409,14 @@ func (r *orderRepository) LinkOrderToParent(orderID, parentOrderID uuid.UUID) (*
 func (r *orderRepository) UpdateOrderStatus(orderID, userID uuid.UUID, status string) (*domain.Order, error) {
 	order := &domain.Order{}
 	query := `UPDATE orders SET status = $1, cashier_id = $2 WHERE id = $3 
-	          RETURNING id, waiter_id, cashier_id, table_number, status, total, order_type, delivery_address, delivery_phone, delivery_notes, payment_method, payment_proof_path, print_status, print_attempts, last_print_error, printed_at, last_print_attempt_at, created_at, updated_at`
+	          RETURNING id, waiter_id, cashier_id, table_number, status, total, order_type, delivery_address, delivery_phone, delivery_notes, payment_method, payment_proof_path, blockchain_tx_hash, print_status, print_attempts, last_print_error, printed_at, last_print_attempt_at, created_at, updated_at`
 
 	var deliveryAddress sql.NullString
 	var deliveryPhone sql.NullString
 	var deliveryNotes sql.NullString
 	var paymentMethod sql.NullString
 	var paymentProof sql.NullString
+	var blockchainTxHash sql.NullString
 	var printStatus sql.NullString
 	var printAttempts sql.NullInt64
 	var lastPrintError sql.NullString
@@ -411,7 +424,7 @@ func (r *orderRepository) UpdateOrderStatus(orderID, userID uuid.UUID, status st
 	var lastPrintAttemptAt sql.NullTime
 
 	err := r.db.QueryRow(query, status, userID, orderID).Scan(
-		&order.ID, &order.WaiterID, &order.CashierID, &order.TableNumber, &order.Status, &order.Total, &order.OrderType, &deliveryAddress, &deliveryPhone, &deliveryNotes, &paymentMethod, &paymentProof, &printStatus, &printAttempts, &lastPrintError, &printedAt, &lastPrintAttemptAt, &order.CreatedAt, &order.UpdatedAt,
+		&order.ID, &order.WaiterID, &order.CashierID, &order.TableNumber, &order.Status, &order.Total, &order.OrderType, &deliveryAddress, &deliveryPhone, &deliveryNotes, &paymentMethod, &paymentProof, &blockchainTxHash, &printStatus, &printAttempts, &lastPrintError, &printedAt, &lastPrintAttemptAt, &order.CreatedAt, &order.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -436,6 +449,10 @@ func (r *orderRepository) UpdateOrderStatus(orderID, userID uuid.UUID, status st
 	if paymentProof.Valid {
 		pp := paymentProof.String
 		order.PaymentProofPath = &pp
+	}
+	if blockchainTxHash.Valid {
+		hash := blockchainTxHash.String
+		order.BlockchainTxHash = &hash
 	}
 	order.PrintStatus = "queued"
 	if printStatus.Valid {
@@ -482,20 +499,21 @@ func (r *orderRepository) ManageOrder(orderID uuid.UUID, updates map[string]inte
 	waiterID, hasWaiter := updates["waiter_id"]
 
 	if hasStatus {
-		query := `UPDATE orders SET status = $1 WHERE id = $2 RETURNING id, waiter_id, cashier_id, table_number, status, total, order_type, delivery_address, delivery_phone, delivery_notes, payment_method, payment_proof_path, print_status, print_attempts, last_print_error, printed_at, last_print_attempt_at, created_at, updated_at`
+		query := `UPDATE orders SET status = $1 WHERE id = $2 RETURNING id, waiter_id, cashier_id, table_number, status, total, order_type, delivery_address, delivery_phone, delivery_notes, payment_method, payment_proof_path, blockchain_tx_hash, print_status, print_attempts, last_print_error, printed_at, last_print_attempt_at, created_at, updated_at`
 
 		var deliveryAddress sql.NullString
 		var deliveryPhone sql.NullString
 		var deliveryNotes sql.NullString
 		var paymentMethod sql.NullString
 		var paymentProof sql.NullString
+		var blockchainTxHash sql.NullString
 		var printStatus sql.NullString
 		var printAttempts sql.NullInt64
 		var lastPrintError sql.NullString
 		var printedAt sql.NullTime
 		var lastPrintAttemptAt sql.NullTime
 
-		err := r.db.QueryRow(query, status, orderID).Scan(&order.ID, &order.WaiterID, &order.CashierID, &order.TableNumber, &order.Status, &order.Total, &order.OrderType, &deliveryAddress, &deliveryPhone, &deliveryNotes, &paymentMethod, &paymentProof, &printStatus, &printAttempts, &lastPrintError, &printedAt, &lastPrintAttemptAt, &order.CreatedAt, &order.UpdatedAt)
+		err := r.db.QueryRow(query, status, orderID).Scan(&order.ID, &order.WaiterID, &order.CashierID, &order.TableNumber, &order.Status, &order.Total, &order.OrderType, &deliveryAddress, &deliveryPhone, &deliveryNotes, &paymentMethod, &paymentProof, &blockchainTxHash, &printStatus, &printAttempts, &lastPrintError, &printedAt, &lastPrintAttemptAt, &order.CreatedAt, &order.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -519,6 +537,10 @@ func (r *orderRepository) ManageOrder(orderID uuid.UUID, updates map[string]inte
 		if paymentProof.Valid {
 			pp := paymentProof.String
 			order.PaymentProofPath = &pp
+		}
+		if blockchainTxHash.Valid {
+			hash := blockchainTxHash.String
+			order.BlockchainTxHash = &hash
 		}
 		order.PrintStatus = "queued"
 		if printStatus.Valid {
@@ -541,20 +563,21 @@ func (r *orderRepository) ManageOrder(orderID uuid.UUID, updates map[string]inte
 		}
 	}
 	if hasWaiter {
-		query := `UPDATE orders SET waiter_id = $1 WHERE id = $2 RETURNING id, waiter_id, cashier_id, table_number, status, total, order_type, delivery_address, delivery_phone, delivery_notes, payment_method, payment_proof_path, print_status, print_attempts, last_print_error, printed_at, last_print_attempt_at, created_at, updated_at`
+		query := `UPDATE orders SET waiter_id = $1 WHERE id = $2 RETURNING id, waiter_id, cashier_id, table_number, status, total, order_type, delivery_address, delivery_phone, delivery_notes, payment_method, payment_proof_path, blockchain_tx_hash, print_status, print_attempts, last_print_error, printed_at, last_print_attempt_at, created_at, updated_at`
 
 		var deliveryAddress sql.NullString
 		var deliveryPhone sql.NullString
 		var deliveryNotes sql.NullString
 		var paymentMethod sql.NullString
 		var paymentProof sql.NullString
+		var blockchainTxHash sql.NullString
 		var printStatus sql.NullString
 		var printAttempts sql.NullInt64
 		var lastPrintError sql.NullString
 		var printedAt sql.NullTime
 		var lastPrintAttemptAt sql.NullTime
 
-		err := r.db.QueryRow(query, waiterID, orderID).Scan(&order.ID, &order.WaiterID, &order.CashierID, &order.TableNumber, &order.Status, &order.Total, &order.OrderType, &deliveryAddress, &deliveryPhone, &deliveryNotes, &paymentMethod, &paymentProof, &printStatus, &printAttempts, &lastPrintError, &printedAt, &lastPrintAttemptAt, &order.CreatedAt, &order.UpdatedAt)
+		err := r.db.QueryRow(query, waiterID, orderID).Scan(&order.ID, &order.WaiterID, &order.CashierID, &order.TableNumber, &order.Status, &order.Total, &order.OrderType, &deliveryAddress, &deliveryPhone, &deliveryNotes, &paymentMethod, &paymentProof, &blockchainTxHash, &printStatus, &printAttempts, &lastPrintError, &printedAt, &lastPrintAttemptAt, &order.CreatedAt, &order.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -578,6 +601,10 @@ func (r *orderRepository) ManageOrder(orderID uuid.UUID, updates map[string]inte
 		if paymentProof.Valid {
 			pp := paymentProof.String
 			order.PaymentProofPath = &pp
+		}
+		if blockchainTxHash.Valid {
+			hash := blockchainTxHash.String
+			order.BlockchainTxHash = &hash
 		}
 		order.PrintStatus = "queued"
 		if printStatus.Valid {
@@ -676,13 +703,14 @@ func (r *orderRepository) AddPaymentProof(orderID uuid.UUID, method string, proo
 	if proofPath != "" {
 		// Con comprobante
 		query = `UPDATE orders SET payment_method = $1, payment_proof_path = $2, status = $3 WHERE id = $4 
-		          RETURNING id, waiter_id, cashier_id, table_number, status, total, order_type, delivery_address, delivery_phone, delivery_notes, payment_method, payment_proof_path, print_status, print_attempts, last_print_error, printed_at, last_print_attempt_at, created_at, updated_at`
+		          RETURNING id, waiter_id, cashier_id, table_number, status, total, order_type, delivery_address, delivery_phone, delivery_notes, payment_method, payment_proof_path, blockchain_tx_hash, print_status, print_attempts, last_print_error, printed_at, last_print_attempt_at, created_at, updated_at`
 		var printStatus sql.NullString
 		var printAttempts sql.NullInt64
 		var lastPrintError sql.NullString
 		var printedAt sql.NullTime
 		var lastPrintAttemptAt sql.NullTime
-		err = r.db.QueryRow(query, method, proofPath, newStatus, orderID).Scan(&order.ID, &order.WaiterID, &order.CashierID, &order.TableNumber, &order.Status, &order.Total, &order.OrderType, &deliveryAddress, &deliveryPhone, &deliveryNotes, &paymentMethod, &paymentProof, &printStatus, &printAttempts, &lastPrintError, &printedAt, &lastPrintAttemptAt, &order.CreatedAt, &order.UpdatedAt)
+		var blockchainTxHash sql.NullString
+		err = r.db.QueryRow(query, method, proofPath, newStatus, orderID).Scan(&order.ID, &order.WaiterID, &order.CashierID, &order.TableNumber, &order.Status, &order.Total, &order.OrderType, &deliveryAddress, &deliveryPhone, &deliveryNotes, &paymentMethod, &paymentProof, &blockchainTxHash, &printStatus, &printAttempts, &lastPrintError, &printedAt, &lastPrintAttemptAt, &order.CreatedAt, &order.UpdatedAt)
 		order.PrintStatus = "queued"
 		if printStatus.Valid {
 			order.PrintStatus = printStatus.String
@@ -701,17 +729,22 @@ func (r *orderRepository) AddPaymentProof(orderID uuid.UUID, method string, proo
 		if lastPrintAttemptAt.Valid {
 			t := lastPrintAttemptAt.Time
 			order.LastPrintAttemptAt = &t
+		}
+		if blockchainTxHash.Valid {
+			hash := blockchainTxHash.String
+			order.BlockchainTxHash = &hash
 		}
 	} else {
 		// Sin comprobante (efectivo)
 		query = `UPDATE orders SET payment_method = $1, status = $2 WHERE id = $3 
-		          RETURNING id, waiter_id, cashier_id, table_number, status, total, order_type, delivery_address, delivery_phone, delivery_notes, payment_method, payment_proof_path, print_status, print_attempts, last_print_error, printed_at, last_print_attempt_at, created_at, updated_at`
+		          RETURNING id, waiter_id, cashier_id, table_number, status, total, order_type, delivery_address, delivery_phone, delivery_notes, payment_method, payment_proof_path, blockchain_tx_hash, print_status, print_attempts, last_print_error, printed_at, last_print_attempt_at, created_at, updated_at`
 		var printStatus sql.NullString
 		var printAttempts sql.NullInt64
 		var lastPrintError sql.NullString
 		var printedAt sql.NullTime
 		var lastPrintAttemptAt sql.NullTime
-		err = r.db.QueryRow(query, method, newStatus, orderID).Scan(&order.ID, &order.WaiterID, &order.CashierID, &order.TableNumber, &order.Status, &order.Total, &order.OrderType, &deliveryAddress, &deliveryPhone, &deliveryNotes, &paymentMethod, &paymentProof, &printStatus, &printAttempts, &lastPrintError, &printedAt, &lastPrintAttemptAt, &order.CreatedAt, &order.UpdatedAt)
+		var blockchainTxHash sql.NullString
+		err = r.db.QueryRow(query, method, newStatus, orderID).Scan(&order.ID, &order.WaiterID, &order.CashierID, &order.TableNumber, &order.Status, &order.Total, &order.OrderType, &deliveryAddress, &deliveryPhone, &deliveryNotes, &paymentMethod, &paymentProof, &blockchainTxHash, &printStatus, &printAttempts, &lastPrintError, &printedAt, &lastPrintAttemptAt, &order.CreatedAt, &order.UpdatedAt)
 		order.PrintStatus = "queued"
 		if printStatus.Valid {
 			order.PrintStatus = printStatus.String
@@ -730,6 +763,10 @@ func (r *orderRepository) AddPaymentProof(orderID uuid.UUID, method string, proo
 		if lastPrintAttemptAt.Valid {
 			t := lastPrintAttemptAt.Time
 			order.LastPrintAttemptAt = &t
+		}
+		if blockchainTxHash.Valid {
+			hash := blockchainTxHash.String
+			order.BlockchainTxHash = &hash
 		}
 	}
 
@@ -774,6 +811,80 @@ func (r *orderRepository) AddPaymentProof(orderID uuid.UUID, method string, proo
 	order.Items = items
 
 	return order, nil
+}
+
+func (r *orderRepository) UpdateOrderBlockchainTxHash(orderID uuid.UUID, txHash string) error {
+	_, err := r.db.Exec(`UPDATE orders SET blockchain_tx_hash = $1 WHERE id = $2`, txHash, orderID)
+	return err
+}
+
+func (r *orderRepository) GetInvoiceHistory(query string, from *time.Time, to *time.Time, limit int, offset int) ([]domain.InvoiceHistoryItem, error) {
+	items := make([]domain.InvoiceHistoryItem, 0)
+	search := query
+
+	where := "WHERE o.status = 'pagado'"
+	args := []interface{}{search}
+	argID := 1
+
+	where += " AND ($1 = '' OR o.id::text ILIKE '%' || $1 || '%' OR o.blockchain_tx_hash ILIKE '%' || $1 || '%')"
+	argID++
+
+	if from != nil {
+		where += " AND o.updated_at >= $" + strconv.Itoa(argID)
+		args = append(args, *from)
+		argID++
+	}
+	if to != nil {
+		where += " AND o.updated_at < $" + strconv.Itoa(argID)
+		args = append(args, *to)
+		argID++
+	}
+
+	args = append(args, limit, offset)
+	limitArg := argID
+	offsetArg := argID + 1
+
+	queryStmt := `
+		SELECT o.id, o.table_number, o.total, o.status, o.payment_method, o.created_at, o.updated_at, o.blockchain_tx_hash, u.username as waiter_name
+		FROM orders o
+		LEFT JOIN users u ON o.waiter_id = u.id
+		` + where + `
+		ORDER BY o.updated_at DESC
+		LIMIT $` + strconv.Itoa(limitArg) + ` OFFSET $` + strconv.Itoa(offsetArg)
+
+	rows, err := r.db.Query(queryStmt, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var item domain.InvoiceHistoryItem
+		var paymentMethod sql.NullString
+		var blockchainTxHash sql.NullString
+		var waiterName sql.NullString
+		if err := rows.Scan(&item.OrderID, &item.TableNumber, &item.Total, &item.Status, &paymentMethod, &item.CreatedAt, &item.UpdatedAt, &blockchainTxHash, &waiterName); err != nil {
+			return nil, err
+		}
+		if paymentMethod.Valid {
+			pm := paymentMethod.String
+			item.PaymentMethod = &pm
+		}
+		if blockchainTxHash.Valid {
+			hash := blockchainTxHash.String
+			item.BlockchainTxHash = &hash
+		}
+		if waiterName.Valid {
+			item.WaiterName = waiterName.String
+		}
+		items = append(items, item)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return items, nil
 }
 
 func (r *orderRepository) UpdateOrderPrintStatus(orderID uuid.UUID, status string, incrementAttempts int, lastError *string, printedAt *time.Time) (*domain.Order, error) {
