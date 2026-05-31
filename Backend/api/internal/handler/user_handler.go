@@ -30,6 +30,10 @@ type UpdateUserPayload struct {
 	Role     string `json:"role"`
 }
 
+type UpdateUserPasswordPayload struct {
+	Password string `json:"password"`
+}
+
 func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
 	payload := new(CreateUserPayload)
 	if err := c.BodyParser(payload); err != nil {
@@ -78,6 +82,26 @@ func (h *UserHandler) DeleteUser(c *fiber.Ctx) error {
 
 	if err := h.userService.DeleteUser(id); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not delete user"})
+	}
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+func (h *UserHandler) UpdateUserPassword(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid user ID"})
+	}
+
+	payload := new(UpdateUserPasswordPayload)
+	if err := c.BodyParser(payload); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse JSON"})
+	}
+	if payload.Password == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Password is required"})
+	}
+
+	if err := h.userService.UpdateUserPassword(id, payload.Password); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not update user password"})
 	}
 	return c.SendStatus(fiber.StatusNoContent)
 }

@@ -5,6 +5,7 @@
 import { useEffect, useRef } from 'react';
 import { useDispatch } from 'react-redux';
 import { orderUpdated, fetchMyOrders, fetchActiveOrders } from '../features/shared/orders/api/ordersSlice';
+import { logout } from '../features/auth/authSlice';
 import type { AppDispatch } from '../app/store';
 import type { Order } from '../types/orders';
 
@@ -228,8 +229,13 @@ export const useWaiterWebSocket = (
 
       const currentRole = localStorage.getItem('user_role') || 'unknown';
       const currentUserID = localStorage.getItem('user_id') || userId;
+      const token = localStorage.getItem('token') || '';
+      if (!token) {
+        console.log('⚠️ [Mesero] Token no encontrado. Omitiendo conexión WebSocket.');
+        return;
+      }
       const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-      const wsUrl = `${protocol}://${window.location.host}/ws?user_id=${currentUserID}&role=${currentRole}`;
+      const wsUrl = `${protocol}://${window.location.host}/ws?token=${encodeURIComponent(token)}`;
 
       console.log(`🔌 [Mesero] Conectando WebSocket como ${currentRole} (${currentUserID})`);
 
@@ -266,7 +272,7 @@ export const useWaiterWebSocket = (
         console.error('❌ [Mesero] Error en WebSocket:', error);
       };
 
-      ws.current.onclose = () => {
+      ws.current.onclose = (event) => {
         console.log('👋 [Mesero] WebSocket desconectado');
 
         if (heartbeatInterval.current) {
@@ -275,6 +281,14 @@ export const useWaiterWebSocket = (
         }
 
         ws.current = null;
+
+        if (event.code === 1008) {
+          shouldReconnect.current = false;
+          sessionStorage.setItem('auth_error', 'Sesion revocada. Inicia sesion nuevamente.');
+          dispatch(logout());
+          window.location.assign('/login');
+          return;
+        }
 
         if (!shouldReconnect.current) {
           return;

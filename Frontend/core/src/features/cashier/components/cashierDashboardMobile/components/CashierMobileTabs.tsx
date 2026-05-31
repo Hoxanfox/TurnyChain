@@ -1,10 +1,10 @@
 import React from 'react';
 
 interface CashierMobileTabsProps {
-  viewMode: 'tables' | 'urgent';
+  viewMode: 'tables' | 'urgent' | 'waiter-stats';
   tablesCount: number;
   urgentCount: number;
-  onChange: (value: 'tables' | 'urgent') => void;
+  onChange: (value: 'tables' | 'urgent' | 'waiter-stats') => void;
 }
 
 export const CashierMobileTabs: React.FC<CashierMobileTabsProps> = ({
@@ -33,6 +33,16 @@ export const CashierMobileTabs: React.FC<CashierMobileTabsProps> = ({
       }`}
     >
       ⚠️ Urgentes ({urgentCount})
+    </button>
+    <button
+      onClick={() => onChange('waiter-stats')}
+      className={`flex-1 px-4 py-3 rounded-xl font-semibold transition-all ${
+        viewMode === 'waiter-stats'
+          ? 'bg-white text-purple-600 shadow-lg'
+          : 'bg-white bg-opacity-20 text-white'
+      }`}
+    >
+      📊 Meseros
     </button>
   </div>
 );

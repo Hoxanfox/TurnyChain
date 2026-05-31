@@ -16,15 +16,17 @@ type UserService interface {
 	CreateUser(username, password, role string) (*domain.User, error)
     GetUsers() ([]domain.User, error)
 	UpdateUser(id uuid.UUID, username, role string) (*domain.User, error) // <-- NUEVO
+	UpdateUserPassword(id uuid.UUID, password string) error
 	DeleteUser(id uuid.UUID) error                                     // <-- NUEVO
 }
 
 type userService struct {
 	userRepo repository.UserRepository
+	sessionRepo repository.SessionRepository
 }
 
-func NewUserService(repo repository.UserRepository) UserService {
-	return &userService{userRepo: repo}
+func NewUserService(repo repository.UserRepository, sessionRepo repository.SessionRepository) UserService {
+	return &userService{userRepo: repo, sessionRepo: sessionRepo}
 }
 
 func (s *userService) CreateUser(username, password, role string) (*domain.User, error) {
@@ -52,6 +54,17 @@ func (s *userService) UpdateUser(id uuid.UUID, username, role string) (*domain.U
 		Role:     role,
 	}
 	return s.userRepo.UpdateUser(user)
+}
+
+func (s *userService) UpdateUserPassword(id uuid.UUID, password string) error {
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	if err := s.userRepo.UpdateUserPassword(id, string(hashedPassword)); err != nil {
+		return err
+	}
+	return s.sessionRepo.RevokeActiveSessions(id, "password_change")
 }
 
 // DeleteUser elimina un usuario. // <-- NUEVO

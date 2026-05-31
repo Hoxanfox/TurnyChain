@@ -14,6 +14,7 @@ type UserRepository interface {
 	GetUserByUsername(username string) (*domain.User, error)
 	GetUsers() ([]domain.User, error)
 	UpdateUser(user *domain.User) (*domain.User, error)
+	UpdateUserPassword(userID uuid.UUID, passwordHash string) error
 	DeleteUser(userID uuid.UUID) error // La interfaz no cambia
 }
 
@@ -72,6 +73,22 @@ func (r *userRepository) UpdateUser(user *domain.User) (*domain.User, error) {
 	}
 	user.PasswordHash = ""
 	return user, nil
+}
+
+func (r *userRepository) UpdateUserPassword(userID uuid.UUID, passwordHash string) error {
+	query := "UPDATE users SET password_hash = $1 WHERE id = $2"
+	result, err := r.db.Exec(query, passwordHash, userID)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
 }
 
 // DeleteUser ahora hace un "soft delete" actualizando la columna is_active.

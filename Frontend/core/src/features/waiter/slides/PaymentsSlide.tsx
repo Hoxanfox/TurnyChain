@@ -347,7 +347,9 @@ const PaymentsSlide: React.FC<PaymentsSlideProps> = ({
               )}
             </div>
             <div className="text-right">
-              <p className="text-2xl font-bold text-indigo-600">{formatMoney(order.total)}</p>
+              {!isColleagueOrder && (
+                <p className="text-2xl font-bold text-indigo-600">{formatMoney(order.total)}</p>
+              )}
               <div className="flex flex-col items-end gap-1">
                 <span className={`text-xs font-semibold px-2 py-1 rounded-full ${getStatusBadgeClass(order.status)}`}>
                   {order.status === 'por_verificar' && '⏳ '}

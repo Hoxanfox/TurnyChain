@@ -3,8 +3,8 @@
 // Propósito: Añadir thunks y lógica para actualizar y eliminar usuarios.
 // =================================================================
 import { createSlice, createAsyncThunk, type PayloadAction } from '@reduxjs/toolkit';
-import { getUsers, createUser, updateUser, deleteUser } from './usersAPI.ts';
-import type { User, NewUser, UpdateUser } from '../../../types/users.ts';
+import { getUsers, createUser, updateUser, deleteUser, updateUserPassword } from './usersAPI.ts';
+import type { User, NewUser, UpdateUser, UpdateUserPassword } from '../../../types/users.ts';
 import type { RootState } from '../../../app/store.ts';
 
 interface UsersState {
@@ -45,6 +45,13 @@ export const removeUser = createAsyncThunk('users/removeUser', async (userId: st
   const token = (getState() as RootState).auth.token;
   if (!token) return rejectWithValue('No se encontró el token');
   try { return await deleteUser(userId, token); }
+  catch (error: any) { return rejectWithValue(error.response?.data?.error); }
+});
+
+export const changeUserPassword = createAsyncThunk('users/changeUserPassword', async (payload: UpdateUserPassword, { getState, rejectWithValue }) => {
+  const token = (getState() as RootState).auth.token;
+  if (!token) return rejectWithValue('No se encontró el token');
+  try { return await updateUserPassword(payload, token); }
   catch (error: any) { return rejectWithValue(error.response?.data?.error); }
 });
 

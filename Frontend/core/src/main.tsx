@@ -6,7 +6,9 @@ import { scan } from 'react-scan'
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { Provider } from 'react-redux'
+import axios from 'axios'
 import { store } from './app/store'
+import { logout } from './features/auth/authSlice'
 import App from './App.tsx'
 import './index.css'
 
@@ -44,6 +46,29 @@ window.addEventListener('scroll', () => {
   }
 });
 // ===================================================================
+
+const redirectToLoginWithMessage = (message: string) => {
+  if (sessionStorage.getItem('auth_redirecting')) {
+    return;
+  }
+  sessionStorage.setItem('auth_redirecting', 'true');
+  sessionStorage.setItem('auth_error', message);
+  store.dispatch(logout());
+  window.location.assign('/login');
+};
+
+axios.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (axios.isAxiosError(error)) {
+      const status = error.response?.status;
+      if (status === 401 || status === 403) {
+        redirectToLoginWithMessage('Sesion revocada. Inicia sesion nuevamente.');
+      }
+    }
+    return Promise.reject(error);
+  }
+);
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

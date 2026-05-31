@@ -6,11 +6,12 @@ package router
 import (
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/handler"
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/middleware"
+	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/repository"
 	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
 )
 
-func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *handler.UserHandler, menuHandler *handler.MenuHandler, orderHandler *handler.OrderHandler, invoiceHandler *handler.InvoiceHandler, tableHandler *handler.TableHandler, categoryHandler *handler.CategoryHandler, ingredientHandler *handler.IngredientHandler, accompanimentHandler *handler.AccompanimentHandler, wsHandler *handler.WebSocketHandler, stationHandler *handler.StationHandler, printerHandler *handler.PrinterHandler, kitchenTicketHandler *handler.KitchenTicketHandler, backupHandler *handler.BackupHandler) {
+func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *handler.UserHandler, menuHandler *handler.MenuHandler, orderHandler *handler.OrderHandler, invoiceHandler *handler.InvoiceHandler, tableHandler *handler.TableHandler, categoryHandler *handler.CategoryHandler, ingredientHandler *handler.IngredientHandler, accompanimentHandler *handler.AccompanimentHandler, wsHandler *handler.WebSocketHandler, stationHandler *handler.StationHandler, printerHandler *handler.PrinterHandler, kitchenTicketHandler *handler.KitchenTicketHandler, backupHandler *handler.BackupHandler, sessionRepo repository.SessionRepository) {
 	// Ruta pública para WebSockets
 	app.Get("/ws", websocket.New(wsHandler.HandleConnection))
 
@@ -23,13 +24,14 @@ func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *
 
 	// A partir de aquí, todas las rutas requieren un token JWT válido.
 	protected := api.Group("/")
-	protected.Use(middleware.Protected())
+	protected.Use(middleware.Protected(sessionRepo))
 
 	// Rutas de Usuarios
 	users := protected.Group("/users")
 	users.Post("/", userHandler.CreateUser)
 	users.Get("/", userHandler.GetUsers)
 	users.Put("/:id", userHandler.UpdateUser)
+	users.Put("/:id/password", userHandler.UpdateUserPassword)
 	users.Delete("/:id", userHandler.DeleteUser)
 
 	// Rutas de Menú
@@ -46,6 +48,7 @@ func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *
 	orders.Post("/with-payment", orderHandler.CreateOrderWithPayment) // Nueva ruta para orden con pago
 	orders.Get("/", orderHandler.GetOrders)
 	orders.Get("/today", orderHandler.GetOrdersToday)
+	orders.Get("/waiter-approved-stats", orderHandler.GetWaiterApprovedStats)
 	orders.Get("/:id", orderHandler.GetOrderByID)
 	orders.Put("/:id/status", orderHandler.UpdateOrderStatus)
 	orders.Put("/:id/manage", orderHandler.ManageOrder)

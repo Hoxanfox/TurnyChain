@@ -2,7 +2,7 @@
 // ARCHIVO 3: /src/features/users/usersAPI.ts (CORREGIDO)
 // =================================================================
 import axios from 'axios';
-import type { User, NewUser, UpdateUser } from '../../../types/users.ts';
+import type { User, NewUser, UpdateUser, UpdateUserPassword } from '../../../types/users.ts';
 
 // CORRECCIÓN: Usamos una ruta relativa.
 const API_URL = '/api/users';
@@ -30,4 +30,10 @@ export const deleteUser = async (userId: string, token: string): Promise<{ id: s
   const config = { headers: { Authorization: `Bearer ${token}` } };
   await axios.delete(`${API_URL}/${userId}`, config);
   return { id: userId };
+};
+
+export const updateUserPassword = async (payload: UpdateUserPassword, token: string): Promise<{ id: string }> => {
+  const config = { headers: { Authorization: `Bearer ${token}` } };
+  await axios.put(`${API_URL}/${payload.id}/password`, { password: payload.password }, config);
+  return { id: payload.id };
 };

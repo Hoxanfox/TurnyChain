@@ -13,6 +13,7 @@ import ingredientsReducer from '../features/admin/components/ingredients/api/ing
 import accompanimentsReducer from '../features/admin/components/accompaniments/api/accompanimentsSlice.ts';
 import backendLogsReducer from '../features/admin/api/backendLogsSlice.ts';
 import invoiceHistoryReducer from '../features/cashier/components/cashierDashboardMobile/api/invoiceHistorySlice';
+import waiterStatsReducer from '../features/cashier/components/cashierDashboardMobile/api/waiterStatsSlice';
 
 const appReducer = combineReducers({
   auth: authReducer,
@@ -25,6 +26,7 @@ const appReducer = combineReducers({
   accompaniments: accompanimentsReducer,
   backendLogs: backendLogsReducer,
   invoiceHistory: invoiceHistoryReducer,
+  waiterStats: waiterStatsReducer,
 });
 
 const rootReducer: typeof appReducer = (state, action) => {

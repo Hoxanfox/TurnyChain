@@ -6,6 +6,7 @@ package service
 import (
 	"errors"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/repository"
@@ -17,18 +18,19 @@ import (
 var JWT_SECRET_KEY = []byte("mi_clave_secreta_super_segura_cambiar_en_produccion")
 
 type AuthService interface {
-	Login(username, password string) (string, error)
+	Login(username, password, deviceID string) (string, error)
 }
 
 type authService struct {
-	userRepo repository.UserRepository
+	userRepo    repository.UserRepository
+	sessionRepo repository.SessionRepository
 }
 
-func NewAuthService(userRepo repository.UserRepository) AuthService {
-	return &authService{userRepo: userRepo}
+func NewAuthService(userRepo repository.UserRepository, sessionRepo repository.SessionRepository) AuthService {
+	return &authService{userRepo: userRepo, sessionRepo: sessionRepo}
 }
 
-func (s *authService) Login(username, password string) (string, error) {
+func (s *authService) Login(username, password, deviceID string) (string, error) {
 	log.Printf("Iniciando intento de login para el usuario: %s", username)
 
 	// 1. Obtener el usuario de la base de datos
@@ -49,11 +51,29 @@ func (s *authService) Login(username, password string) (string, error) {
 
 	log.Printf("Contraseña verificada exitosamente para el usuario '%s'. Generando token...", username)
 
+	if err := s.sessionRepo.RevokeActiveSessions(user.ID, "new_login"); err != nil {
+		log.Printf("Error revocando sesiones activas para '%s': %v", username, err)
+		return "", errors.New("no se pudo iniciar sesion")
+	}
+
+	expiration := time.Now().Add(4 * time.Hour)
+	var devicePtr *string
+	if trimmed := strings.TrimSpace(deviceID); trimmed != "" {
+		devicePtr = &trimmed
+	}
+
+	sessionID, err := s.sessionRepo.CreateSession(user.ID, devicePtr, expiration)
+	if err != nil {
+		log.Printf("Error creando sesion para '%s': %v", username, err)
+		return "", errors.New("no se pudo iniciar sesion")
+	}
+
 	// 3. Crear los claims (la información dentro del token)
 	claims := jwt.MapClaims{
 		"sub":  user.ID,
 		"role": user.Role,
-		"exp":  time.Now().Add(4 * time.Hour).Unix(),
+		"sid":  sessionID.String(),
+		"exp":  expiration.Unix(),
 	}
 
 	// 4. Crear y firmar el token

@@ -4,7 +4,7 @@ import { CashierMobileTableGrid } from './CashierMobileTableGrid';
 import { CashierMobileUrgentList } from './CashierMobileUrgentList';
 
 interface CashierMobileContentProps {
-  viewMode: 'tables' | 'urgent';
+  viewMode: 'tables' | 'urgent' | 'waiter-stats';
   tableNumbers: number[];
   ordersByTable: Record<number, Order[]>;
   urgentOrders: Order[];
@@ -41,7 +41,7 @@ export const CashierMobileContent: React.FC<CashierMobileContentProps> = ({
         hasMore={hasMoreTables}
         onLoadMore={onLoadMoreTables}
       />
-    ) : (
+    ) : viewMode === 'urgent' ? (
       <CashierMobileUrgentList
         orders={urgentOrders}
         onConfirmPayment={onConfirmPayment}
@@ -50,6 +50,6 @@ export const CashierMobileContent: React.FC<CashierMobileContentProps> = ({
         hasMore={hasMoreUrgent}
         onLoadMore={onLoadMoreUrgent}
       />
-    )}
+    ) : null}
   </div>
 );

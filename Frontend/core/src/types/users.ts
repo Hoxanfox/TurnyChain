@@ -20,3 +20,8 @@ export interface UpdateUser {
   // CORRECCIÓN: El rol a actualizar puede ser cualquiera de los roles existentes.
   role?: 'admin' | 'cajero' | 'mesero';
 }
+
+export interface UpdateUserPassword {
+  id: string;
+  password: string;
+}

@@ -145,16 +145,11 @@ const ColleagueOrdersModal: React.FC<ColleagueOrdersModalProps> = ({
 
           {/* Contador */}
           <div className="mt-3 bg-white/15 rounded-xl px-4 py-2 flex items-center justify-between">
-            <span className="text-sm font-medium text-violet-100">Total por cobrar</span>
+            <span className="text-sm font-medium text-violet-100">Comandas por cobrar</span>
             <div className="flex items-center gap-3">
               <span className="bg-white text-violet-700 font-bold px-3 py-1 rounded-full text-sm">
                 {colleagueOrders.length} {colleagueOrders.length === 1 ? 'comanda' : 'comandas'}
               </span>
-              {colleagueOrders.length > 0 && (
-                <span className="text-white font-bold text-sm">
-                  {formatMoney(colleagueOrders.reduce((sum, o) => sum + o.total, 0))}
-                </span>
-              )}
             </div>
           </div>
         </div>
@@ -322,7 +317,6 @@ const ColleagueOrdersModal: React.FC<ColleagueOrdersModalProps> = ({
                         )}
                       </div>
                       <div className="text-right">
-                        <p className="text-2xl font-bold text-violet-700">{formatMoney(current.total)}</p>
                         <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full font-semibold">
                           {current.status === 'por_verificar' ? '⏳ en_verificacion' : `⚠️ ${statusLabel}`}
                         </span>
@@ -417,7 +411,6 @@ const ColleagueOrdersModal: React.FC<ColleagueOrdersModalProps> = ({
               <div key={order.id} className="bg-violet-100 border border-violet-300 rounded-xl p-2.5 space-y-2">
                 <div className="px-1 flex items-center justify-between">
                   <p className="text-xs font-semibold text-violet-700">Grupo enlazado</p>
-                  <p className="text-xs font-bold text-violet-900">Total a cobrar: {formatMoney(payableGroupTotal)}</p>
                 </div>
 
                 {onCheckoutGroup && payableOrderIds.length > 0 && (

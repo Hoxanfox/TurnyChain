@@ -14,6 +14,7 @@ import { CashierMobileTabs } from './components/CashierMobileTabs';
 import { CashierMobileLoading } from './components/CashierMobileLoading';
 import { CashierMobileError } from './components/CashierMobileError';
 import { CashierMobileContent } from './components/CashierMobileContent';
+import { WaiterApprovedStatsPanel } from './components/waiterStats/WaiterApprovedStatsPanel';
 import { useCashierMobileDerivedData } from './hooks/useCashierMobileDerivedData';
 import { useCashierMobilePagination } from './hooks/useCashierMobilePagination';
 
@@ -131,7 +132,7 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
   const [selectedTableNumber, setSelectedTableNumber] = useState<number | null>(null);
   const [focusedOrderId, setFocusedOrderId] = useState<string | null>(null);
   const [selectedOrderIdForDetail, setSelectedOrderIdForDetail] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'tables' | 'urgent'>('tables');
+  const [viewMode, setViewMode] = useState<'tables' | 'urgent' | 'waiter-stats'>('tables');
 
   useEffect(() => {
     if (!shortcutTarget || shortcutNonce === 0) return;
@@ -212,7 +213,9 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
         </div>
       )}
 
-      {isLoading ? (
+      {viewMode === 'waiter-stats' ? (
+        <WaiterApprovedStatsPanel />
+      ) : isLoading ? (
         <CashierMobileLoading />
       ) : hasFailed ? (
         <CashierMobileError onRetry={onRetryLoadOrders} />

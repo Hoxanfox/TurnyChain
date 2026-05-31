@@ -21,6 +21,7 @@ func NewAuthHandler(s service.AuthService) *AuthHandler {
 type LoginPayload struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
+	DeviceID string `json:"device_id"`
 }
 
 func (h *AuthHandler) Login(c *fiber.Ctx) error {
@@ -29,7 +30,7 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse JSON"})
 	}
 
-	token, err := h.authService.Login(payload.Username, payload.Password)
+	token, err := h.authService.Login(payload.Username, payload.Password, payload.DeviceID)
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": err.Error()})
 	}

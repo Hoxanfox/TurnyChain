@@ -3,7 +3,7 @@
 -- =================================================================
 
 -- Borrar tablas antiguas si existen para un reinicio limpio
-DROP TABLE IF EXISTS "order_items", "orders", "menu_item_ingredients", "menu_item_accompaniments", "menu_items", "categories", "printers", "stations", "ingredients", "accompaniments", "tables", "users" CASCADE;
+DROP TABLE IF EXISTS "order_items", "orders", "menu_item_ingredients", "menu_item_accompaniments", "menu_items", "categories", "printers", "stations", "ingredients", "accompaniments", "tables", "user_sessions", "users" CASCADE;
 
 -- Tabla para usuarios y roles
 CREATE TABLE "users" (
@@ -13,6 +13,17 @@ CREATE TABLE "users" (
   "role" varchar(20) NOT NULL CHECK (role IN ('mesero', 'cajero', 'admin')),
   "is_active" boolean NOT NULL DEFAULT true,
   "created_at" timestamptz NOT NULL DEFAULT (now())
+);
+
+-- Tabla para sesiones de usuario (una sesion activa por usuario)
+CREATE TABLE "user_sessions" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "user_id" uuid NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
+  "device_id" varchar(100) NULL,
+  "created_at" timestamptz NOT NULL DEFAULT (now()),
+  "expires_at" timestamptz NOT NULL,
+  "revoked_at" timestamptz NULL,
+  "revoked_reason" text NULL
 );
 
 -- Tabla para las mesas del restaurante
@@ -165,6 +176,9 @@ CREATE INDEX ON "menu_items" ("order_count");
 CREATE INDEX ON "menu_items" ("category_id");
 CREATE INDEX ON "printers" ("station_id");
 CREATE INDEX ON "categories" ("station_id");
+CREATE INDEX ON "user_sessions" ("user_id");
+CREATE INDEX ON "user_sessions" ("expires_at");
+CREATE UNIQUE INDEX ON "user_sessions" ("user_id") WHERE revoked_at IS NULL;
 
 -- Insertar usuarios (Contraseña para todos: 1234)
 -- Hash generado con Costo 10 (Go Default)

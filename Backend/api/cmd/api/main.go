@@ -38,6 +38,9 @@ func main() {
 	if err := applyOrderSchemaMigrations(db); err != nil {
 		log.Fatalf("Error aplicando migraciones de órdenes: %v", err)
 	}
+	if err := applyAuthSessionMigrations(db); err != nil {
+		log.Fatalf("Error aplicando migraciones de sesiones: %v", err)
+	}
 
 	wsHub := wshub.NewHub()
 	go wsHub.Run()
@@ -53,6 +56,7 @@ func main() {
 
 	// Repositorios
 	userRepo := repository.NewUserRepository(db)
+	sessionRepo := repository.NewSessionRepository(db)
 	menuRepo := repository.NewMenuRepository(db)
 	orderRepo := repository.NewOrderRepository(db)
 	tableRepo := repository.NewTableRepository(db)
@@ -63,8 +67,8 @@ func main() {
 	printerRepo := repository.NewPrinterRepository(db)
 
 	// Servicios
-	userService := service.NewUserService(userRepo)
-	authService := service.NewAuthService(userRepo)
+	userService := service.NewUserService(userRepo, sessionRepo)
+	authService := service.NewAuthService(userRepo, sessionRepo)
 	menuService := service.NewMenuService(menuRepo, wsHub)
 
 	kitchenTicketService := service.NewKitchenTicketService(orderRepo, printerRepo, stationRepo, wsHub)
@@ -88,7 +92,7 @@ func main() {
 	categoryHandler := handler.NewCategoryHandler(categoryService)
 	ingredientHandler := handler.NewIngredientHandler(ingredientService)
 	accompanimentHandler := handler.NewAccompanimentHandler(accompanimentService)
-	wsHandler := handler.NewWebSocketHandler(wsHub)
+	wsHandler := handler.NewWebSocketHandler(wsHub, sessionRepo)
 	stationHandler := handler.NewStationHandler(stationService)
 	printerHandler := handler.NewPrinterHandler(printerService)
 	kitchenTicketHandler := handler.NewKitchenTicketHandler(kitchenTicketService)
@@ -137,18 +141,18 @@ func main() {
 	}
 	app.Static("/api/static", uploadsDir)
 
-	router.SetupRoutes(app, authHandler, userHandler, menuHandler, orderHandler, invoiceHandler, tableHandler, categoryHandler, ingredientHandler, accompanimentHandler, wsHandler, stationHandler, printerHandler, kitchenTicketHandler, backupHandler)
+	router.SetupRoutes(app, authHandler, userHandler, menuHandler, orderHandler, invoiceHandler, tableHandler, categoryHandler, ingredientHandler, accompanimentHandler, wsHandler, stationHandler, printerHandler, kitchenTicketHandler, backupHandler, sessionRepo)
 
 	// Alias explícitos para compatibilidad de rutas de impresión de cocina.
-	app.Post("/api/orders/:orderId/kitchen-tickets/print/caja", middleware.Protected(), kitchenTicketHandler.PrintGlobalCashTicket)
-	app.Post("/api/orders/:orderId/kitchen-tickets/retry", middleware.Protected(), kitchenTicketHandler.RetryKitchenTicketsPrint)
-	app.Post("/api/orders/kitchen-tickets/retry-failed-recent", middleware.Protected(), kitchenTicketHandler.RetryRecentFailedKitchenTickets)
+	app.Post("/api/orders/:orderId/kitchen-tickets/print/caja", middleware.Protected(sessionRepo), kitchenTicketHandler.PrintGlobalCashTicket)
+	app.Post("/api/orders/:orderId/kitchen-tickets/retry", middleware.Protected(sessionRepo), kitchenTicketHandler.RetryKitchenTicketsPrint)
+	app.Post("/api/orders/kitchen-tickets/retry-failed-recent", middleware.Protected(sessionRepo), kitchenTicketHandler.RetryRecentFailedKitchenTickets)
 
 	// Alias explícitos para compatibilidad de rutas de backup.
-	app.Get("/api/backups/catalog", middleware.Protected(), backupHandler.ExportCatalogBackup)
-	app.Post("/api/backups/catalog/import", middleware.Protected(), backupHandler.ImportCatalogBackup)
-	app.Post("/api/backup/catalog/import", middleware.Protected(), backupHandler.ImportCatalogBackup)
-	app.Post("/api/backup/catalog", middleware.Protected(), backupHandler.ImportCatalogBackup)
+	app.Get("/api/backups/catalog", middleware.Protected(sessionRepo), backupHandler.ExportCatalogBackup)
+	app.Post("/api/backups/catalog/import", middleware.Protected(sessionRepo), backupHandler.ImportCatalogBackup)
+	app.Post("/api/backup/catalog/import", middleware.Protected(sessionRepo), backupHandler.ImportCatalogBackup)
+	app.Post("/api/backup/catalog", middleware.Protected(sessionRepo), backupHandler.ImportCatalogBackup)
 
 	for _, route := range app.GetRoutes() {
 		if strings.Contains(route.Path, "backup") {
@@ -188,5 +192,31 @@ func applyOrderSchemaMigrations(db *sql.DB) error {
 	}
 
 	log.Println("Migraciones de órdenes verificadas: parent_order_id/customer_name/print_status")
+	return nil
+}
+
+func applyAuthSessionMigrations(db *sql.DB) error {
+	statements := []string{
+		`CREATE TABLE IF NOT EXISTS user_sessions (
+			id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+			user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			device_id varchar(100) NULL,
+			created_at timestamptz NOT NULL DEFAULT now(),
+			expires_at timestamptz NOT NULL,
+			revoked_at timestamptz NULL,
+			revoked_reason text NULL
+		)`,
+		`CREATE INDEX IF NOT EXISTS user_sessions_user_id_idx ON user_sessions (user_id)`,
+		`CREATE INDEX IF NOT EXISTS user_sessions_expires_at_idx ON user_sessions (expires_at)`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS user_sessions_user_id_active_idx ON user_sessions (user_id) WHERE revoked_at IS NULL`,
+	}
+
+	for _, stmt := range statements {
+		if _, err := db.Exec(stmt); err != nil {
+			return err
+		}
+	}
+
+	log.Println("Migraciones de sesiones verificadas: user_sessions")
 	return nil
 }

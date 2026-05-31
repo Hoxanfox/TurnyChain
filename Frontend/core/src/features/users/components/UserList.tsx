@@ -9,9 +9,10 @@ import { fetchUsers, removeUser } from '../api/usersSlice.ts';
 
 interface UserListProps {
   onEdit: (user: RootState['users']['users'][0]) => void;
+  onChangePassword: (user: RootState['users']['users'][0]) => void;
 }
 
-const UserList: React.FC<UserListProps> = ({ onEdit }) => {
+const UserList: React.FC<UserListProps> = ({ onEdit, onChangePassword }) => {
   const dispatch = useDispatch<AppDispatch>();
   const { users, status, error } = useSelector((state: RootState) => state.users);
 
@@ -47,6 +48,7 @@ const UserList: React.FC<UserListProps> = ({ onEdit }) => {
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.role}</td>
               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                 <button onClick={() => onEdit(user)} className="text-indigo-600 hover:text-indigo-900">Editar</button>
+                <button onClick={() => onChangePassword(user)} className="text-blue-600 hover:text-blue-900">Contrasena</button>
                 <button onClick={() => handleDelete(user.id)} className="text-red-600 hover:text-red-900">Eliminar</button>
               </td>
             </tr>

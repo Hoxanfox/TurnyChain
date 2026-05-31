@@ -25,6 +25,7 @@ type OrderRepository interface {
 	AddPaymentProof(orderID uuid.UUID, method string, proofPath string) (*domain.Order, error)
 	UpdateOrderBlockchainTxHash(orderID uuid.UUID, txHash string) error
 	GetInvoiceHistory(query string, from *time.Time, to *time.Time, limit int, offset int) ([]domain.InvoiceHistoryItem, error)
+	GetWaiterApprovedStats(start time.Time, end time.Time, groupBy string) ([]domain.WaiterApprovedStat, error)
 	UpdateOrderPrintStatus(orderID uuid.UUID, status string, incrementAttempts int, lastError *string, printedAt *time.Time) (*domain.Order, error)
 	UpdateOrderPrintStatusGuarded(orderID uuid.UUID, status string, incrementAttempts int, lastError *string, printedAt *time.Time, allowOverwritePrinted bool) (*domain.Order, bool, error)
 	GetOrderIDsByPrintStatus(statuses []string) ([]uuid.UUID, error)
@@ -258,6 +259,47 @@ func (r *orderRepository) GetOrders(filters map[string]interface{}) ([]domain.Or
 	}
 
 	return finalOrders, nil
+}
+
+func (r *orderRepository) GetWaiterApprovedStats(start time.Time, end time.Time, groupBy string) ([]domain.WaiterApprovedStat, error) {
+	periodTrunc := "day"
+	periodFormat := "YYYY-MM-DD"
+	if groupBy == "month" {
+		periodTrunc = "month"
+		periodFormat = "YYYY-MM"
+	}
+
+	query := `
+		SELECT
+			to_char(date_trunc($1, o.updated_at), $2) as period,
+			o.waiter_id,
+			COALESCE(u.username, '') as waiter_name,
+			COUNT(*) as approved_count
+		FROM orders o
+		LEFT JOIN users u ON o.waiter_id = u.id
+		WHERE o.status = 'pagado'
+		  AND o.updated_at >= $3
+		  AND o.updated_at < $4
+		GROUP BY period, o.waiter_id, u.username
+		ORDER BY period DESC, approved_count DESC
+	`
+
+	rows, err := r.db.Query(query, periodTrunc, periodFormat, start, end)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	stats := make([]domain.WaiterApprovedStat, 0)
+	for rows.Next() {
+		var stat domain.WaiterApprovedStat
+		if err := rows.Scan(&stat.Period, &stat.WaiterID, &stat.WaiterName, &stat.ApprovedCount); err != nil {
+			return nil, err
+		}
+		stats = append(stats, stat)
+	}
+
+	return stats, nil
 }
 
 // loadOrderItems es un método auxiliar privado que carga los items de una orden

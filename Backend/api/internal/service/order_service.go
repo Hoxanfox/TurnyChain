@@ -25,6 +25,7 @@ type OrderService interface {
 	UpdateOrderItems(orderID uuid.UUID, items []domain.OrderItem) (*domain.Order, error)
 	ManageOrderAsAdmin(orderID uuid.UUID, status *string, newWaiterID *uuid.UUID) (*domain.Order, error)
 	AddPaymentProof(orderID uuid.UUID, method string, proofPath string) (*domain.Order, error)
+	GetWaiterApprovedStats(userRole string, start time.Time, end time.Time, groupBy string) ([]domain.WaiterApprovedStat, error)
 }
 
 type orderService struct {
@@ -512,4 +513,11 @@ func (s *orderService) AddPaymentProof(orderID uuid.UUID, method string, proofPa
 	log.Printf("📡 [Backend] Notificación 'PAYMENT_VERIFICATION_PENDING' enviada a cajeros para orden %s", orderID.String())
 
 	return order, nil
+}
+
+func (s *orderService) GetWaiterApprovedStats(userRole string, start time.Time, end time.Time, groupBy string) ([]domain.WaiterApprovedStat, error) {
+	if userRole != "admin" && userRole != "cajero" {
+		return nil, errors.New("unauthorized")
+	}
+	return s.orderRepo.GetWaiterApprovedStats(start, end, groupBy)
 }

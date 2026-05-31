@@ -19,7 +19,11 @@ const OrderManagement: React.FC = () => {
     dispatch(fetchActiveOrders());
     
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const wsUrl = `${protocol}://${window.location.host}/ws`;
+    const token = localStorage.getItem('token') || '';
+    if (!token) {
+      return () => {};
+    }
+    const wsUrl = `${protocol}://${window.location.host}/ws?token=${encodeURIComponent(token)}`;
     const ws = new WebSocket(wsUrl);
 
     ws.onmessage = (event) => {

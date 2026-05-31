@@ -15,6 +15,7 @@ const LoginPage: React.FC = () => {
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [authMessage, setAuthMessage] = useState<string | null>(null);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -26,6 +27,15 @@ const LoginPage: React.FC = () => {
       navigate('/dashboard');
     }
   }, [token, status, navigate]);
+
+  useEffect(() => {
+    const message = sessionStorage.getItem('auth_error');
+    if (message) {
+      setAuthMessage(message);
+      sessionStorage.removeItem('auth_error');
+    }
+    sessionStorage.removeItem('auth_redirecting');
+  }, []);
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-indigo-100 to-blue-200">
@@ -79,6 +89,7 @@ const LoginPage: React.FC = () => {
               {status === 'loading' ? 'Ingresando...' : 'Ingresar'}
             </button>
           </div>
+          {authMessage && <p className="text-sm font-medium text-center text-red-600 mt-4">{authMessage}</p>}
           {error && <p className="text-sm font-medium text-center text-red-600 mt-4">{error}</p>}
         </form>
       </div>

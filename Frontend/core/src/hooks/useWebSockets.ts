@@ -7,6 +7,7 @@ import { useDispatch } from 'react-redux';
 import { orderAdded, orderUpdated } from '../features/shared/orders/api/ordersSlice.ts';
 import { menuItemAdded, menuItemUpdated, menuItemRemoved } from '../features/admin/components/menu/api/menuSlice.ts';
 import { backendErrorReceived } from '../features/admin/api/backendLogsSlice.ts';
+import { logout } from '../features/auth/authSlice';
 import type { AppDispatch } from '../app/store';
 import type { Order } from '../types/orders';
 import type { MenuItem } from '../types/menu';
@@ -39,10 +40,15 @@ export const useWebSockets = () => {
 
     // ✅ Obtener datos del usuario desde localStorage
     const userId = localStorage.getItem('user_id') || 'unknown';
+    const token = localStorage.getItem('token') || '';
+    if (!token) {
+      console.log('⚠️ [WebSocket] Token no encontrado. Omitiendo conexión.');
+      return;
+    }
 
     // ✅ Construir URL con query params para roles
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const wsUrl = `${protocol}://${window.location.host}/ws?user_id=${userId}&role=${userRole}`;
+    const wsUrl = `${protocol}://${window.location.host}/ws?token=${encodeURIComponent(token)}`;
 
     console.log(`🔌 Conectando WebSocket como ${userRole} (${userId})`);
 
@@ -117,9 +123,17 @@ export const useWebSockets = () => {
       }
     };
 
-    ws.current.onclose = () => {
+    ws.current.onclose = (event) => {
       console.log('👋 WebSocket desconectado');
       isConnecting.current = false;
+
+      if (event.code === 1008) {
+        sessionStorage.setItem('auth_error', 'Sesion revocada. Inicia sesion nuevamente.');
+        dispatch(logout());
+        window.location.assign('/login');
+        return;
+      }
+
       // Limpiar el intervalo si la conexión se cierra
       if (heartbeatInterval.current) {
         clearInterval(heartbeatInterval.current);

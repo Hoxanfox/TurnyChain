@@ -246,6 +246,61 @@ func (h *OrderHandler) GetOrdersToday(c *fiber.Ctx) error {
 	return c.JSON(orders)
 }
 
+func (h *OrderHandler) GetWaiterApprovedStats(c *fiber.Ctx) error {
+	userRole := c.Locals("user_role").(string)
+	dayParam := c.Query("day")
+	monthParam := c.Query("month")
+	fromParam := c.Query("from")
+	toParam := c.Query("to")
+
+	location := time.Now().Location()
+
+	var start time.Time
+	var end time.Time
+	groupBy := "day"
+
+	switch {
+	case dayParam != "":
+		parsed, err := time.ParseInLocation("2006-01-02", dayParam, location)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid day, use YYYY-MM-DD"})
+		}
+		start = time.Date(parsed.Year(), parsed.Month(), parsed.Day(), 0, 0, 0, 0, location)
+		end = start.Add(24 * time.Hour)
+	case monthParam != "":
+		parsed, err := time.ParseInLocation("2006-01", monthParam, location)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid month, use YYYY-MM"})
+		}
+		start = time.Date(parsed.Year(), parsed.Month(), 1, 0, 0, 0, 0, location)
+		end = start.AddDate(0, 1, 0)
+		groupBy = "month"
+	case fromParam != "" && toParam != "":
+		fromParsed, err := time.ParseInLocation("2006-01-02", fromParam, location)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid from, use YYYY-MM-DD"})
+		}
+		toParsed, err := time.ParseInLocation("2006-01-02", toParam, location)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid to, use YYYY-MM-DD"})
+		}
+		start = time.Date(fromParsed.Year(), fromParsed.Month(), fromParsed.Day(), 0, 0, 0, 0, location)
+		end = time.Date(toParsed.Year(), toParsed.Month(), toParsed.Day(), 0, 0, 0, 0, location).Add(24 * time.Hour)
+	default:
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Provide day, month, or from/to"})
+	}
+
+	stats, err := h.orderService.GetWaiterApprovedStats(userRole, start, end, groupBy)
+	if err != nil {
+		if err.Error() == "unauthorized" {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Forbidden"})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not retrieve stats"})
+	}
+
+	return c.JSON(stats)
+}
+
 func (h *OrderHandler) GetOrderByID(c *fiber.Ctx) error {
 	orderID, err := uuid.Parse(c.Params("id"))
 	if err != nil {
