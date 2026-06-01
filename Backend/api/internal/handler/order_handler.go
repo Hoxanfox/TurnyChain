@@ -20,6 +20,18 @@ import (
 	"github.com/google/uuid"
 )
 
+func getUserIDFromLocals(c *fiber.Ctx) (uuid.UUID, error) {
+	value := c.Locals("user_id")
+	switch v := value.(type) {
+	case uuid.UUID:
+		return v, nil
+	case string:
+		return uuid.Parse(v)
+	default:
+		return uuid.UUID{}, fmt.Errorf("invalid user_id type")
+	}
+}
+
 type OrderHandler struct {
 	orderService        service.OrderService
 	createOrderMu       sync.Mutex
@@ -157,7 +169,10 @@ func (h *OrderHandler) CreateOrder(c *fiber.Ctx) error {
 	if err := c.BodyParser(payload); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse JSON"})
 	}
-	waiterID, _ := uuid.Parse(c.Locals("user_id").(string))
+	waiterID, err := getUserIDFromLocals(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid session"})
+	}
 	requestID := c.Get("X-Request-ID")
 	log.Printf("[CreateOrder] request_id=%s waiter_id=%s table=%d items=%d", requestID, waiterID.String(), payload.TableNumber, len(payload.Items))
 
@@ -186,7 +201,10 @@ func (h *OrderHandler) CreateOrder(c *fiber.Ctx) error {
 }
 
 func (h *OrderHandler) GetOrders(c *fiber.Ctx) error {
-	userID, _ := uuid.Parse(c.Locals("user_id").(string))
+	userID, err := getUserIDFromLocals(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid session"})
+	}
 	userRole := c.Locals("user_role").(string)
 	status := c.Query("status")
 	myOrders := c.Query("my_orders") // Nuevo parámetro
@@ -223,7 +241,10 @@ func (h *OrderHandler) GetOrders(c *fiber.Ctx) error {
 }
 
 func (h *OrderHandler) GetOrdersToday(c *fiber.Ctx) error {
-	userID, _ := uuid.Parse(c.Locals("user_id").(string))
+	userID, err := getUserIDFromLocals(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid session"})
+	}
 	userRole := c.Locals("user_role").(string)
 	status := c.Query("status")
 	myOrders := c.Query("my_orders")
@@ -322,11 +343,14 @@ func (h *OrderHandler) UpdateOrderStatus(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid order ID"})
 	}
+	userID, err := getUserIDFromLocals(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid session"})
+	}
 	payload := new(UpdateOrderStatusPayload)
 	if err := c.BodyParser(payload); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse JSON"})
 	}
-	userID, _ := uuid.Parse(c.Locals("user_id").(string))
 	order, err := h.orderService.UpdateOrderStatus(orderID, userID, payload.Status)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not update order status"})
@@ -382,11 +406,14 @@ func (h *OrderHandler) UploadPaymentProof(c *fiber.Ctx) error {
 	}
 
 	// Obtener información del usuario desde el token
-	userID := c.Locals("user_id").(string)
+	userID, err := getUserIDFromLocals(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid session"})
+	}
 	userRole := c.Locals("user_role").(string)
 
 	log.Printf("📤 [Handler] Recibiendo comprobante para orden %s", orderID.String())
-	log.Printf("   - Usuario: %s (Role: %s)", userID, userRole)
+	log.Printf("   - Usuario: %s (Role: %s)", userID.String(), userRole)
 
 	// Parsear método
 	method := c.FormValue("method")
@@ -451,7 +478,10 @@ func (h *OrderHandler) UploadPaymentProof(c *fiber.Ctx) error {
 // - payment_proof: File (opcional, requerido para transferencia)
 func (h *OrderHandler) CreateOrderWithPayment(c *fiber.Ctx) error {
 	// 1. Obtener el user_id del token
-	waiterID, _ := uuid.Parse(c.Locals("user_id").(string))
+	waiterID, err := getUserIDFromLocals(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid session"})
+	}
 	requestID := c.Get("X-Request-ID")
 
 	// 2. Parsear order_data (JSON string)
@@ -557,7 +587,10 @@ func (h *OrderHandler) EditOrder(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid order ID"})
 	}
 
-	userID, _ := uuid.Parse(c.Locals("user_id").(string))
+	userID, err := getUserIDFromLocals(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid session"})
+	}
 
 	payload := new(domain.EditOrderRequest)
 	if err := c.BodyParser(payload); err != nil {

@@ -31,7 +31,6 @@ func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *
 	users.Post("/", userHandler.CreateUser)
 	users.Get("/", userHandler.GetUsers)
 	users.Put("/:id", userHandler.UpdateUser)
-	users.Put("/:id/password", userHandler.UpdateUserPassword)
 	users.Delete("/:id", userHandler.DeleteUser)
 
 	// Rutas de Menú
@@ -48,7 +47,6 @@ func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *
 	orders.Post("/with-payment", orderHandler.CreateOrderWithPayment) // Nueva ruta para orden con pago
 	orders.Get("/", orderHandler.GetOrders)
 	orders.Get("/today", orderHandler.GetOrdersToday)
-	orders.Get("/waiter-approved-stats", orderHandler.GetWaiterApprovedStats)
 	orders.Get("/:id", orderHandler.GetOrderByID)
 	orders.Put("/:id/status", orderHandler.UpdateOrderStatus)
 	orders.Put("/:id/manage", orderHandler.ManageOrder)

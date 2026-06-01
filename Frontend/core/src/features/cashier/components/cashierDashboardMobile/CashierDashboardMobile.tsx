@@ -195,6 +195,7 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
         onOpenPrintSettings={onOpenPrintSettings}
         onOpenFilters={() => setShowFilterModal(true)}
         onOpenHistory={() => navigate('/cashier/history')}
+        onOpenMetrics={() => navigate('/cashier/metrics')}
         onExportReport={onExportReport}
         onViewUrgent={() => setViewMode('urgent')}
       />

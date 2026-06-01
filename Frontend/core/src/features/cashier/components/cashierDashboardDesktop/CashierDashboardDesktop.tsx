@@ -270,6 +270,7 @@ export const CashierDashboardDesktop: React.FC<CashierDashboardDesktopProps> = (
           onOpenOrderIdSearch={() => setIsOrderSearchModalOpen(true)}
           waiterQuery={waiterQuery}
           onOpenWaiterSearch={() => setIsWaiterPickerOpen(true)}
+          onOpenMetrics={() => navigate('/cashier/metrics')}
           quickTablesCount={tableNumbers.length}
           onOpenQuickTableSelect={() => setIsQuickTablePickerOpen(true)}
         />

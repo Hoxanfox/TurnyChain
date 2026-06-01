@@ -14,6 +14,7 @@ interface CashierMobileHeaderProps {
   onOpenPrintSettings: () => void;
   onOpenFilters: () => void;
   onOpenHistory: () => void;
+  onOpenMetrics: () => void;
   onExportReport: () => void;
   onViewUrgent: () => void;
 }
@@ -31,6 +32,7 @@ export const CashierMobileHeader: React.FC<CashierMobileHeaderProps> = ({
   onOpenPrintSettings,
   onOpenFilters,
   onOpenHistory,
+  onOpenMetrics,
   onExportReport,
   onViewUrgent,
 }) => {
@@ -126,6 +128,15 @@ export const CashierMobileHeader: React.FC<CashierMobileHeaderProps> = ({
                     className="w-full text-left px-4 py-3 text-purple-700 hover:bg-purple-50 font-semibold border-t border-gray-100"
                   >
                     🧾 Historial facturas
+                  </button>
+                  <button
+                    onClick={() => {
+                      onOpenMetrics();
+                      setIsActionsMenuOpen(false);
+                    }}
+                    className="w-full text-left px-4 py-3 text-amber-700 hover:bg-amber-50 font-semibold border-t border-gray-100"
+                  >
+                    📈 Metricas del negocio
                   </button>
                   <button
                     onClick={() => {
