@@ -17,6 +17,10 @@ interface CashierMobileHeaderProps {
   onOpenMetrics: () => void;
   onExportReport: () => void;
   onViewUrgent: () => void;
+  isCajaAbierta: boolean;
+  onOpenCierreCaja: () => void;
+  onOpenAperturaCaja: () => void;
+  onOpenGastoModal: () => void;
 }
 
 export const CashierMobileHeader: React.FC<CashierMobileHeaderProps> = ({
@@ -35,6 +39,10 @@ export const CashierMobileHeader: React.FC<CashierMobileHeaderProps> = ({
   onOpenMetrics,
   onExportReport,
   onViewUrgent,
+  isCajaAbierta,
+  onOpenCierreCaja,
+  onOpenAperturaCaja,
+  onOpenGastoModal,
 }) => {
   const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false);
 
@@ -102,6 +110,38 @@ export const CashierMobileHeader: React.FC<CashierMobileHeaderProps> = ({
 
               {isActionsMenuOpen && (
                 <div className="absolute right-0 mt-2 w-56 rounded-xl bg-white shadow-2xl border border-indigo-100 overflow-hidden z-50">
+                  {isCajaAbierta ? (
+                    <>
+                      <button
+                        onClick={() => {
+                          onOpenGastoModal();
+                          setIsActionsMenuOpen(false);
+                        }}
+                        className="w-full text-left px-4 py-3 text-amber-700 hover:bg-amber-50 font-semibold flex items-center gap-2 border-b border-gray-100"
+                      >
+                        💸 Registrar Gasto
+                      </button>
+                      <button
+                        onClick={() => {
+                          onOpenCierreCaja();
+                          setIsActionsMenuOpen(false);
+                        }}
+                        className="w-full text-left px-4 py-3 text-red-600 hover:bg-red-50 font-semibold flex items-center gap-2 border-b border-gray-100"
+                      >
+                        🔒 Cierre de Caja
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        onOpenAperturaCaja();
+                        setIsActionsMenuOpen(false);
+                      }}
+                      className="w-full text-left px-4 py-3 text-emerald-600 hover:bg-emerald-50 font-semibold flex items-center gap-2 border-b border-gray-100"
+                    >
+                      🔑 Abrir Caja
+                    </button>
+                  )}
                   <button
                     onClick={() => {
                       onOpenPrintSettings();
