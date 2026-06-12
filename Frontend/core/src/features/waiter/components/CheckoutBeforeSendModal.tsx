@@ -3,7 +3,7 @@
 // Modal para cobrar ANTES de enviar la orden
 // =================================================================
 import React, { useState, useRef } from 'react';
-import { MdClose, MdAttachMoney, MdPhoneAndroid, MdCameraAlt, MdDelete, MdPhotoLibrary } from 'react-icons/md';
+import { MdClose, MdAttachMoney, MdPhoneAndroid, MdCameraAlt, MdDelete } from 'react-icons/md';
 import { compressImage, validateImageFile } from '../../../utils/imageUtils';
 
 interface CheckoutBeforeSendModalProps {
@@ -25,9 +25,8 @@ const CheckoutBeforeSendModal: React.FC<CheckoutBeforeSendModalProps> = ({
   const [isCompressing, setIsCompressing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Referencias ocultas para los inputs de archivos (Cámara y Galería)
+  // Referencia oculta para el input de archivo
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const galleryInputRef = useRef<HTMLInputElement>(null);
 
   // Formateador de moneda
   const formatMoney = (amount: number) =>
@@ -130,7 +129,6 @@ const CheckoutBeforeSendModal: React.FC<CheckoutBeforeSendModalProps> = ({
     }
     setPreviewUrl(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
-    if (galleryInputRef.current) galleryInputRef.current.value = '';
     // Limpiar de localStorage
     localStorage.removeItem(storageKey);
     console.log('[CheckoutBeforeSendModal] Imagen eliminada manualmente');
@@ -256,7 +254,7 @@ const CheckoutBeforeSendModal: React.FC<CheckoutBeforeSendModalProps> = ({
                 <p>Pide al cliente que transfiera el monto exacto y <strong>toma una foto clara del comprobante</strong> antes de confirmar.</p>
               </div>
 
-              {/* INPUTS DE ARCHIVOS OCULTOS */}
+              {/* INPUT CÁMARA OCULTO + BOTÓN PERSONALIZADO */}
               <input
                 type="file"
                 accept="image/*"
@@ -265,54 +263,36 @@ const CheckoutBeforeSendModal: React.FC<CheckoutBeforeSendModalProps> = ({
                 ref={fileInputRef}
                 onChange={handleFileChange}
               />
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                ref={galleryInputRef}
-                onChange={handleFileChange}
-              />
 
               {!previewUrl ? (
-                isCompressing ? (
-                  <div className="w-full h-40 border-2 border-dashed border-blue-400 bg-blue-50 rounded-2xl flex flex-col items-center justify-center gap-2 text-blue-600">
-                    <div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-600 border-t-transparent"></div>
-                    <div className="text-center">
-                      <span className="font-bold text-sm block text-blue-600">Procesando imagen...</span>
-                      <span className="text-[10px] text-blue-500">Optimizando para envío</span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 gap-3">
-                    {/* BOTÓN CÁMARA */}
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={isSubmitting || externalSubmitting}
-                      className="h-40 border-2 border-dashed border-gray-300 hover:border-blue-400 rounded-2xl flex flex-col items-center justify-center gap-2 text-gray-500 hover:bg-blue-50 hover:text-blue-600 transition-all active:scale-95 p-3"
-                    >
-                      <MdCameraAlt size={40} />
+                // BOTÓN DE CÁMARA GRANDE
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isCompressing || isSubmitting || externalSubmitting}
+                  className={`w-full h-48 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center gap-3 transition-all ${
+                    isCompressing
+                      ? 'border-blue-400 bg-blue-50 cursor-wait'
+                      : 'border-gray-300 text-gray-500 hover:bg-blue-50 hover:border-blue-400 hover:text-blue-600 active:scale-95'
+                  }`}
+                >
+                  {isCompressing ? (
+                    <>
+                      <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent"></div>
                       <div className="text-center">
-                        <span className="font-bold text-sm block">Tomar Foto</span>
-                        <span className="text-[10px] text-gray-400">Abrir cámara</span>
+                        <span className="font-bold text-lg block text-blue-600">Procesando imagen...</span>
+                        <span className="text-xs text-blue-500">Optimizando para envío</span>
                       </div>
-                    </button>
-
-                    {/* BOTÓN GALERÍA */}
-                    <button
-                      type="button"
-                      onClick={() => galleryInputRef.current?.click()}
-                      disabled={isSubmitting || externalSubmitting}
-                      className="h-40 border-2 border-dashed border-gray-300 hover:border-blue-400 rounded-2xl flex flex-col items-center justify-center gap-2 text-gray-500 hover:bg-blue-50 hover:text-blue-600 transition-all active:scale-95 p-3"
-                    >
-                      <MdPhotoLibrary size={40} />
+                    </>
+                  ) : (
+                    <>
+                      <MdCameraAlt size={56} />
                       <div className="text-center">
-                        <span className="font-bold text-sm block">Subir Imagen</span>
-                        <span className="text-[10px] text-gray-400">Ver galería</span>
+                        <span className="font-bold text-lg block">📸 Tomar Foto del Comprobante</span>
+                        <span className="text-xs text-gray-400">Toca aquí para abrir la cámara</span>
                       </div>
-                    </button>
-                  </div>
-                )
+                    </>
+                  )}
+                </button>
               ) : (
                 // PREVISUALIZACIÓN DE FOTO
                 <div className="relative rounded-2xl overflow-hidden border-2 border-green-300 shadow-lg">

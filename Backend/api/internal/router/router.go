@@ -11,7 +11,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *handler.UserHandler, menuHandler *handler.MenuHandler, orderHandler *handler.OrderHandler, invoiceHandler *handler.InvoiceHandler, tableHandler *handler.TableHandler, categoryHandler *handler.CategoryHandler, ingredientHandler *handler.IngredientHandler, accompanimentHandler *handler.AccompanimentHandler, wsHandler *handler.WebSocketHandler, stationHandler *handler.StationHandler, printerHandler *handler.PrinterHandler, kitchenTicketHandler *handler.KitchenTicketHandler, backupHandler *handler.BackupHandler, cashierHandler *handler.CashierHandler, sessionRepo repository.SessionRepository) {
+func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *handler.UserHandler, menuHandler *handler.MenuHandler, orderHandler *handler.OrderHandler, invoiceHandler *handler.InvoiceHandler, tableHandler *handler.TableHandler, categoryHandler *handler.CategoryHandler, ingredientHandler *handler.IngredientHandler, accompanimentHandler *handler.AccompanimentHandler, wsHandler *handler.WebSocketHandler, stationHandler *handler.StationHandler, printerHandler *handler.PrinterHandler, kitchenTicketHandler *handler.KitchenTicketHandler, backupHandler *handler.BackupHandler, sessionRepo repository.SessionRepository) {
 	// Ruta pública para WebSockets
 	app.Get("/ws", websocket.New(wsHandler.HandleConnection))
 
@@ -56,13 +56,6 @@ func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *
 	// Rutas de Facturas
 	invoices := protected.Group("/invoices")
 	invoices.Get("/history", invoiceHandler.GetInvoiceHistory)
-
-	// Rutas de Cierre y Apertura de Caja
-	cashier := protected.Group("/cashier")
-	cashier.Post("/session/open", cashierHandler.OpenSession)
-	cashier.Get("/session/active", cashierHandler.GetActiveSession)
-	cashier.Post("/session/expense", cashierHandler.RegisterExpense)
-	cashier.Post("/session/close", cashierHandler.CloseSession)
 
 	// Rutas de Mesas
 	tables := protected.Group("/tables")

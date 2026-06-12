@@ -41,9 +41,6 @@ func main() {
 	if err := applyAuthSessionMigrations(db); err != nil {
 		log.Fatalf("Error aplicando migraciones de sesiones: %v", err)
 	}
-	if err := applyCashierSessionMigrations(db); err != nil {
-		log.Fatalf("Error aplicando migraciones de caja: %v", err)
-	}
 
 	wsHub := wshub.NewHub()
 	go wsHub.Run()
@@ -68,7 +65,6 @@ func main() {
 	accompanimentRepo := repository.NewAccompanimentRepository(db)
 	stationRepo := repository.NewStationRepository(db)
 	printerRepo := repository.NewPrinterRepository(db)
-	cashierRepo := repository.NewCashierRepository(db)
 
 	// Servicios
 	userService := service.NewUserService(userRepo, sessionRepo)
@@ -85,7 +81,6 @@ func main() {
 	stationService := service.NewStationService(stationRepo)
 	printerService := service.NewPrinterService(printerRepo)
 	backupService := service.NewBackupService(db)
-	cashierService := service.NewCashierService(cashierRepo)
 
 	// Handlers
 	userHandler := handler.NewUserHandler(userService)
@@ -102,7 +97,6 @@ func main() {
 	printerHandler := handler.NewPrinterHandler(printerService)
 	kitchenTicketHandler := handler.NewKitchenTicketHandler(kitchenTicketService)
 	backupHandler := handler.NewBackupHandler(backupService)
-	cashierHandler := handler.NewCashierHandler(cashierService)
 
 	app := fiber.New(fiber.Config{
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
@@ -147,7 +141,7 @@ func main() {
 	}
 	app.Static("/api/static", uploadsDir)
 
-	router.SetupRoutes(app, authHandler, userHandler, menuHandler, orderHandler, invoiceHandler, tableHandler, categoryHandler, ingredientHandler, accompanimentHandler, wsHandler, stationHandler, printerHandler, kitchenTicketHandler, backupHandler, cashierHandler, sessionRepo)
+	router.SetupRoutes(app, authHandler, userHandler, menuHandler, orderHandler, invoiceHandler, tableHandler, categoryHandler, ingredientHandler, accompanimentHandler, wsHandler, stationHandler, printerHandler, kitchenTicketHandler, backupHandler, sessionRepo)
 
 	// Alias explícitos para compatibilidad de rutas de impresión de cocina.
 	app.Post("/api/orders/:orderId/kitchen-tickets/print/caja", middleware.Protected(sessionRepo), kitchenTicketHandler.PrintGlobalCashTicket)
@@ -224,42 +218,5 @@ func applyAuthSessionMigrations(db *sql.DB) error {
 	}
 
 	log.Println("Migraciones de sesiones verificadas: user_sessions")
-	return nil
-}
-
-func applyCashierSessionMigrations(db *sql.DB) error {
-	statements := []string{
-		`CREATE TABLE IF NOT EXISTS cashier_sessions (
-			id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-			cashier_id uuid NOT NULL REFERENCES users(id),
-			initial_fund numeric(10, 2) NOT NULL,
-			opened_at timestamptz NOT NULL DEFAULT now(),
-			closed_at timestamptz NULL,
-			expected_cash numeric(10, 2) NULL,
-			actual_cash numeric(10, 2) NULL,
-			discrepancy numeric(10, 2) NULL,
-			notes text NULL,
-			status varchar(20) NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'closed'))
-		)`,
-		`CREATE TABLE IF NOT EXISTS cashier_expenses (
-			id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-			session_id uuid NOT NULL REFERENCES cashier_sessions(id) ON DELETE CASCADE,
-			amount numeric(10, 2) NOT NULL,
-			description text NOT NULL,
-			image_path text NULL,
-			created_at timestamptz NOT NULL DEFAULT now()
-		)`,
-		`CREATE INDEX IF NOT EXISTS cashier_sessions_cashier_id_idx ON cashier_sessions (cashier_id)`,
-		`CREATE INDEX IF NOT EXISTS cashier_sessions_status_idx ON cashier_sessions (status)`,
-		`CREATE INDEX IF NOT EXISTS cashier_expenses_session_id_idx ON cashier_expenses (session_id)`,
-	}
-
-	for _, stmt := range statements {
-		if _, err := db.Exec(stmt); err != nil {
-			return err
-		}
-	}
-
-	log.Println("Migraciones de caja verificadas: cashier_sessions/cashier_expenses")
 	return nil
 }

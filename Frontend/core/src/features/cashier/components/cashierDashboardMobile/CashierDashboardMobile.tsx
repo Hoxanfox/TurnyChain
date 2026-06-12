@@ -17,10 +17,6 @@ import { CashierMobileContent } from './components/CashierMobileContent';
 import { WaiterApprovedStatsPanel } from './components/waiterStats/WaiterApprovedStatsPanel';
 import { useCashierMobileDerivedData } from './hooks/useCashierMobileDerivedData';
 import { useCashierMobilePagination } from './hooks/useCashierMobilePagination';
-import { useCajaSession } from './hooks/useCajaSession';
-import { useDispatch } from 'react-redux';
-import { logout } from '../../../../features/auth/authSlice';
-import type { AppDispatch } from '../../../../app/store';
 
 const FilterModal = React.lazy(() => import('../cashierDashboardShared/FilterModal').then((mod) => ({
   default: mod.FilterModal,
@@ -38,15 +34,6 @@ const QuickTablePickerModal = React.lazy(() => import('../cashierDashboardShared
   default: mod.QuickTablePickerModal,
 })));
 const OrderDetailModal = React.lazy(() => import('../../../shared/orders/components/OrderDetailModal'));
-const CierreCajaModal = React.lazy(() => import('./components/CierreCajaModal').then((mod) => ({
-  default: mod.CierreCajaModal,
-})));
-const AperturaCajaModal = React.lazy(() => import('./components/AperturaCajaModal').then((mod) => ({
-  default: mod.AperturaCajaModal,
-})));
-const GastoModal = React.lazy(() => import('./components/GastoModal').then((mod) => ({
-  default: mod.GastoModal,
-})));
 
 interface CashierDashboardMobileProps {
   // Estado
@@ -133,12 +120,6 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
   shortcutNonce = 0,
 }) => {
   const navigate = useNavigate();
-  const dispatch = useDispatch<AppDispatch>();
-
-  const handleLogout = () => {
-    dispatch(logout());
-    navigate('/login');
-  };
   const isPorCobrarStatus = useMemo(
     () => (status: string) => status === 'entregado' || status === 'pendiente_aprobacion',
     []
@@ -151,19 +132,7 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
   const [selectedTableNumber, setSelectedTableNumber] = useState<number | null>(null);
   const [focusedOrderId, setFocusedOrderId] = useState<string | null>(null);
   const [selectedOrderIdForDetail, setSelectedOrderIdForDetail] = useState<string | null>(null);
-  const [showCierreModal, setShowCierreModal] = useState(false);
-  const [showAperturaModal, setShowAperturaModal] = useState(false);
-  const [showGastoModal, setShowGastoModal] = useState(false);
   const [viewMode, setViewMode] = useState<'tables' | 'urgent' | 'waiter-stats'>('tables');
-
-  const {
-    session,
-    isCajaAbierta,
-    isLoading: isLoadingSession,
-    abrirCaja,
-    registrarGasto,
-    cerrarCaja,
-  } = useCajaSession();
 
   useEffect(() => {
     if (!shortcutTarget || shortcutNonce === 0) return;
@@ -229,10 +198,6 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
         onOpenMetrics={() => navigate('/cashier/metrics')}
         onExportReport={onExportReport}
         onViewUrgent={() => setViewMode('urgent')}
-        isCajaAbierta={isCajaAbierta}
-        onOpenCierreCaja={() => setShowCierreModal(true)}
-        onOpenAperturaCaja={() => setShowAperturaModal(true)}
-        onOpenGastoModal={() => setShowGastoModal(true)}
       />
 
       <CashierMobileTabs
@@ -364,54 +329,7 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
             editable={false}
           />
         )}
-
-        <CierreCajaModal
-          isOpen={showCierreModal}
-          onClose={() => setShowCierreModal(false)}
-          activeSession={session}
-          onCloseCaja={cerrarCaja}
-        />
-
-        <AperturaCajaModal
-          isOpen={showAperturaModal}
-          onClose={() => setShowAperturaModal(false)}
-          onOpenCaja={abrirCaja}
-          onLogout={handleLogout}
-        />
-
-        <GastoModal
-          isOpen={showGastoModal}
-          onClose={() => setShowGastoModal(false)}
-          onAddExpense={registrarGasto}
-        />
       </Suspense>
-
-      {/* Overlay de Caja Cerrada */}
-      {!isCajaAbierta && !isLoadingSession && (
-        <div className="fixed inset-0 z-40 bg-slate-950/90 flex flex-col items-center justify-center p-6 text-center select-none backdrop-blur-md">
-          <div className="max-w-xs space-y-5 animate-in fade-in slide-in-from-bottom-10 duration-500">
-            <span className="text-6xl filter drop-shadow-md">🔒</span>
-            <div className="space-y-2">
-              <h2 className="text-2xl font-extrabold text-white">Caja Cerrada</h2>
-              <p className="text-sm text-slate-400">
-                Debes abrir la caja registradora para iniciar el turno de facturación y cobros.
-              </p>
-            </div>
-            <button
-              onClick={() => setShowAperturaModal(true)}
-              className="w-full py-4 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold rounded-2xl active:scale-95 transition-all shadow-lg shadow-emerald-950/20"
-            >
-              🔑 Abrir Caja
-            </button>
-            <button
-              onClick={handleLogout}
-              className="w-full py-3 bg-slate-800/60 hover:bg-slate-800 text-slate-300 hover:text-white font-semibold rounded-2xl active:scale-95 transition-all border border-slate-700/50 text-sm"
-            >
-              👋 Cerrar Sesión
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

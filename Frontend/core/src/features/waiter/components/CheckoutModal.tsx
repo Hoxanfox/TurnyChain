@@ -2,7 +2,7 @@
 // ARCHIVO: /src/features/waiter/components/CheckoutModal.tsx
 // =================================================================
 import React, { useState, useRef } from 'react';
-import { MdClose, MdAttachMoney, MdPhoneAndroid, MdCameraAlt, MdDelete, MdPhotoLibrary } from 'react-icons/md';
+import { MdClose, MdAttachMoney, MdPhoneAndroid, MdCameraAlt, MdDelete } from 'react-icons/md';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../../../app/store';
 import { uploadPaymentProof, updateOrderStatus } from '../../shared/orders/api/ordersAPI.ts';
@@ -29,9 +29,8 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const targetOrderIds = groupOrderIds && groupOrderIds.length > 0 ? groupOrderIds : [orderId];
   const isGlobalCheckout = targetOrderIds.length > 1;
 
-  // Referencias ocultas para los inputs de archivos (Cámara y Galería)
+  // Referencia oculta para el input de archivo
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const galleryInputRef = useRef<HTMLInputElement>(null);
 
   // Clave única para localStorage basada en el orderId
   const storageKey = `payment_proof_${orderId}`;
@@ -145,7 +144,6 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
     }
     setPreviewUrl(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
-    if (galleryInputRef.current) galleryInputRef.current.value = '';
     // Limpiar de localStorage
     localStorage.removeItem(storageKey);
     console.log('[CheckoutModal] Imagen eliminada manualmente');
@@ -286,7 +284,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 <p>Pide al cliente que transfiera el monto exacto y <strong>toma una foto clara del comprobante</strong> antes de confirmar.</p>
               </div>
 
-              {/* INPUTS DE ARCHIVOS OCULTOS */}
+              {/* INPUT CÁMARA OCULTO + BOTÓN PERSONALIZADO */}
               <input
                 type="file"
                 accept="image/*"
@@ -296,45 +294,20 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 onChange={handleFileChange}
                 disabled={isSubmitting}
               />
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                ref={galleryInputRef}
-                onChange={handleFileChange}
-                disabled={isSubmitting}
-              />
 
               {!previewUrl ? (
-                <div className="grid grid-cols-2 gap-3">
-                  {/* BOTÓN CÁMARA */}
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isSubmitting}
-                    className="h-40 border-2 border-dashed border-gray-300 hover:border-blue-400 rounded-2xl flex flex-col items-center justify-center gap-2 text-gray-500 hover:bg-blue-50 hover:text-blue-600 transition-all active:scale-95 p-3"
-                  >
-                    <MdCameraAlt size={40} />
-                    <div className="text-center">
-                      <span className="font-bold text-sm block">Tomar Foto</span>
-                      <span className="text-[10px] text-gray-400">Abrir cámara</span>
-                    </div>
-                  </button>
-
-                  {/* BOTÓN GALERÍA */}
-                  <button
-                    type="button"
-                    onClick={() => galleryInputRef.current?.click()}
-                    disabled={isSubmitting}
-                    className="h-40 border-2 border-dashed border-gray-300 hover:border-blue-400 rounded-2xl flex flex-col items-center justify-center gap-2 text-gray-500 hover:bg-blue-50 hover:text-blue-600 transition-all active:scale-95 p-3"
-                  >
-                    <MdPhotoLibrary size={40} />
-                    <div className="text-center">
-                      <span className="font-bold text-sm block">Subir Imagen</span>
-                      <span className="text-[10px] text-gray-400">Ver galería</span>
-                    </div>
-                  </button>
-                </div>
+                // BOTÓN DE CÁMARA GRANDE
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isSubmitting}
+                  className="w-full h-48 border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center gap-3 text-gray-500 hover:bg-blue-50 hover:border-blue-400 hover:text-blue-600 transition-all active:scale-95"
+                >
+                  <MdCameraAlt size={56} />
+                  <div className="text-center">
+                    <span className="font-bold text-lg block">📸 Tomar Foto del Comprobante</span>
+                    <span className="text-xs text-gray-400">Toca aquí para abrir la cámara</span>
+                  </div>
+                </button>
               ) : (
                 // PREVISUALIZACIÓN DE FOTO
                 <div className="relative rounded-2xl overflow-hidden border-2 border-green-300 shadow-lg">
