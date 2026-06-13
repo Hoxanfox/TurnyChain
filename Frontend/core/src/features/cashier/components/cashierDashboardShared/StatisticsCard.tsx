@@ -55,7 +55,7 @@ export const StatisticsCard: React.FC<StatisticsCardProps> = ({ stats }) => {
               <p className="text-sm text-emerald-700 font-bold uppercase tracking-wide">Total del Día</p>
               <span className="text-4xl">💵</span>
             </div>
-            <p className="text-4xl font-extrabold text-emerald-900">${stats.dailyRevenue.toFixed(2)}</p>
+            <p className="text-4xl font-extrabold text-emerald-900">${stats.dailyRevenue.toLocaleString('es-CO')}</p>
             <p className="text-xs text-emerald-600 mt-2 font-semibold">{stats.dailyOrdersCount} órdenes completadas</p>
           </div>
 
@@ -65,7 +65,7 @@ export const StatisticsCard: React.FC<StatisticsCardProps> = ({ stats }) => {
               <p className="text-sm text-green-700 font-bold uppercase tracking-wide">Efectivo</p>
               <span className="text-4xl">💵</span>
             </div>
-            <p className="text-4xl font-extrabold text-green-900">${stats.dailyCash.toFixed(2)}</p>
+            <p className="text-4xl font-extrabold text-green-900">${stats.dailyCash.toLocaleString('es-CO')}</p>
             <p className="text-xs text-green-600 mt-2 font-semibold">
               {stats.dailyRevenue > 0
                 ? `${((stats.dailyCash / stats.dailyRevenue) * 100).toFixed(1)}% del total`
@@ -79,7 +79,7 @@ export const StatisticsCard: React.FC<StatisticsCardProps> = ({ stats }) => {
               <p className="text-sm text-blue-700 font-bold uppercase tracking-wide">Transferencias</p>
               <span className="text-4xl">📱</span>
             </div>
-            <p className="text-4xl font-extrabold text-blue-900">${stats.dailyTransfer.toFixed(2)}</p>
+            <p className="text-4xl font-extrabold text-blue-900">${stats.dailyTransfer.toLocaleString('es-CO')}</p>
             <p className="text-xs text-blue-600 mt-2 font-semibold">
               {stats.dailyRevenue > 0
                 ? `${((stats.dailyTransfer / stats.dailyRevenue) * 100).toFixed(1)}% del total`
@@ -93,7 +93,7 @@ export const StatisticsCard: React.FC<StatisticsCardProps> = ({ stats }) => {
               <p className="text-sm text-purple-700 font-bold uppercase tracking-wide">Ticket Promedio</p>
               <span className="text-4xl">📈</span>
             </div>
-            <p className="text-4xl font-extrabold text-purple-900">${stats.dailyAverageTicket.toFixed(2)}</p>
+            <p className="text-4xl font-extrabold text-purple-900">${stats.dailyAverageTicket.toLocaleString('es-CO')}</p>
             <p className="text-xs text-purple-600 mt-2 font-semibold">Por orden completada</p>
           </div>
         </div>
@@ -139,7 +139,7 @@ export const StatisticsCard: React.FC<StatisticsCardProps> = ({ stats }) => {
               <p className="text-xs text-indigo-600 font-semibold">En Proceso</p>
               <span className="text-2xl">🔄</span>
             </div>
-            <p className="text-2xl font-bold text-indigo-900">${(stats.totalRevenue - stats.dailyRevenue).toFixed(2)}</p>
+            <p className="text-2xl font-bold text-indigo-900">${(stats.totalRevenue - stats.dailyRevenue).toLocaleString('es-CO')}</p>
             <p className="text-xs text-indigo-500 mt-1">Pendiente de pago</p>
           </div>
         </div>

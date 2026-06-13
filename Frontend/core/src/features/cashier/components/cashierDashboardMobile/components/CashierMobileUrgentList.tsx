@@ -45,7 +45,7 @@ export const CashierMobileUrgentList: React.FC<CashierMobileUrgentListProps> = (
               <p className="text-sm text-gray-600">Mesero: {order.waiter_name || 'N/A'}</p>
             </div>
             <div className="text-right">
-              <p className="text-2xl font-bold text-green-600">${order.total.toFixed(2)}</p>
+              <p className="text-2xl font-bold text-green-600">${order.total.toLocaleString('es-CO')}</p>
               <p className="text-xs text-gray-500">{order.payment_method === 'mixto' ? '🔀 Mixto' : order.payment_method === 'transferencia' ? '📱 Transf.' : order.payment_method === 'efectivo' ? '💵 Efectivo' : order.payment_method}</p>
             </div>
           </div>
@@ -62,7 +62,7 @@ export const CashierMobileUrgentList: React.FC<CashierMobileUrgentListProps> = (
                       <span className="text-sm font-semibold capitalize text-gray-700">{p.method}</span>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="font-bold text-gray-800">${p.amount.toFixed(2)}</span>
+                      <span className="font-bold text-gray-800">${p.amount.toLocaleString('es-CO')}</span>
                       {p.payment_proof_path && (
                         <button 
                           onClick={() => setSelectedImage(getPaymentProofUrl(p.payment_proof_path!))}
@@ -85,7 +85,7 @@ export const CashierMobileUrgentList: React.FC<CashierMobileUrgentListProps> = (
                   <span className="text-sm font-semibold capitalize text-gray-700">{order.payment_method}</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="font-bold text-gray-800">${order.total.toFixed(2)}</span>
+                  <span className="font-bold text-gray-800">${order.total.toLocaleString('es-CO')}</span>
                   {order.payment_proof_path && (
                     <button 
                        onClick={() => setSelectedImage(getPaymentProofUrl(order.payment_proof_path!))}

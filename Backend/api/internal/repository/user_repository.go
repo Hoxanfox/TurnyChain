@@ -12,6 +12,7 @@ import (
 type UserRepository interface {
 	CreateUser(user *domain.User) (*domain.User, error)
 	GetUserByUsername(username string) (*domain.User, error)
+	GetUserByID(id uuid.UUID) (*domain.User, error)
 	GetUsers() ([]domain.User, error)
 	UpdateUser(user *domain.User) (*domain.User, error)
 	UpdateUserPassword(userID uuid.UUID, passwordHash string) error
@@ -42,6 +43,13 @@ func (r *userRepository) GetUserByUsername(username string) (*domain.User, error
 	user := &domain.User{}
 	query := "SELECT id, username, password_hash, role, is_active FROM users WHERE username = $1 AND is_active = true"
 	err := r.db.QueryRow(query, username).Scan(&user.ID, &user.Username, &user.PasswordHash, &user.Role, &user.IsActive)
+	return user, err
+}
+
+func (r *userRepository) GetUserByID(id uuid.UUID) (*domain.User, error) {
+	user := &domain.User{}
+	query := "SELECT id, username, password_hash, role, is_active FROM users WHERE id = $1 AND is_active = true"
+	err := r.db.QueryRow(query, id).Scan(&user.ID, &user.Username, &user.PasswordHash, &user.Role, &user.IsActive)
 	return user, err
 }
 

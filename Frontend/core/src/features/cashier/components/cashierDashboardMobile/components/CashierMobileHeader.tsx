@@ -17,6 +17,7 @@ interface CashierMobileHeaderProps {
   onOpenMetrics: () => void;
   onExportReport: () => void;
   onViewUrgent: () => void;
+  onOpenCashRegister: () => void;
 }
 
 export const CashierMobileHeader: React.FC<CashierMobileHeaderProps> = ({
@@ -35,6 +36,7 @@ export const CashierMobileHeader: React.FC<CashierMobileHeaderProps> = ({
   onOpenMetrics,
   onExportReport,
   onViewUrgent,
+  onOpenCashRegister,
 }) => {
   const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false);
 
@@ -63,45 +65,65 @@ export const CashierMobileHeader: React.FC<CashierMobileHeaderProps> = ({
               )}
             </button>
             <button
-              onClick={onOpenOrderIdSearch}
-              className="relative p-2.5 bg-white bg-opacity-20 rounded-xl hover:bg-opacity-30 transition-all"
+              onClick={onOpenCashRegister}
+              className="relative p-2.5 bg-green-500 hover:bg-green-600 rounded-xl transition-all shadow-md flex items-center justify-center gap-1 border border-green-400"
+              title="Control de Caja"
             >
-              <span className="text-xl">🔍</span>
-              {orderIdQuery.trim() && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-4 h-4 flex items-center justify-center">
-                  1
-                </span>
-              )}
-            </button>
-            <button
-              onClick={onOpenWaiterPicker}
-              className="relative p-2.5 bg-white bg-opacity-20 rounded-xl hover:bg-opacity-30 transition-all"
-              title="Buscar por mesero"
-            >
-              <span className="text-xl">👤</span>
-              {waiterQuery.trim() && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-4 h-4 flex items-center justify-center">
-                  1
-                </span>
-              )}
-            </button>
-            <button
-              onClick={onToggleStats}
-              className="p-2.5 bg-white bg-opacity-20 rounded-xl hover:bg-opacity-30 transition-all"
-            >
-              <span className="text-xl">📊</span>
+              <span className="text-xl">🏪</span>
+              <span className="font-bold text-sm">Caja</span>
             </button>
             <div className="relative">
               <button
                 onClick={() => setIsActionsMenuOpen((prev) => !prev)}
-                className="p-2.5 bg-white bg-opacity-20 rounded-xl hover:bg-opacity-30 transition-all"
+                className="p-2.5 bg-white bg-opacity-20 rounded-xl hover:bg-opacity-30 transition-all flex items-center gap-1"
                 title="Abrir acciones"
               >
                 <span className="text-xl">☰</span>
+                {(orderIdQuery.trim() || waiterQuery.trim()) && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                    !
+                  </span>
+                )}
               </button>
 
               {isActionsMenuOpen && (
-                <div className="absolute right-0 mt-2 w-56 rounded-xl bg-white shadow-2xl border border-indigo-100 overflow-hidden z-50">
+                <div className="absolute right-0 mt-2 w-64 rounded-xl bg-white shadow-2xl border border-indigo-100 overflow-hidden z-50">
+                  <div className="bg-gray-50 border-b border-gray-200 px-3 py-2">
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Búsquedas y Filtros</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      onOpenOrderIdSearch();
+                      setIsActionsMenuOpen(false);
+                    }}
+                    className="w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 font-semibold flex justify-between items-center"
+                  >
+                    <span>🔍 Buscar por Orden</span>
+                    {orderIdQuery.trim() && <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full">Activo</span>}
+                  </button>
+                  <button
+                    onClick={() => {
+                      onOpenWaiterPicker();
+                      setIsActionsMenuOpen(false);
+                    }}
+                    className="w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 font-semibold border-t border-gray-100 flex justify-between items-center"
+                  >
+                    <span>👤 Buscar por Mesero</span>
+                    {waiterQuery.trim() && <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full">Activo</span>}
+                  </button>
+                  <button
+                    onClick={() => {
+                      onToggleStats();
+                      setIsActionsMenuOpen(false);
+                    }}
+                    className="w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 font-semibold border-t border-gray-100"
+                  >
+                    <span>📊 Ver Estadísticas Rápidas</span>
+                  </button>
+                  
+                  <div className="bg-gray-50 border-y border-gray-200 px-3 py-2 mt-1">
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Herramientas</p>
+                  </div>
                   <button
                     onClick={() => {
                       onOpenPrintSettings();

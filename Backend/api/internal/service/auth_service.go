@@ -11,6 +11,7 @@ import (
 
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/repository"
 	"github.com/golang-jwt/jwt/v4"
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -19,6 +20,8 @@ var JWT_SECRET_KEY = []byte("mi_clave_secreta_super_segura_cambiar_en_produccion
 
 type AuthService interface {
 	Login(username, password, deviceID string) (string, error)
+	VerifyPassword(userID uuid.UUID, password string) error
+	Logout(tokenString string) error
 }
 
 type authService struct {
@@ -28,6 +31,24 @@ type authService struct {
 
 func NewAuthService(userRepo repository.UserRepository, sessionRepo repository.SessionRepository) AuthService {
 	return &authService{userRepo: userRepo, sessionRepo: sessionRepo}
+}
+
+func (s *authService) VerifyPassword(userID uuid.UUID, password string) error {
+	user, err := s.userRepo.GetUserByID(userID)
+	if err != nil {
+		return errors.New("user not found")
+	}
+
+	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password))
+	if err != nil {
+		return errors.New("invalid password")
+	}
+
+	return nil
+}
+
+func (s *authService) Logout(tokenString string) error {
+	return nil
 }
 
 func (s *authService) Login(username, password, deviceID string) (string, error) {

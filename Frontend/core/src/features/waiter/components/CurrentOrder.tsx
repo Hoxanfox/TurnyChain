@@ -169,7 +169,7 @@ const CurrentOrder: React.FC<CurrentOrderProps> = ({
                         disabled={!onUpdateItemPrice}
                       >
                         <span className="text-sm font-bold text-indigo-600">
-                          ${item.finalPrice.toLocaleString('es-CO', { minimumFractionDigits: 2 })}
+                          ${item.finalPrice.toLocaleString('es-CO')}
                         </span>
                       </button>
                     )}
@@ -249,7 +249,7 @@ const CurrentOrder: React.FC<CurrentOrderProps> = ({
         <div className="flex items-center justify-between">
           <span className="text-base font-bold text-gray-800">Total</span>
           <span className="text-xl font-extrabold text-indigo-600">
-            ${total.toLocaleString('es-CO', { minimumFractionDigits: 2 })}
+            ${total.toLocaleString('es-CO')}
           </span>
         </div>
 

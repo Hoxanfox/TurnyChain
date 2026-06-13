@@ -3,7 +3,7 @@
 -- =================================================================
 
 -- Borrar tablas antiguas si existen para un reinicio limpio
-DROP TABLE IF EXISTS "order_items", "orders", "menu_item_ingredients", "menu_item_accompaniments", "menu_items", "categories", "printers", "stations", "ingredients", "accompaniments", "tables", "user_sessions", "users" CASCADE;
+DROP TABLE IF EXISTS "cash_register_expenses", "cash_register_sessions", "order_items", "orders", "menu_item_ingredients", "menu_item_accompaniments", "menu_items", "categories", "printers", "stations", "ingredients", "accompaniments", "tables", "user_sessions", "users" CASCADE;
 
 -- Tabla para usuarios y roles
 CREATE TABLE "users" (
@@ -24,6 +24,30 @@ CREATE TABLE "user_sessions" (
   "expires_at" timestamptz NOT NULL,
   "revoked_at" timestamptz NULL,
   "revoked_reason" text NULL
+);
+
+-- Tabla para turnos de caja
+CREATE TABLE "cash_register_sessions" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "status" varchar(20) NOT NULL CHECK (status IN ('open', 'closed')),
+  "open_time" timestamptz NOT NULL DEFAULT (now()),
+  "close_time" timestamptz NULL,
+  "initial_cash" numeric(12, 2) NOT NULL DEFAULT 0,
+  "final_cash_expected" numeric(12, 2) NULL,
+  "final_cash_actual" numeric(12, 2) NULL,
+  "discrepancy" numeric(12, 2) NULL,
+  "created_at" timestamptz NOT NULL DEFAULT (now()),
+  "updated_at" timestamptz NOT NULL DEFAULT (now())
+);
+
+-- Tabla para gastos de caja
+CREATE TABLE "cash_register_expenses" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "session_id" uuid NOT NULL REFERENCES "cash_register_sessions"("id") ON DELETE CASCADE,
+  "amount" numeric(12, 2) NOT NULL,
+  "description" text NOT NULL,
+  "image_path" text NULL,
+  "created_at" timestamptz NOT NULL DEFAULT (now())
 );
 
 -- Tabla para las mesas del restaurante

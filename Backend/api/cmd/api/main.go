@@ -44,6 +44,9 @@ func main() {
 	if err := applyOrderPaymentsMigration(db); err != nil {
 		log.Fatalf("Error aplicando migraciones de order_payments: %v", err)
 	}
+	if err := applyCashRegisterMigrations(db); err != nil {
+		log.Fatalf("Error aplicando migraciones de caja: %v", err)
+	}
 
 	wsHub := wshub.NewHub()
 	go wsHub.Run()
@@ -68,6 +71,8 @@ func main() {
 	accompanimentRepo := repository.NewAccompanimentRepository(db)
 	stationRepo := repository.NewStationRepository(db)
 	printerRepo := repository.NewPrinterRepository(db)
+	cashRegisterRepo := repository.NewCashRegisterRepository(db)
+	settingRepo := repository.NewSettingRepository(db)
 
 	// Servicios
 	userService := service.NewUserService(userRepo, sessionRepo)
@@ -84,6 +89,8 @@ func main() {
 	stationService := service.NewStationService(stationRepo)
 	printerService := service.NewPrinterService(printerRepo)
 	backupService := service.NewBackupService(db)
+	cashRegisterService := service.NewCashRegisterService(cashRegisterRepo)
+	settingService := service.NewSettingService(settingRepo)
 
 	// Handlers
 	userHandler := handler.NewUserHandler(userService)
@@ -100,6 +107,8 @@ func main() {
 	printerHandler := handler.NewPrinterHandler(printerService)
 	kitchenTicketHandler := handler.NewKitchenTicketHandler(kitchenTicketService)
 	backupHandler := handler.NewBackupHandler(backupService)
+	cashRegisterHandler := handler.NewCashRegisterHandler(cashRegisterService)
+	settingHandler := handler.NewSettingHandler(settingService)
 
 	app := fiber.New(fiber.Config{
 		BodyLimit: 20 * 1024 * 1024, // 20 MB max file size
@@ -145,7 +154,7 @@ func main() {
 	}
 	app.Static("/api/static", uploadsDir)
 
-	router.SetupRoutes(app, authHandler, userHandler, menuHandler, orderHandler, invoiceHandler, tableHandler, categoryHandler, ingredientHandler, accompanimentHandler, wsHandler, stationHandler, printerHandler, kitchenTicketHandler, backupHandler, sessionRepo)
+	router.SetupRoutes(app, authHandler, userHandler, menuHandler, orderHandler, invoiceHandler, tableHandler, categoryHandler, ingredientHandler, accompanimentHandler, wsHandler, stationHandler, printerHandler, kitchenTicketHandler, backupHandler, cashRegisterHandler, settingHandler, sessionRepo)
 
 	// Alias explícitos para compatibilidad de rutas de impresión de cocina.
 	app.Post("/api/orders/:orderId/kitchen-tickets/print/caja", middleware.Protected(sessionRepo), kitchenTicketHandler.PrintGlobalCashTicket)
@@ -245,5 +254,50 @@ func applyOrderPaymentsMigration(db *sql.DB) error {
 	}
 
 	log.Println("Migraciones de pagos divididos verificadas: order_payments")
+	return nil
+}
+
+func applyCashRegisterMigrations(db *sql.DB) error {
+	statements := []string{
+		`CREATE TABLE IF NOT EXISTS cash_register_sessions (
+			id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+			status varchar(20) NOT NULL CHECK (status IN ('open', 'closed')),
+			open_time timestamptz NOT NULL DEFAULT now(),
+			close_time timestamptz NULL,
+			initial_cash numeric(12, 2) NOT NULL DEFAULT 0,
+			final_cash_expected numeric(12, 2) NULL,
+			final_cash_actual numeric(12, 2) NULL,
+			discrepancy numeric(12, 2) NULL,
+			created_at timestamptz NOT NULL DEFAULT now(),
+			updated_at timestamptz NOT NULL DEFAULT now()
+		)`,
+		`CREATE TABLE IF NOT EXISTS cash_register_expenses (
+			id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+			session_id uuid NOT NULL REFERENCES cash_register_sessions(id) ON DELETE CASCADE,
+			amount numeric(12, 2) NOT NULL,
+			description text NOT NULL,
+			image_path text NULL,
+			created_at timestamptz NOT NULL DEFAULT now()
+		)`,
+		`ALTER TABLE cash_register_sessions ADD COLUMN IF NOT EXISTS final_transfer_expected numeric(12, 2) NULL`,
+		`ALTER TABLE cash_register_sessions ADD COLUMN IF NOT EXISTS final_transfer_actual numeric(12, 2) NULL`,
+		`ALTER TABLE cash_register_sessions ADD COLUMN IF NOT EXISTS transfer_discrepancy numeric(12, 2) NULL`,
+		`ALTER TABLE cash_register_sessions ADD COLUMN IF NOT EXISTS initial_transfer numeric(12, 2) NOT NULL DEFAULT 0`,
+		`CREATE INDEX IF NOT EXISTS cash_register_sessions_status_idx ON cash_register_sessions (status)`,
+		`CREATE INDEX IF NOT EXISTS cash_register_expenses_session_id_idx ON cash_register_expenses (session_id)`,
+		`CREATE TABLE IF NOT EXISTS settings (
+			key varchar(50) PRIMARY KEY,
+			value text NOT NULL,
+			updated_at timestamptz NOT NULL DEFAULT now()
+		)`,
+	}
+
+	for _, stmt := range statements {
+		if _, err := db.Exec(stmt); err != nil {
+			return err
+		}
+	}
+
+	log.Println("Migraciones de caja verificadas: cash_register_sessions, cash_register_expenses")
 	return nil
 }

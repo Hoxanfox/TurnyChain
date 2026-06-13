@@ -57,7 +57,7 @@ export const TablesList: React.FC<TablesListProps> = ({
                     {orders.length} órden{orders.length !== 1 ? 'es' : ''}
                   </span>
                   <span className={`font-bold ${selectedTable === tableNum ? 'text-white' : 'text-green-600'}`}>
-                    ${totalAmount.toFixed(2)}
+                    ${totalAmount.toLocaleString('es-CO')}
                   </span>
                 </div>
               </button>

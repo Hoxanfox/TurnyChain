@@ -217,7 +217,7 @@ const MenuDisplay: React.FC<MenuDisplayProps> = ({ onAddToCart }) => {
                       </p>
                     )}
                     <p className="text-lg font-bold text-indigo-700 mt-auto">
-                      ${item.price.toFixed(2)}
+                      ${item.price.toLocaleString('es-CO')}
                     </p>
                   </button>
                 ))}

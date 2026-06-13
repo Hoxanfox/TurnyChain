@@ -24,6 +24,8 @@ import WaiterProfileMenu from './components/WaiterProfileMenu';
 import CustomizeOrderItemModal from './components/CustomizeOrderItemModal';
 import MenuDisplay from './components/MenuDisplay';
 import CurrentOrder from './components/CurrentOrder';
+import QRModal from './components/QRModal';
+import { FaQrcode } from 'react-icons/fa';
 
 // Importar funciones y tipos comunes del feature
 import {
@@ -95,8 +97,8 @@ const WaiterDashboardDesktop: React.FC = () => {
   };
 
   const [hasWsNotification, setHasWsNotification] = useState(false);
-  const [wsNotificationCount, setWsNotificationCount] = useState(0);
   const [lastWsNotification, setLastWsNotification] = useState<string | null>(null);
+  const [showQRModal, setShowQRModal] = useState(false);
 
   const handleWaiterWsNotification = useCallback((options: { title: string; message: string; type: 'info' | 'success' | 'warning' | 'error'; orderId?: string }) => {
     if (options.orderId) {
@@ -104,7 +106,6 @@ const WaiterDashboardDesktop: React.FC = () => {
     }
 
     setHasWsNotification(true);
-    setWsNotificationCount((prev) => prev + 1);
     setLastWsNotification(options.message || options.title);
   }, []);
 
@@ -600,26 +601,24 @@ const WaiterDashboardDesktop: React.FC = () => {
       <div className="flex flex-col h-screen bg-gray-100">
         {/* Header - Compacto */}
         <header className="bg-gradient-to-r from-indigo-600 to-indigo-700 shadow-md px-6 py-2.5 flex justify-between items-center">
-          <h1 className="text-xl font-bold text-white">Panel Mesero</h1>
-          <div className="flex gap-3">
-            <button
-              onClick={() => {
+          <h1 
+            onClick={() => {
+              if (hasWsNotification) {
                 setHasWsNotification(false);
-                setWsNotificationCount(0);
-              }}
-              title={lastWsNotification || 'Notificaciones'}
-              className={`relative w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold transition-colors ${
-                hasWsNotification
-                  ? 'bg-emerald-500 text-white shadow-sm'
-                  : 'bg-white/20 text-white hover:bg-white/30'
-              }`}
+              }
+            }}
+            className={`text-xl font-bold text-white cursor-pointer inline-block ${hasWsNotification ? 'animate-[spin_0.5s_linear_infinite] text-yellow-300 drop-shadow-md' : ''}`}
+            title={hasWsNotification ? (lastWsNotification || 'Nuevas notificaciones - Clic para limpiar') : ''}
+          >
+            Panel Mesero
+          </h1>
+          <div className="flex gap-3 items-center">
+            <button 
+              onClick={() => setShowQRModal(true)}
+              className="w-9 h-9 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors shadow-sm"
+              title="Mostrar Código QR"
             >
-              🔔
-              {wsNotificationCount > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-white text-emerald-700 text-[10px] font-bold flex items-center justify-center">
-                  {wsNotificationCount > 9 ? '9+' : wsNotificationCount}
-                </span>
-              )}
+              <FaQrcode className="text-white text-lg" />
             </button>
             <button
               onClick={() => setIsMyOrdersModalOpen(true)}
@@ -919,6 +918,11 @@ const WaiterDashboardDesktop: React.FC = () => {
           }}
           onConfirm={handleConfirmSendWithoutCharge}
         />
+      )}
+
+      {/* QR Modal */}
+      {showQRModal && (
+        <QRModal onClose={() => setShowQRModal(false)} />
       )}
     </>
   );

@@ -17,11 +17,13 @@ import AccompanimentManagement from './components/accompaniments/AccompanimentMa
 import StationManagement from './components/stations/StationManagement.tsx';
 import PrinterManagement from './components/printers/PrinterManagement.tsx';
 import BackupManagement from './components/backup/BackupManagement';
+import SettingsManagement from './components/settings/SettingsManagement';
 import DataExchangeButton from './components/shared/DataExchangeButton';
 import { clearBackendErrors } from './api/backendLogsSlice.ts';
 import type { RootState } from '../../app/store';
+import { FaCog } from 'react-icons/fa';
 
-type AdminTab = 'users' | 'orders' | 'tables' | 'menu' | 'categories' | 'ingredients' | 'accompaniments' | 'stations' | 'printers' | 'backup';
+type AdminTab = 'users' | 'orders' | 'tables' | 'menu' | 'categories' | 'ingredients' | 'accompaniments' | 'stations' | 'printers' | 'backup' | 'settings';
 
 interface TabConfig {
   id: AdminTab;
@@ -54,6 +56,7 @@ const AdminDashboard: React.FC = () => {
     { id: 'stations', label: 'Estaciones', icon: FaUtensils, color: 'indigo' },
     { id: 'printers', label: 'Impresoras', icon: FaPrint, color: 'teal' },
     { id: 'backup', label: 'Backup', icon: FaDatabase, color: 'slate' },
+    { id: 'settings', label: 'Ajustes', icon: FaCog, color: 'pink' },
   ];
 
   const getTabClasses = (tab: TabConfig) => {
@@ -253,6 +256,7 @@ const AdminDashboard: React.FC = () => {
             {activeTab === 'stations' && <StationManagement />}
             {activeTab === 'printers' && <PrinterManagement />}
             {activeTab === 'backup' && <BackupManagement />}
+            {activeTab === 'settings' && <SettingsManagement />}
           </div>
         </main>
       </div>

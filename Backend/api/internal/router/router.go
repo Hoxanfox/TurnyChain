@@ -11,26 +11,40 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *handler.UserHandler, menuHandler *handler.MenuHandler, orderHandler *handler.OrderHandler, invoiceHandler *handler.InvoiceHandler, tableHandler *handler.TableHandler, categoryHandler *handler.CategoryHandler, ingredientHandler *handler.IngredientHandler, accompanimentHandler *handler.AccompanimentHandler, wsHandler *handler.WebSocketHandler, stationHandler *handler.StationHandler, printerHandler *handler.PrinterHandler, kitchenTicketHandler *handler.KitchenTicketHandler, backupHandler *handler.BackupHandler, sessionRepo repository.SessionRepository) {
+func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *handler.UserHandler, menuHandler *handler.MenuHandler, orderHandler *handler.OrderHandler, invoiceHandler *handler.InvoiceHandler, tableHandler *handler.TableHandler, categoryHandler *handler.CategoryHandler, ingredientHandler *handler.IngredientHandler, accompanimentHandler *handler.AccompanimentHandler, wsHandler *handler.WebSocketHandler, stationHandler *handler.StationHandler, printerHandler *handler.PrinterHandler, kitchenTicketHandler *handler.KitchenTicketHandler, backupHandler *handler.BackupHandler, cashRegisterHandler *handler.CashRegisterHandler, settingHandler *handler.SettingHandler, sessionRepo repository.SessionRepository) {
 	// Ruta pública para WebSockets
 	app.Get("/ws", websocket.New(wsHandler.HandleConnection))
 
 	// Grupo principal de la API
 	api := app.Group("/api")
 
-	// Rutas públicas de autenticación
+	// Rutas públicas de autenticación y settings
 	auth := api.Group("/auth")
 	auth.Post("/login", authHandler.Login)
+
+	settingsPub := api.Group("/settings")
+	settingsPub.Get("/", settingHandler.GetAllSettings)
+	settingsPub.Get("/:key", settingHandler.GetSetting)
 
 	// A partir de aquí, todas las rutas requieren un token JWT válido.
 	protected := api.Group("/")
 	protected.Use(middleware.Protected(sessionRepo))
+
+	// Rutas de autenticación protegidas
+	authProtected := protected.Group("/auth")
+	authProtected.Post("/verify-password", authHandler.VerifyPassword)
+
+	// Rutas de Settings protegidas
+	settingsProtected := protected.Group("/settings")
+	settingsProtected.Post("/", settingHandler.UpsertSetting)
+	settingsProtected.Post("/upload-image", settingHandler.UploadSettingImage)
 
 	// Rutas de Usuarios
 	users := protected.Group("/users")
 	users.Post("/", userHandler.CreateUser)
 	users.Get("/", userHandler.GetUsers)
 	users.Put("/:id", userHandler.UpdateUser)
+	users.Put("/:id/password", userHandler.UpdateUserPassword)
 	users.Delete("/:id", userHandler.DeleteUser)
 
 	// Rutas de Menú
@@ -114,4 +128,11 @@ func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *
 	// Rutas de Backup (sin incluir órdenes)
 	backup := protected.Group("/backup")
 	backup.Get("/catalog", backupHandler.ExportCatalogBackup)
+
+	// Rutas de Control de Caja
+	cashRegister := protected.Group("/cash-register")
+	cashRegister.Post("/open", cashRegisterHandler.OpenSession)
+	cashRegister.Get("/current", cashRegisterHandler.GetCurrentSession)
+	cashRegister.Post("/expenses", cashRegisterHandler.AddExpense)
+	cashRegister.Post("/close", cashRegisterHandler.CloseSession)
 }

@@ -63,7 +63,7 @@ export const QuickProofView: React.FC<QuickProofViewProps> = ({
           <div>
             <h3 className="text-2xl font-bold text-gray-900">Verificar Comprobante</h3>
             <p className="text-sm text-gray-600 mt-1">
-              Mesa {activeOrder.table_number} • Total: ${activeOrder.total.toFixed(2)}
+              Mesa {activeOrder.table_number} • Total: ${activeOrder.total.toLocaleString('es-CO')}
             </p>
             <p className="text-xs text-gray-500 mt-1">
               👤 Mesero: {activeOrder.waiter_name || activeOrder.waiter_id.substring(0, 8)} •
@@ -87,7 +87,7 @@ export const QuickProofView: React.FC<QuickProofViewProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 md:col-span-1">
               <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">Total comanda activa</p>
-              <p className="text-2xl font-bold text-emerald-900 mt-1">${activeOrder.total.toFixed(2)}</p>
+              <p className="text-2xl font-bold text-emerald-900 mt-1">${activeOrder.total.toLocaleString('es-CO')}</p>
             </div>
             <div className={`rounded-xl border px-4 py-3 md:col-span-1 ${activeStatusTone}`}>
               <p className="text-xs font-semibold uppercase tracking-wide">Estado</p>
@@ -119,7 +119,7 @@ export const QuickProofView: React.FC<QuickProofViewProps> = ({
                         </p>
                       </div>
                       <div className="text-right flex flex-col items-end gap-2">
-                        <p className="font-bold text-blue-900">${p.amount.toFixed(2)}</p>
+                        <p className="font-bold text-blue-900">${p.amount.toLocaleString('es-CO')}</p>
                         {pImgUrl && (
                           <button
                             onClick={() => {
@@ -148,7 +148,7 @@ export const QuickProofView: React.FC<QuickProofViewProps> = ({
                 </div>
                 <div className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-left md:text-right">
                   <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">Total a cobrar</p>
-                  <p className="text-2xl font-extrabold text-emerald-900 mt-1">${groupTotal.toFixed(2)}</p>
+                  <p className="text-2xl font-extrabold text-emerald-900 mt-1">${groupTotal.toLocaleString('es-CO')}</p>
                 </div>
               </div>
 
@@ -367,7 +367,7 @@ export const QuickProofView: React.FC<QuickProofViewProps> = ({
                             {item.quantity}x {item.menu_item_name}
                           </p>
                           <span className="text-sm text-gray-600">
-                            @ ${item.price_at_order.toFixed(2)}
+                            @ ${item.price_at_order.toLocaleString('es-CO')}
                           </span>
                         </div>
 
@@ -386,7 +386,7 @@ export const QuickProofView: React.FC<QuickProofViewProps> = ({
                         )}
 
                         <p className="text-base font-bold text-green-700 mt-1">
-                          Subtotal: ${subtotal.toFixed(2)}
+                          Subtotal: ${subtotal.toLocaleString('es-CO')}
                         </p>
 
                         {/* Notas del item */}
@@ -454,7 +454,7 @@ export const QuickProofView: React.FC<QuickProofViewProps> = ({
             {/* Total */}
             <div className="mt-4 pt-4 border-t flex justify-between items-center">
               <span className="font-bold text-lg">Total:</span>
-              <span className="font-bold text-2xl text-green-700">${activeOrder.total.toFixed(2)}</span>
+              <span className="font-bold text-2xl text-green-700">${activeOrder.total.toLocaleString('es-CO')}</span>
             </div>
           </div>
         </div>

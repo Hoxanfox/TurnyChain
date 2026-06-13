@@ -17,6 +17,7 @@ import { CashierMobileContent } from './components/CashierMobileContent';
 import { WaiterApprovedStatsPanel } from './components/waiterStats/WaiterApprovedStatsPanel';
 import { useCashierMobileDerivedData } from './hooks/useCashierMobileDerivedData';
 import { useCashierMobilePagination } from './hooks/useCashierMobilePagination';
+import { CashRegisterModal } from './components/cashRegister/CashRegisterModal';
 
 const FilterModal = React.lazy(() => import('../cashierDashboardShared/FilterModal').then((mod) => ({
   default: mod.FilterModal,
@@ -129,6 +130,7 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
   const [showOrderIdModal, setShowOrderIdModal] = useState(false);
   const [showWaiterPicker, setShowWaiterPicker] = useState(false);
   const [showQuickTablePicker, setShowQuickTablePicker] = useState(false);
+  const [showCashRegisterModal, setShowCashRegisterModal] = useState(false);
   const [selectedTableNumber, setSelectedTableNumber] = useState<number | null>(null);
   const [focusedOrderId, setFocusedOrderId] = useState<string | null>(null);
   const [selectedOrderIdForDetail, setSelectedOrderIdForDetail] = useState<string | null>(null);
@@ -198,6 +200,7 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
         onOpenMetrics={() => navigate('/cashier/metrics')}
         onExportReport={onExportReport}
         onViewUrgent={() => setViewMode('urgent')}
+        onOpenCashRegister={() => setShowCashRegisterModal(true)}
       />
 
       <CashierMobileTabs
@@ -330,7 +333,13 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
           />
         )}
       </Suspense>
+
+      {showCashRegisterModal && (
+        <CashRegisterModal
+          isOpen={showCashRegisterModal}
+          onClose={() => setShowCashRegisterModal(false)}
+        />
+      )}
     </div>
   );
 };
-

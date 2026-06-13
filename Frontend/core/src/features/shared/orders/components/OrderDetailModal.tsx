@@ -332,7 +332,7 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ orderId, onClose, e
                 </div>
                 <div className="mb-2 px-3 py-2 rounded-md bg-white border border-indigo-200 flex items-center justify-between">
                   <span className="text-xs font-semibold text-indigo-700">Total global del grupo</span>
-                  <span className="text-sm font-bold text-indigo-900">${groupTotal.toFixed(2)}</span>
+                  <span className="text-sm font-bold text-indigo-900">${groupTotal.toLocaleString('es-CO')}</span>
                 </div>
                 <div className="space-y-2">
                   {groupOrders.map((groupOrder, index) => {
@@ -353,7 +353,7 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ orderId, onClose, e
                           <span className="text-sm font-semibold">
                             {index === 0 ? 'Padre' : `Hija ${index}`} • Mesa {groupOrder.table_number}
                           </span>
-                          <span className="text-sm font-bold">${groupOrder.total.toFixed(2)}</span>
+                          <span className="text-sm font-bold">${groupOrder.total.toLocaleString('es-CO')}</span>
                         </div>
                         <div className="text-xs mt-1 opacity-90 flex items-center gap-2 flex-wrap">
                           <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border font-semibold ${groupStatusVisual.className}`}>
@@ -437,7 +437,7 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ orderId, onClose, e
             )}
 
             <div className="grid grid-cols-2 gap-4 mb-4">
-              <p><strong>Total:</strong> <span className="font-bold">${selectedOrderDetails.total.toFixed(2)}</span></p>
+              <p><strong>Total:</strong> <span className="font-bold">${selectedOrderDetails.total.toLocaleString('es-CO')}</span></p>
               <p><strong>Mesero:</strong> {selectedOrderDetails.waiter_name || <span className="text-gray-400 text-sm">(ID: {selectedOrderDetails.waiter_id.substring(0, 8)}...)</span>}</p>
             </div>
 
@@ -547,7 +547,7 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ orderId, onClose, e
                           <div className="flex-1">
                             <div className="flex items-baseline gap-2">
                               <p className="font-semibold text-lg">{item.quantity}x {item.menu_item_name}</p>
-                              <span className="text-sm text-gray-600">@ ${item.price_at_order.toFixed(2)}</span>
+                              <span className="text-sm text-gray-600">@ ${item.price_at_order.toLocaleString('es-CO')}</span>
                             </div>
 
                             {/* Indicador de Para Llevar / Comer Aquí */}
@@ -565,7 +565,7 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ orderId, onClose, e
                             )}
 
                             <p className="text-base font-bold text-green-700 mt-1">
-                              Subtotal: ${(item.quantity * item.price_at_order).toFixed(2)}
+                              Subtotal: ${(item.quantity * item.price_at_order).toLocaleString('es-CO')}
                             </p>
 
                             {item.notes && (

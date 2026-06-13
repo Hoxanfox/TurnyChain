@@ -1,0 +1,149 @@
+package service
+
+import (
+	"errors"
+	"time"
+
+	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/domain"
+	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/repository"
+	"github.com/google/uuid"
+)
+
+type CashRegisterService interface {
+	OpenSession(initialCash float64, initialTransfer float64) (*domain.CashRegisterSession, error)
+	GetCurrentSessionDetails() (*domain.CashRegisterSessionDetails, error)
+	AddExpense(amount float64, description string, imagePath *string) (*domain.CashRegisterExpense, error)
+	CloseSession(finalCashActual float64, finalTransferActual float64) (*domain.CashRegisterSession, error)
+}
+
+type cashRegisterService struct {
+	repo repository.CashRegisterRepository
+}
+
+func NewCashRegisterService(repo repository.CashRegisterRepository) CashRegisterService {
+	return &cashRegisterService{repo: repo}
+}
+
+func (s *cashRegisterService) OpenSession(initialCash float64, initialTransfer float64) (*domain.CashRegisterSession, error) {
+	existingSession, err := s.repo.GetOpenSession()
+	if err != nil {
+		return nil, err
+	}
+	if existingSession != nil {
+		return nil, errors.New("there is already an open session")
+	}
+
+	now := time.Now()
+	session := &domain.CashRegisterSession{
+		ID:              uuid.New(),
+		Status:          "open",
+		OpenTime:        now,
+		InitialCash:     initialCash,
+		InitialTransfer: initialTransfer,
+		CreatedAt:       now,
+		UpdatedAt:       now,
+	}
+
+	err = s.repo.CreateSession(session)
+	if err != nil {
+		return nil, err
+	}
+	return session, nil
+}
+
+func (s *cashRegisterService) GetCurrentSessionDetails() (*domain.CashRegisterSessionDetails, error) {
+	session, err := s.repo.GetOpenSession()
+	if err != nil {
+		return nil, err
+	}
+	if session == nil {
+		return &domain.CashRegisterSessionDetails{
+			Session: nil,
+		}, nil
+	}
+
+	expenses, err := s.repo.GetExpensesBySession(session.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	var totalExpenses float64
+	for _, e := range expenses {
+		totalExpenses += e.Amount
+	}
+
+	// Sumar las ventas desde que abrió la caja hasta AHORA
+	totalCashSales, totalTransferSales, cashCount, transferCount, err := s.repo.GetSalesByTimeRange(session.OpenTime, time.Now())
+	if err != nil {
+		return nil, err
+	}
+
+	expectedCash := session.InitialCash + totalCashSales - totalExpenses
+
+	return &domain.CashRegisterSessionDetails{
+		Session:                   session,
+		Expenses:                  expenses,
+		TotalCashSales:            totalCashSales,
+		TotalTransfer:             totalTransferSales + session.InitialTransfer,
+		TotalExpenses:             totalExpenses,
+		ExpectedCash:              expectedCash,
+		CashTransactionsCount:     cashCount,
+		TransferTransactionsCount: transferCount,
+	}, nil
+}
+
+func (s *cashRegisterService) AddExpense(amount float64, description string, imagePath *string) (*domain.CashRegisterExpense, error) {
+	session, err := s.repo.GetOpenSession()
+	if err != nil {
+		return nil, err
+	}
+	if session == nil {
+		return nil, errors.New("cannot add expense: no open session")
+	}
+
+	expense := &domain.CashRegisterExpense{
+		ID:          uuid.New(),
+		SessionID:   session.ID,
+		Amount:      amount,
+		Description: description,
+		ImagePath:   imagePath,
+		CreatedAt:   time.Now(),
+	}
+
+	err = s.repo.AddExpense(expense)
+	if err != nil {
+		return nil, err
+	}
+	return expense, nil
+}
+
+func (s *cashRegisterService) CloseSession(finalCashActual float64, finalTransferActual float64) (*domain.CashRegisterSession, error) {
+	details, err := s.GetCurrentSessionDetails()
+	if err != nil {
+		return nil, err
+	}
+	if details.Session == nil {
+		return nil, errors.New("there is no open session to close")
+	}
+
+	now := time.Now()
+	cashDiscrepancy := finalCashActual - details.ExpectedCash
+	transferDiscrepancy := finalTransferActual - details.TotalTransfer
+
+	session := details.Session
+	session.Status = "closed"
+	session.CloseTime = &now
+	session.FinalCashExpected = &details.ExpectedCash
+	session.FinalCashActual = &finalCashActual
+	session.Discrepancy = &cashDiscrepancy
+	session.FinalTransferExpected = &details.TotalTransfer
+	session.FinalTransferActual = &finalTransferActual
+	session.TransferDiscrepancy = &transferDiscrepancy
+	session.UpdatedAt = now
+
+	err = s.repo.CloseSession(session)
+	if err != nil {
+		return nil, err
+	}
+	return session, nil
+}
