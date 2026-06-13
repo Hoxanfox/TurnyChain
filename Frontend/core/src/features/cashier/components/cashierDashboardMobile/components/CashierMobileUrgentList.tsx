@@ -1,5 +1,6 @@
 import React from 'react';
 import type { Order } from '../../../../../types/orders';
+import { getPaymentProofUrl } from '../../../../../utils/imageUtils';
 
 interface CashierMobileUrgentListProps {
   orders: Order[];
@@ -18,6 +19,8 @@ export const CashierMobileUrgentList: React.FC<CashierMobileUrgentListProps> = (
   hasMore,
   onLoadMore,
 }) => {
+  const [selectedImage, setSelectedImage] = React.useState<string | null>(null);
+
   if (orders.length === 0) {
     return (
       <div className="bg-white rounded-2xl shadow-lg p-12 text-center">
@@ -47,7 +50,56 @@ export const CashierMobileUrgentList: React.FC<CashierMobileUrgentListProps> = (
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
+          {/* ZONA DE INFORMACION DE PAGO */}
+          {(order.payments && order.payments.length > 0) ? (
+            <div className="bg-gray-50 p-3 rounded-xl mb-3 border border-gray-200">
+              <p className="text-xs font-bold text-gray-500 uppercase mb-2">Desglose de Pagos</p>
+              <div className="space-y-2">
+                {order.payments.map((p, idx) => (
+                  <div key={idx} className="flex justify-between items-center bg-white p-2 rounded border border-gray-100 shadow-sm">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">{p.method === 'transferencia' ? '📱' : '💵'}</span>
+                      <span className="text-sm font-semibold capitalize text-gray-700">{p.method}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="font-bold text-gray-800">${p.amount.toFixed(2)}</span>
+                      {p.payment_proof_path && (
+                        <button 
+                          onClick={() => setSelectedImage(getPaymentProofUrl(p.payment_proof_path!))}
+                          className="text-xs bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-2 py-1 rounded font-bold transition-colors"
+                        >
+                          📸 Ver Foto
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : order.payment_method ? (
+            <div className="bg-gray-50 p-3 rounded-xl mb-3 border border-gray-200">
+              <p className="text-xs font-bold text-gray-500 uppercase mb-2">Información de Pago</p>
+              <div className="flex justify-between items-center bg-white p-2 rounded border border-gray-100 shadow-sm">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">{order.payment_method === 'transferencia' ? '📱' : order.payment_method === 'mixto' ? '🔀' : '💵'}</span>
+                  <span className="text-sm font-semibold capitalize text-gray-700">{order.payment_method}</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="font-bold text-gray-800">${order.total.toFixed(2)}</span>
+                  {order.payment_proof_path && (
+                    <button 
+                       onClick={() => setSelectedImage(getPaymentProofUrl(order.payment_proof_path!))}
+                       className="text-xs bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-2 py-1 rounded font-bold transition-colors"
+                    >
+                      📸 Ver Foto
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          <div className="grid grid-cols-2 gap-2 mb-2">
             <button
               onClick={() => onConfirmPayment(order.id)}
               className="px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 font-semibold shadow-md transition-all"
@@ -78,6 +130,29 @@ export const CashierMobileUrgentList: React.FC<CashierMobileUrgentListProps> = (
         >
           Cargar mas urgentes
         </button>
+      )}
+
+      {/* Modal para ver imagen completa */}
+      {selectedImage && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-[60] cursor-pointer backdrop-blur-sm animate-fade-in"
+          onClick={() => setSelectedImage(null)}
+        >
+          <div className="relative max-w-[95vw] max-h-[95vh]">
+            <button
+              onClick={() => setSelectedImage(null)}
+              className="absolute -top-12 right-0 text-white hover:text-red-400 transition-colors text-4xl font-black z-10"
+            >
+              &times;
+            </button>
+            <img
+              src={selectedImage}
+              alt="Comprobante completo"
+              className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl border border-gray-800"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+        </div>
       )}
     </div>
   );

@@ -52,6 +52,7 @@ export const QuickProofView: React.FC<QuickProofViewProps> = ({
 
   const [imageError, setImageError] = useState(false);
   const [showFullImage, setShowFullImage] = useState(false);
+  const [selectedPaymentImage, setSelectedPaymentImage] = useState<string | null>(null);
   const imageUrl = activeOrder.payment_proof_path ? getPaymentProofUrl(activeOrder.payment_proof_path) : null;
 
   return (
@@ -84,21 +85,59 @@ export const QuickProofView: React.FC<QuickProofViewProps> = ({
 
         <div className="p-5 space-y-5">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 md:col-span-1">
               <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">Total comanda activa</p>
               <p className="text-2xl font-bold text-emerald-900 mt-1">${activeOrder.total.toFixed(2)}</p>
             </div>
-            <div className={`rounded-xl border px-4 py-3 ${activeStatusTone}`}>
+            <div className={`rounded-xl border px-4 py-3 md:col-span-1 ${activeStatusTone}`}>
               <p className="text-xs font-semibold uppercase tracking-wide">Estado</p>
               <p className="text-lg font-bold mt-1">{getStatusLabel(activeOrder.status)}</p>
             </div>
-            <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-blue-800">Método de pago</p>
+            <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 md:col-span-1">
+              <p className="text-xs font-semibold uppercase tracking-wide text-blue-800">Método principal</p>
               <p className="text-base font-bold text-blue-900 mt-1">
                 {activeOrder.payment_method === 'transferencia' ? '📱 Transferencia' : activeOrder.payment_method === 'mixto' ? '🔀 Mixto' : '💵 Efectivo'}
               </p>
             </div>
           </div>
+
+          {/* Desglose de pagos múltiples */}
+          {activeOrder.payments && activeOrder.payments.length > 0 && (
+            <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-blue-800 mb-3">Desglose de transacciones</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {activeOrder.payments.map((p, idx) => {
+                  const pImgUrl = p.payment_proof_path ? getPaymentProofUrl(p.payment_proof_path) : null;
+                  return (
+                    <div key={idx} className="bg-white rounded-lg border border-blue-100 p-3 shadow-sm flex justify-between items-center">
+                      <div>
+                        <p className="text-sm font-bold text-gray-800 flex items-center gap-1">
+                          {p.method === 'transferencia' ? '📱' : '💵'} <span className="capitalize">{p.method}</span>
+                        </p>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          {new Date(p.created_at || activeOrder.created_at).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}
+                        </p>
+                      </div>
+                      <div className="text-right flex flex-col items-end gap-2">
+                        <p className="font-bold text-blue-900">${p.amount.toFixed(2)}</p>
+                        {pImgUrl && (
+                          <button
+                            onClick={() => {
+                              setSelectedPaymentImage(pImgUrl);
+                              setShowFullImage(true);
+                            }}
+                            className="text-xs bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-2 py-1 rounded font-bold transition-colors shadow-sm"
+                          >
+                            📸 Ver Foto
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {isGroupView && (
             <div className="p-5 rounded-2xl border-2 border-indigo-200 bg-indigo-50/80 space-y-4">
@@ -223,50 +262,56 @@ export const QuickProofView: React.FC<QuickProofViewProps> = ({
             </div>
           )}
 
-          {/* Imagen del comprobante */}
-          {activeOrder.status === 'cancelado' ? (
-            <div className="p-4 bg-red-50 border border-red-200 rounded-xl">
-              <p className="text-sm text-red-800 font-semibold">
-                ⛔ Esta comanda está cancelada y no requiere comprobante.
-              </p>
-            </div>
-          ) : imageUrl && !imageError ? (
-            <div className="p-4 rounded-xl border border-gray-200 bg-white shadow-sm">
-              <p className="text-sm font-semibold mb-2">Comprobante:</p>
-              <img
-                src={imageUrl}
-                alt="Comprobante de pago"
-                className="w-full rounded-lg border-2 border-gray-300 shadow-lg cursor-pointer hover:border-blue-500 transition-all"
-                onClick={() => setShowFullImage(true)}
-                onError={() => {
-                  console.error('❌ Error cargando comprobante:', imageUrl);
-                  setImageError(true);
-                }}
-                onLoad={() => {
-                  console.log('✅ Comprobante cargado:', imageUrl);
-                }}
-              />
-              <button
-                onClick={() => setShowFullImage(true)}
-                className="mt-2 text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
-              >
-                🔍 Ver en tamaño completo
-              </button>
-              <p className="text-xs text-gray-500 mt-2 break-all">
-                {activeOrder.payment_proof_path}
-              </p>
-            </div>
-          ) : (
-            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
-              <p className="text-sm text-yellow-800">
-                ⚠️ No se pudo cargar el comprobante
-              </p>
-              {activeOrder.payment_proof_path && (
+          {/* Imagen del comprobante principal (Legacy, solo si no hay array de payments o si se sigue usando payment_proof_path directo) */}
+          {(!activeOrder.payments || activeOrder.payments.length === 0) && (
+            activeOrder.status === 'cancelado' ? (
+              <div className="p-4 bg-red-50 border border-red-200 rounded-xl">
+                <p className="text-sm text-red-800 font-semibold">
+                  ⛔ Esta comanda está cancelada y no requiere comprobante.
+                </p>
+              </div>
+            ) : imageUrl && !imageError ? (
+              <div className="p-4 rounded-xl border border-gray-200 bg-white shadow-sm">
+                <p className="text-sm font-semibold mb-2">Comprobante principal:</p>
+                <img
+                  src={imageUrl}
+                  alt="Comprobante de pago"
+                  className="w-full rounded-lg border-2 border-gray-300 shadow-lg cursor-pointer hover:border-blue-500 transition-all"
+                  onClick={() => {
+                    setSelectedPaymentImage(imageUrl);
+                    setShowFullImage(true);
+                  }}
+                  onError={() => {
+                    console.error('❌ Error cargando comprobante:', imageUrl);
+                    setImageError(true);
+                  }}
+                  onLoad={() => {
+                    console.log('✅ Comprobante cargado:', imageUrl);
+                  }}
+                />
+                <button
+                  onClick={() => {
+                    setSelectedPaymentImage(imageUrl);
+                    setShowFullImage(true);
+                  }}
+                  className="mt-2 text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                >
+                  🔍 Ver en tamaño completo
+                </button>
+                <p className="text-xs text-gray-500 mt-2 break-all">
+                  {activeOrder.payment_proof_path}
+                </p>
+              </div>
+            ) : imageUrl && imageError ? (
+              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
+                <p className="text-sm text-yellow-800">
+                  ⚠️ No se pudo cargar el comprobante principal
+                </p>
                 <p className="text-xs text-gray-600 mt-1">
                   {activeOrder.payment_proof_path}
                 </p>
-              )}
-            </div>
+              </div>
+            ) : null
           )}
 
           {/* Botones de acción */}
@@ -416,20 +461,26 @@ export const QuickProofView: React.FC<QuickProofViewProps> = ({
       </div>
 
       {/* Modal para imagen completa */}
-      {showFullImage && imageUrl && (
+      {showFullImage && (selectedPaymentImage || imageUrl) && (
         <div
           className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-[60] cursor-pointer"
-          onClick={() => setShowFullImage(false)}
+          onClick={() => {
+            setShowFullImage(false);
+            setSelectedPaymentImage(null);
+          }}
         >
           <div className="relative max-w-[95vw] max-h-[95vh]">
             <button
-              onClick={() => setShowFullImage(false)}
+              onClick={() => {
+                setShowFullImage(false);
+                setSelectedPaymentImage(null);
+              }}
               className="absolute top-4 right-4 bg-white rounded-full w-10 h-10 flex items-center justify-center text-2xl font-bold hover:bg-gray-200 z-10"
             >
               ×
             </button>
             <img
-              src={imageUrl}
+              src={selectedPaymentImage || imageUrl!}
               alt="Comprobante completo"
               className="max-w-full max-h-[95vh] object-contain rounded-lg"
               onClick={(e) => e.stopPropagation()}
