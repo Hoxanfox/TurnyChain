@@ -99,6 +99,7 @@ func main() {
 	backupHandler := handler.NewBackupHandler(backupService)
 
 	app := fiber.New(fiber.Config{
+		BodyLimit: 20 * 1024 * 1024, // 20 MB max file size
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
 			code := fiber.StatusInternalServerError
 			if e, ok := err.(*fiber.Error); ok {

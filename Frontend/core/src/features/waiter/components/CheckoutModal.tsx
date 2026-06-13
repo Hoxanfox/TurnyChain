@@ -109,8 +109,8 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
         setError('Por favor seleccione un archivo de imagen válido');
         return;
       }
-      if (file.size > 5 * 1024 * 1024) { // 5MB max
-        setError('El archivo es muy grande. Máximo 5MB');
+      if (file.size > 20 * 1024 * 1024) { // 20MB max
+        setError('El archivo es muy grande. Máximo 20MB');
         return;
       }
       setProofImage(file);
@@ -128,9 +128,13 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
           fileType: file.type
         };
         console.log('[CheckoutModal] Guardando imagen en localStorage:', { storageKey, imageData });
-        localStorage.setItem(storageKey, JSON.stringify(imageData));
-        console.log('[CheckoutModal] Imagen guardada en localStorage:', localStorage.getItem(storageKey));
-        console.log('[CheckoutModal] Estado completo de localStorage:', {...localStorage});
+        try {
+          localStorage.setItem(storageKey, JSON.stringify(imageData));
+          console.log('[CheckoutModal] Imagen guardada en localStorage:', localStorage.getItem(storageKey));
+          console.log('[CheckoutModal] Estado completo de localStorage:', {...localStorage});
+        } catch (storageError) {
+          console.warn('[CheckoutModal] No se pudo guardar la imagen en localStorage (posible límite de cuota superado). La carga continuará en memoria.', storageError);
+        }
       };
       reader.readAsDataURL(file);
     }
