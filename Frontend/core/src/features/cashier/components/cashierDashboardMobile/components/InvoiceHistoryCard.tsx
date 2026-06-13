@@ -20,7 +20,7 @@ export const InvoiceHistoryCard: React.FC<InvoiceHistoryCardProps> = ({ item }) 
         </div>
         <div className="text-right">
           <p className="text-xl font-bold text-emerald-600">{formatMoney(item.total)}</p>
-          <p className="text-xs text-gray-500">{item.payment_method || 'N/D'}</p>
+          <p className="text-xs text-gray-500">{item.payment_method === 'mixto' ? '🔀 Mixto' : item.payment_method === 'transferencia' ? '📱 Transf.' : item.payment_method === 'efectivo' ? '💵 Efectivo' : 'N/D'}</p>
         </div>
       </div>
 

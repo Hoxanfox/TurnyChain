@@ -16,102 +16,166 @@ interface PaymentInfoSectionProps {
 }
 
 const PaymentInfoSection: React.FC<PaymentInfoSectionProps> = ({ order }) => {
-  const [showFullImage, setShowFullImage] = useState(false);
-  const [imageError, setImageError] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
-  if (!order.payment_method) {
+  if (!order.payment_method && (!order.payments || order.payments.length === 0)) {
     return null;
   }
 
-  const imageUrl = order.payment_proof_path ? getPaymentProofUrl(order.payment_proof_path) : null;
+  const formatMoney = (amount: number) =>
+    new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(amount);
+
+  const hasMultiplePayments = order.payments && order.payments.length > 0;
 
   return (
     <>
-      <div className="mb-4 p-4 bg-gradient-to-r from-blue-50 to-green-50 rounded-lg border-2 border-blue-200">
-        <h3 className="font-bold text-lg mb-3 text-blue-800 flex items-center gap-2">
-          💳 Información de Pago
-        </h3>
-        <div className="space-y-2">
-          <p className="text-sm">
-            <strong>Método:</strong>
-            <span className={`ml-2 px-3 py-1 rounded-full text-sm font-semibold ${
-              order.payment_method === 'transferencia' 
-                ? 'bg-blue-100 text-blue-800' 
-                : 'bg-green-100 text-green-800'
-            }`}>
-              {order.payment_method === 'transferencia' ? '📱 Transferencia' : '💵 Efectivo'}
-            </span>
-          </p>
-
-          {imageUrl && !imageError && (
-            <div className="mt-3">
-              <p className="text-sm font-semibold mb-2">Comprobante:</p>
-              <div className="relative">
-                <img
-                  src={imageUrl}
-                  alt="Comprobante de pago"
-                  className="w-full max-w-sm rounded-lg border-2 border-gray-300 hover:border-blue-500 transition-all cursor-pointer shadow-md hover:shadow-xl"
-                  onClick={() => setShowFullImage(true)}
-                  onError={() => {
-                    console.error('❌ Error cargando imagen:', imageUrl);
-                    console.error('  Path original:', order.payment_proof_path);
-                    setImageError(true);
-                  }}
-                  onLoad={() => {
-                    console.log('✅ Imagen cargada exitosamente:', imageUrl);
-                  }}
-                />
-                <button
-                  onClick={() => setShowFullImage(true)}
-                  className="mt-2 text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
-                >
-                  🔍 Ver en tamaño completo
-                </button>
-              </div>
-              <p className="text-xs text-gray-500 mt-2">
-                {order.payment_proof_path}
-              </p>
+      <div className="mb-6 rounded-2xl border border-slate-200 overflow-hidden shadow-sm bg-white">
+        {/* HEADER */}
+        <div className="bg-slate-800 text-white p-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="bg-white/10 p-2 rounded-lg">
+              <span className="text-xl">💳</span>
+            </div>
+            <h3 className="font-bold tracking-wide text-lg">Información de Pago</h3>
+          </div>
+          {order.payment_method && (
+            <div className="flex items-center gap-2 bg-slate-700 px-3 py-1.5 rounded-full border border-slate-600">
+              <span className="text-sm font-semibold text-slate-200">Total pagado:</span>
+              <span className="text-sm font-bold text-emerald-400">
+                {formatMoney(hasMultiplePayments ? order.payments!.reduce((sum, p) => sum + p.amount, 0) : order.total)}
+              </span>
             </div>
           )}
+        </div>
+        
+        {/* BODY */}
+        <div className="p-5 bg-slate-50">
+          {hasMultiplePayments ? (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-sm font-bold text-slate-500 uppercase tracking-wider">
+                  Desglose de Transacciones ({order.payments!.length})
+                </span>
+                <div className="flex-1 h-px bg-slate-200"></div>
+              </div>
 
-          {imageError && (
-            <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <p className="text-sm text-yellow-800">
-                ⚠️ No se pudo cargar el comprobante
-              </p>
-              <p className="text-xs text-gray-600 mt-1">
-                Ruta: {order.payment_proof_path}
-              </p>
-              <a
-                href={imageUrl || '#'}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-blue-600 hover:underline"
-              >
-                Intentar abrir en nueva pestaña
-              </a>
+              <div className="grid gap-3">
+                {order.payments!.map((payment, index) => {
+                  const imgUrl = payment.payment_proof_path ? getPaymentProofUrl(payment.payment_proof_path) : null;
+                  const isTransfer = payment.method === 'transferencia';
+
+                  return (
+                    <div 
+                      key={payment.id || index} 
+                      className="group bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row justify-between sm:items-center gap-4 transition-all hover:shadow-md hover:border-indigo-300"
+                    >
+                      <div className="flex items-center gap-4">
+                        {/* Icono del método */}
+                        <div className={`p-3 rounded-full flex-shrink-0 ${
+                          isTransfer ? 'bg-indigo-50 text-indigo-600' : 'bg-emerald-50 text-emerald-600'
+                        }`}>
+                          <span className="text-xl">{isTransfer ? '📱' : '💵'}</span>
+                        </div>
+                        
+                        <div>
+                          <p className={`font-bold text-base capitalize ${
+                            isTransfer ? 'text-indigo-900' : 'text-emerald-900'
+                          }`}>
+                            {payment.method}
+                          </p>
+                          <p className="text-xs text-slate-500 font-medium">
+                            {new Date(payment.created_at || order.created_at).toLocaleString('es-ES', {
+                              dateStyle: 'short',
+                              timeStyle: 'short'
+                            })}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between sm:justify-end gap-6 sm:w-1/2">
+                        {imgUrl ? (
+                          <button
+                            onClick={() => setSelectedImage(imgUrl)}
+                            className="flex items-center gap-1.5 text-sm text-indigo-600 hover:text-indigo-800 font-semibold bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors"
+                          >
+                            <span>📸</span> Ver comprobante
+                          </button>
+                        ) : (
+                          <span className="text-sm text-slate-400 italic">Sin adjunto</span>
+                        )}
+                        <span className="font-black text-slate-800 text-lg tabular-nums">
+                          {formatMoney(payment.amount)}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            /* FORMATO LEGACY (1 solo pago en la orden sin desglose array) */
+            <div className="flex flex-col gap-5">
+              <div className="flex items-center justify-between bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <span className="text-slate-500 font-medium text-sm">Método principal:</span>
+                  <span className={`px-3 py-1.5 rounded-lg text-sm font-bold flex items-center gap-2 ${
+                    order.payment_method === 'transferencia' ? 'bg-indigo-100 text-indigo-800' : 
+                    order.payment_method === 'mixto' ? 'bg-purple-100 text-purple-800' : 
+                    'bg-emerald-100 text-emerald-800'
+                  }`}>
+                    {order.payment_method === 'transferencia' ? '📱 Transferencia' : 
+                     order.payment_method === 'mixto' ? '🔀 Mixto' : '💵 Efectivo'}
+                  </span>
+                </div>
+                <span className="font-black text-slate-800 text-xl">{formatMoney(order.total)}</span>
+              </div>
+
+              {order.payment_proof_path && (
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                  <p className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
+                    <span>📸</span> Comprobantes adjuntos
+                  </p>
+                  <div className="flex flex-wrap gap-3">
+                    {order.payment_proof_path.split(',').map((path, idx) => {
+                      const imgUrl = getPaymentProofUrl(path.trim());
+                      return (
+                        <div key={idx} className="relative group">
+                          <img
+                            src={imgUrl}
+                            alt={`Comprobante ${idx + 1}`}
+                            className="w-28 h-28 object-cover rounded-lg border border-slate-300 group-hover:border-indigo-400 group-hover:shadow-md transition-all cursor-pointer"
+                            onClick={() => setSelectedImage(imgUrl)}
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                          />
+                          <div className="absolute inset-0 bg-indigo-900/0 group-hover:bg-indigo-900/10 transition-colors rounded-lg pointer-events-none"></div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
       </div>
 
       {/* Modal para ver imagen completa */}
-      {showFullImage && imageUrl && (
+      {selectedImage && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-[60] cursor-pointer"
-          onClick={() => setShowFullImage(false)}
+          className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-[60] cursor-pointer backdrop-blur-sm animate-fade-in"
+          onClick={() => setSelectedImage(null)}
         >
           <div className="relative max-w-[95vw] max-h-[95vh]">
             <button
-              onClick={() => setShowFullImage(false)}
-              className="absolute top-4 right-4 bg-white rounded-full w-10 h-10 flex items-center justify-center text-2xl font-bold hover:bg-gray-200 z-10"
+              onClick={() => setSelectedImage(null)}
+              className="absolute -top-12 right-0 text-white hover:text-red-400 transition-colors text-4xl font-black z-10"
             >
-              ×
+              &times;
             </button>
             <img
-              src={imageUrl}
+              src={selectedImage}
               alt="Comprobante completo"
-              className="max-w-full max-h-[95vh] object-contain rounded-lg"
+              className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl border border-gray-800"
               onClick={(e) => e.stopPropagation()}
             />
           </div>

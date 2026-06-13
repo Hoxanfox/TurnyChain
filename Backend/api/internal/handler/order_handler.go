@@ -471,6 +471,81 @@ func (h *OrderHandler) UploadPaymentProof(c *fiber.Ctx) error {
 	return c.JSON(order)
 }
 
+// UploadSplitPayments maneja subida de multiples pagos y actualiza la orden.
+func (h *OrderHandler) UploadSplitPayments(c *fiber.Ctx) error {
+	orderID, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid order ID"})
+	}
+
+	userID, err := getUserIDFromLocals(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid session"})
+	}
+	userRole := c.Locals("user_role").(string)
+
+	log.Printf("📤 [Handler] Recibiendo split payments para orden %s (Usuario: %s, Rol: %s)", orderID.String(), userID.String(), userRole)
+
+	paymentsDataStr := c.FormValue("payments_data")
+	if paymentsDataStr == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "payments_data is required"})
+	}
+
+	var paymentsInput []struct {
+		Method string  `json:"method"`
+		Amount float64 `json:"amount"`
+	}
+	if err := json.Unmarshal([]byte(paymentsDataStr), &paymentsInput); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid payments_data JSON"})
+	}
+
+	var payments []domain.Payment
+	uploadDir := "./uploads/proofs"
+
+	for i, pInput := range paymentsInput {
+		if pInput.Method != "efectivo" && pInput.Method != "transferencia" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid payment method in array"})
+		}
+
+		payment := domain.Payment{
+			Amount: pInput.Amount,
+			Method: pInput.Method,
+		}
+
+		if pInput.Method == "transferencia" {
+			fileKey := fmt.Sprintf("proof_%d", i)
+			file, fileErr := c.FormFile(fileKey)
+			if fileErr != nil {
+				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": fmt.Sprintf("file %s is required for transferencia", fileKey)})
+			}
+
+			if err := os.MkdirAll(uploadDir, os.ModePerm); err != nil {
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "could not create upload directory"})
+			}
+
+			ext := filepath.Ext(file.Filename)
+			filename := fmt.Sprintf("order_%s_split_%d_%d%s", orderID.String(), i, time.Now().UnixNano(), ext)
+			destination := filepath.Join(uploadDir, filename)
+
+			if err := c.SaveFile(file, destination); err != nil {
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "could not save file"})
+			}
+
+			proofPath := "/static/proofs/" + filename
+			payment.PaymentProofPath = &proofPath
+		}
+
+		payments = append(payments, payment)
+	}
+
+	order, err := h.orderService.AddSplitPayments(orderID, payments)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "could not update order with split payments"})
+	}
+
+	return c.JSON(order)
+}
+
 // CreateOrderWithPayment maneja la creación de una orden con datos de pago y comprobante adjunto.
 // Espera multipart/form-data con:
 // - order_data: JSON string con {table_number, items}

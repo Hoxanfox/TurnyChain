@@ -3,14 +3,15 @@
 // Modal para cobrar ANTES de enviar la orden
 // =================================================================
 import React, { useState, useRef } from 'react';
-import { MdClose, MdAttachMoney, MdPhoneAndroid, MdCameraAlt, MdDelete } from 'react-icons/md';
+import { MdClose, MdAttachMoney, MdPhoneAndroid, MdCameraAlt, MdDelete, MdImage } from 'react-icons/md';
 import { compressImage, validateImageFile } from '../../../utils/imageUtils';
+import type { PaymentInput } from '../../shared/orders/api/ordersAPI.ts';
 
 interface CheckoutBeforeSendModalProps {
   orderTotal: number;
   tableNumber: number;
   onClose: () => void;
-  onConfirm: (paymentMethod: 'efectivo' | 'transferencia', proofFile: File | null) => Promise<boolean> | boolean;
+  onConfirm: (paymentMethod: 'efectivo' | 'transferencia' | 'mixto', proofFile: File | null, splitPayments?: PaymentInput[]) => Promise<boolean> | boolean;
   externalSubmitting?: boolean;
   isOnline?: boolean;
 }
@@ -18,15 +19,29 @@ interface CheckoutBeforeSendModalProps {
 const CheckoutBeforeSendModal: React.FC<CheckoutBeforeSendModalProps> = ({
   orderTotal, tableNumber, onClose, onConfirm, externalSubmitting = false, isOnline = true
 }) => {
-  const [paymentMethod, setPaymentMethod] = useState<'efectivo' | 'transferencia'>('efectivo');
+  const [paymentMethod, setPaymentMethod] = useState<'efectivo' | 'transferencia' | 'mixto'>('efectivo');
   const [proofImage, setProofImage] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isCompressing, setIsCompressing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Estados para Mixto
+  const [splitPayments, setSplitPayments] = useState<PaymentInput[]>([]);
+  const [addingSplit, setAddingSplit] = useState(false);
+  const [splitMethod, setSplitMethod] = useState<'efectivo' | 'transferencia'>('efectivo');
+  const [splitAmount, setSplitAmount] = useState<number | ''>('');
+  const [splitProofImage, setSplitProofImage] = useState<File | null>(null);
+  const [splitPreviewUrl, setSplitPreviewUrl] = useState<string | null>(null);
+
   // Referencia oculta para el input de archivo
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const splitFileInputRef = useRef<HTMLInputElement>(null);
+  const splitCameraInputRef = useRef<HTMLInputElement>(null);
+
+  const totalPaid = splitPayments.reduce((sum, p) => sum + p.amount, 0);
+  const remaining = orderTotal - totalPaid;
 
   // Formateador de moneda
   const formatMoney = (amount: number) =>
@@ -147,6 +162,16 @@ const CheckoutBeforeSendModal: React.FC<CheckoutBeforeSendModalProps> = ({
       setError("Por favor adjunta la foto del comprobante");
       return;
     }
+    if (paymentMethod === 'mixto') {
+      if (remaining > 0) {
+        setError('Aún queda saldo por pagar');
+        return;
+      }
+      if (splitPayments.length === 0) {
+        setError('No hay pagos agregados');
+        return;
+      }
+    }
 
     setIsSubmitting(true);
     // Limpiar localStorage solo al confirmar
@@ -155,7 +180,7 @@ const CheckoutBeforeSendModal: React.FC<CheckoutBeforeSendModalProps> = ({
 
     try {
       // Confirmar y enviar datos de pago al padre
-      const ok = await onConfirm(paymentMethod, proofImage);
+      const ok = await onConfirm(paymentMethod, proofImage, paymentMethod === 'mixto' ? splitPayments : undefined);
       if (!ok) {
         setIsSubmitting(false);
       }
@@ -170,13 +195,68 @@ const CheckoutBeforeSendModal: React.FC<CheckoutBeforeSendModalProps> = ({
   React.useEffect(() => {
     return () => {
       if (previewUrl) URL.revokeObjectURL(previewUrl);
+      if (splitPreviewUrl) URL.revokeObjectURL(splitPreviewUrl);
     };
-  }, [previewUrl]);
+  }, [previewUrl, splitPreviewUrl]);
 
   // Cambiar método de pago sin borrar imagen
-  const handlePaymentMethodChange = (method: 'efectivo' | 'transferencia') => {
+  const handlePaymentMethodChange = (method: 'efectivo' | 'transferencia' | 'mixto') => {
     setPaymentMethod(method);
     // No borrar imagen ni limpiar localStorage
+  };
+
+  // Funciones para Mixto
+  const handleAddSplitPayment = () => {
+    if (!splitAmount || Number(splitAmount) <= 0) {
+      setError('Ingresa un monto válido');
+      return;
+    }
+    const amt = Number(splitAmount);
+    if (amt > remaining) {
+      setError('El monto no puede ser mayor al saldo restante');
+      return;
+    }
+    if (splitMethod === 'transferencia' && !splitProofImage) {
+      setError('Adjunta la foto del comprobante de transferencia');
+      return;
+    }
+
+    setSplitPayments([...splitPayments, { method: splitMethod, amount: amt, file: splitProofImage }]);
+    setAddingSplit(false);
+    setSplitAmount('');
+    setSplitProofImage(null);
+    setSplitPreviewUrl(null);
+    setError(null);
+  };
+
+  const handleSplitFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const validation = validateImageFile(file);
+    if (!validation.valid) {
+      setError(validation.error || 'Archivo inválido');
+      return;
+    }
+
+    try {
+      setIsCompressing(true);
+      setError(null);
+      const compressedFile = await compressImage(file, 1200, 0.8);
+      setSplitProofImage(compressedFile);
+      setSplitPreviewUrl(URL.createObjectURL(compressedFile));
+    } catch (err) {
+      setError('Error al procesar la imagen.');
+    } finally {
+      setIsCompressing(false);
+    }
+  };
+
+  const handleRemoveSplitPhoto = () => {
+    setSplitProofImage(null);
+    if (splitPreviewUrl) URL.revokeObjectURL(splitPreviewUrl);
+    setSplitPreviewUrl(null);
+    if (splitFileInputRef.current) splitFileInputRef.current.value = '';
   };
 
   return (
@@ -206,30 +286,43 @@ const CheckoutBeforeSendModal: React.FC<CheckoutBeforeSendModalProps> = ({
         </div>
 
         {/* SELECCIÓN DE MÉTODO (TABS) */}
-        <div className="flex p-3 gap-2 bg-gray-100">
-          <button
-            onClick={() => handlePaymentMethodChange('efectivo')}
-            disabled={isSubmitting || externalSubmitting}
-            className={`flex-1 py-3 rounded-xl flex items-center justify-center gap-2 font-bold transition-all ${
-              paymentMethod === 'efectivo' 
-                ? 'bg-white text-green-700 shadow-lg border-2 border-green-200' 
-                : 'text-gray-500 hover:bg-gray-200'
-            }`}
-          >
-            <MdAttachMoney size={24} /> Efectivo
-          </button>
-          <button
-            onClick={() => handlePaymentMethodChange('transferencia')}
-            disabled={isSubmitting || externalSubmitting}
-            className={`flex-1 py-3 rounded-xl flex items-center justify-center gap-2 font-bold transition-all ${
-              paymentMethod === 'transferencia' 
-                ? 'bg-white text-blue-700 shadow-lg border-2 border-blue-200' 
-                : 'text-gray-500 hover:bg-gray-200'
-            }`}
-          >
-            <MdPhoneAndroid size={24} /> Transferencia
-          </button>
-        </div>
+        {!addingSplit && (
+          <div className="flex p-3 gap-2 bg-gray-100">
+            <button
+              onClick={() => handlePaymentMethodChange('efectivo')}
+              disabled={isSubmitting || externalSubmitting}
+              className={`flex-1 py-3 rounded-xl flex items-center justify-center gap-2 font-bold transition-all ${
+                paymentMethod === 'efectivo' 
+                  ? 'bg-white text-green-700 shadow-lg border-2 border-green-200' 
+                  : 'text-gray-500 hover:bg-gray-200'
+              }`}
+            >
+              <MdAttachMoney size={20} /> Efectivo
+            </button>
+            <button
+              onClick={() => handlePaymentMethodChange('transferencia')}
+              disabled={isSubmitting || externalSubmitting}
+              className={`flex-1 py-3 rounded-xl flex items-center justify-center gap-2 font-bold transition-all ${
+                paymentMethod === 'transferencia' 
+                  ? 'bg-white text-blue-700 shadow-lg border-2 border-blue-200' 
+                  : 'text-gray-500 hover:bg-gray-200'
+              }`}
+            >
+              <MdPhoneAndroid size={20} /> Transf.
+            </button>
+            <button
+              onClick={() => handlePaymentMethodChange('mixto')}
+              disabled={isSubmitting || externalSubmitting}
+              className={`flex-1 py-3 rounded-xl flex items-center justify-center gap-2 font-bold transition-all ${
+                paymentMethod === 'mixto' 
+                  ? 'bg-white text-purple-700 shadow-lg border-2 border-purple-200' 
+                  : 'text-gray-500 hover:bg-gray-200'
+              }`}
+            >
+              <MdAttachMoney size={20} /> Mixto
+            </button>
+          </div>
+        )}
 
         {/* BODY DINÁMICO */}
         <div className="p-6 overflow-y-auto flex-grow">
@@ -254,45 +347,65 @@ const CheckoutBeforeSendModal: React.FC<CheckoutBeforeSendModalProps> = ({
                 <p>Pide al cliente que transfiera el monto exacto y <strong>toma una foto clara del comprobante</strong> antes de confirmar.</p>
               </div>
 
-              {/* INPUT CÁMARA OCULTO + BOTÓN PERSONALIZADO */}
+              {/* INPUT CÁMARA OCULTO */}
               <input
                 type="file"
                 accept="image/*"
-                capture="environment" // Fuerza cámara trasera
+                capture="environment"
+                className="hidden"
+                ref={cameraInputRef}
+                onChange={handleFileChange}
+              />
+              {/* INPUT ARCHIVO OCULTO */}
+              <input
+                type="file"
+                accept="image/*"
                 className="hidden"
                 ref={fileInputRef}
                 onChange={handleFileChange}
               />
 
               {!previewUrl ? (
-                // BOTÓN DE CÁMARA GRANDE
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isCompressing || isSubmitting || externalSubmitting}
-                  className={`w-full h-48 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center gap-3 transition-all ${
-                    isCompressing
-                      ? 'border-blue-400 bg-blue-50 cursor-wait'
-                      : 'border-gray-300 text-gray-500 hover:bg-blue-50 hover:border-blue-400 hover:text-blue-600 active:scale-95'
-                  }`}
-                >
-                  {isCompressing ? (
-                    <>
-                      <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent"></div>
-                      <div className="text-center">
-                        <span className="font-bold text-lg block text-blue-600">Procesando imagen...</span>
-                        <span className="text-xs text-blue-500">Optimizando para envío</span>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <MdCameraAlt size={56} />
-                      <div className="text-center">
-                        <span className="font-bold text-lg block">📸 Tomar Foto del Comprobante</span>
-                        <span className="text-xs text-gray-400">Toca aquí para abrir la cámara</span>
-                      </div>
-                    </>
-                  )}
-                </button>
+                // BOTONES DE CÁMARA Y ARCHIVO
+                <div className="flex gap-3 w-full">
+                  <button
+                    onClick={() => cameraInputRef.current?.click()}
+                    disabled={isCompressing || isSubmitting || externalSubmitting}
+                    className={`flex-1 h-32 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center gap-2 transition-all ${
+                      isCompressing
+                        ? 'border-blue-400 bg-blue-50 cursor-wait'
+                        : 'border-gray-300 text-gray-500 hover:bg-blue-50 hover:border-blue-400 hover:text-blue-600 active:scale-95'
+                    }`}
+                  >
+                    {isCompressing ? (
+                      <div className="animate-spin rounded-full h-8 w-8 border-4 border-blue-600 border-t-transparent"></div>
+                    ) : (
+                      <>
+                        <MdCameraAlt size={36} />
+                        <span className="font-bold text-sm block">Tomar Foto</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isCompressing || isSubmitting || externalSubmitting}
+                    className={`flex-1 h-32 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center gap-2 transition-all ${
+                      isCompressing
+                        ? 'border-blue-400 bg-blue-50 cursor-wait'
+                        : 'border-gray-300 text-gray-500 hover:bg-blue-50 hover:border-blue-400 hover:text-blue-600 active:scale-95'
+                    }`}
+                  >
+                    {isCompressing ? (
+                      <div className="animate-spin rounded-full h-8 w-8 border-4 border-blue-600 border-t-transparent"></div>
+                    ) : (
+                      <>
+                        <MdImage size={36} />
+                        <span className="font-bold text-sm block text-center">Adjuntar<br/>Archivo</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               ) : (
                 // PREVISUALIZACIÓN DE FOTO
                 <div className="relative rounded-2xl overflow-hidden border-2 border-green-300 shadow-lg">
@@ -315,6 +428,184 @@ const CheckoutBeforeSendModal: React.FC<CheckoutBeforeSendModalProps> = ({
               )}
             </div>
           )}
+
+          {/* --- CASO 3: MIXTO --- */}
+          {paymentMethod === 'mixto' && (
+            <div className="space-y-4">
+              {!addingSplit ? (
+                <>
+                  <div className="bg-purple-50 p-4 rounded-xl border-2 border-purple-100 text-purple-800">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="font-semibold">Pagado:</span>
+                      <span className="font-bold text-green-600">{formatMoney(totalPaid)}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="font-semibold">Restante:</span>
+                      <span className={`font-bold ${remaining === 0 ? 'text-green-600' : 'text-red-500'}`}>
+                        {formatMoney(remaining)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    {splitPayments.map((p, idx) => (
+                      <div key={idx} className="flex justify-between items-center p-3 bg-white border border-gray-200 rounded-lg shadow-sm">
+                        <div className="flex items-center gap-2">
+                          <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${
+                            p.method === 'transferencia' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
+                          }`}>
+                            {p.method}
+                          </span>
+                          {p.file && <span className="text-xs text-gray-500">📸 Con foto</span>}
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="font-bold">{formatMoney(p.amount)}</span>
+                          <button
+                            onClick={() => {
+                              const newPayments = [...splitPayments];
+                              newPayments.splice(idx, 1);
+                              setSplitPayments(newPayments);
+                            }}
+                            className="text-red-500 hover:text-red-700"
+                          >
+                            <MdDelete size={20} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {remaining > 0 && (
+                    <button
+                      onClick={() => {
+                        setAddingSplit(true);
+                        setSplitMethod('efectivo');
+                        setSplitAmount(remaining);
+                        setSplitProofImage(null);
+                        setSplitPreviewUrl(null);
+                        setError(null);
+                      }}
+                      className="w-full py-3 border-2 border-dashed border-purple-300 text-purple-700 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-purple-50 transition-colors"
+                    >
+                      <span>➕</span> Agregar Pago Parcial
+                    </button>
+                  )}
+                </>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex gap-2 mb-4">
+                    <button
+                      onClick={() => setSplitMethod('efectivo')}
+                      className={`flex-1 py-2 rounded-lg font-bold border-2 ${
+                        splitMethod === 'efectivo' ? 'bg-green-50 text-green-700 border-green-300' : 'border-gray-200 text-gray-500 hover:bg-gray-50'
+                      }`}
+                    >
+                      Efectivo
+                    </button>
+                    <button
+                      onClick={() => setSplitMethod('transferencia')}
+                      className={`flex-1 py-2 rounded-lg font-bold border-2 ${
+                        splitMethod === 'transferencia' ? 'bg-blue-50 text-blue-700 border-blue-300' : 'border-gray-200 text-gray-500 hover:bg-gray-50'
+                      }`}
+                    >
+                      Transferencia
+                    </button>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Monto a pagar</label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">$</span>
+                      <input
+                        type="number"
+                        value={splitAmount}
+                        onChange={(e) => setSplitAmount(e.target.value ? Number(e.target.value) : '')}
+                        className="w-full pl-8 pr-4 py-3 bg-gray-50 border border-gray-300 rounded-xl font-bold text-gray-800 text-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                        placeholder="0"
+                      />
+                    </div>
+                  </div>
+
+                  {splitMethod === 'transferencia' && (
+                    <div>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        className="hidden"
+                        ref={splitCameraInputRef}
+                        onChange={handleSplitFileChange}
+                      />
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        ref={splitFileInputRef}
+                        onChange={handleSplitFileChange}
+                      />
+                      {!splitPreviewUrl ? (
+                        <div className="flex gap-2 w-full">
+                          <button
+                            onClick={() => splitCameraInputRef.current?.click()}
+                            disabled={isCompressing}
+                            className="flex-1 h-24 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center gap-1 text-gray-500 hover:bg-blue-50 hover:border-blue-300 transition-colors"
+                          >
+                            {isCompressing ? (
+                              <div className="animate-spin rounded-full h-6 w-6 border-4 border-blue-600 border-t-transparent"></div>
+                            ) : (
+                              <>
+                                <MdCameraAlt size={24} />
+                                <span className="text-xs font-bold">Tomar Foto</span>
+                              </>
+                            )}
+                          </button>
+                          <button
+                            onClick={() => splitFileInputRef.current?.click()}
+                            disabled={isCompressing}
+                            className="flex-1 h-24 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center gap-1 text-gray-500 hover:bg-blue-50 hover:border-blue-300 transition-colors"
+                          >
+                            {isCompressing ? (
+                              <div className="animate-spin rounded-full h-6 w-6 border-4 border-blue-600 border-t-transparent"></div>
+                            ) : (
+                              <>
+                                <MdImage size={24} />
+                                <span className="text-xs font-bold text-center">Adjuntar<br/>Archivo</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="relative rounded-xl overflow-hidden border-2 border-green-300">
+                          <img src={splitPreviewUrl} alt="Comprobante parcial" className="w-full h-32 object-cover" />
+                          <button
+                            onClick={handleRemoveSplitPhoto}
+                            className="absolute top-2 right-2 bg-red-600 text-white p-1.5 rounded-full shadow-lg"
+                          >
+                            <MdDelete size={16} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="flex gap-2 pt-2">
+                    <button
+                      onClick={() => setAddingSplit(false)}
+                      className="flex-1 py-3 bg-gray-200 text-gray-700 font-bold rounded-xl hover:bg-gray-300"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={handleAddSplitPayment}
+                      className="flex-1 py-3 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-700"
+                    >
+                      Añadir
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* ERROR MESSAGE */}
@@ -330,30 +621,42 @@ const CheckoutBeforeSendModal: React.FC<CheckoutBeforeSendModalProps> = ({
           </div>
         )}
 
-        {/* FOOTER DE ACCIÓN */}
         <div className="p-4 border-t border-gray-200 bg-gray-50">
-          <button
-            onClick={handleSubmit}
-            disabled={isSubmitting || externalSubmitting || !isOnline || (paymentMethod === 'transferencia' && !proofImage)}
-            className={`w-full py-4 rounded-xl font-black text-lg shadow-lg flex items-center justify-center gap-2 transition-all ${
-              isSubmitting || externalSubmitting || !isOnline || (paymentMethod === 'transferencia' && !proofImage)
-                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                : paymentMethod === 'efectivo'
-                  ? 'bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white active:scale-95 shadow-green-300'
-                  : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white active:scale-95 shadow-blue-300'
-            }`}
-          >
-            {(isSubmitting || externalSubmitting)
-              ? '⏳ ENVIANDO...'
-              : paymentMethod === 'efectivo'
-                ? '✅ CONFIRMAR Y ENVIAR COMANDA'
-                : '📤 ADJUNTAR Y ENVIAR COMANDA'}
-          </button>
+          {!addingSplit && (
+            <>
+              <button
+                onClick={handleSubmit}
+                disabled={isSubmitting || externalSubmitting || !isOnline || (paymentMethod === 'transferencia' && !proofImage) || (paymentMethod === 'mixto' && remaining > 0)}
+                className={`w-full py-4 rounded-xl font-black text-lg shadow-lg flex items-center justify-center gap-2 transition-all ${
+                  isSubmitting || externalSubmitting || !isOnline || (paymentMethod === 'transferencia' && !proofImage) || (paymentMethod === 'mixto' && remaining > 0)
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : paymentMethod === 'efectivo'
+                      ? 'bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white active:scale-95 shadow-green-300'
+                      : paymentMethod === 'mixto'
+                      ? 'bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white active:scale-95 shadow-purple-300'
+                      : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white active:scale-95 shadow-blue-300'
+                }`}
+              >
+                {(isSubmitting || externalSubmitting)
+                  ? '⏳ ENVIANDO...'
+                  : paymentMethod === 'efectivo'
+                    ? '✅ CONFIRMAR Y ENVIAR COMANDA'
+                    : paymentMethod === 'mixto'
+                    ? '🔀 CONFIRMAR PAGO MIXTO Y ENVIAR'
+                    : '📤 ADJUNTAR Y ENVIAR COMANDA'}
+              </button>
 
-          {paymentMethod === 'transferencia' && !proofImage && (
-            <p className="text-xs text-gray-500 text-center mt-2">
-              * Es obligatorio adjuntar el comprobante para transferencias
-            </p>
+              {paymentMethod === 'transferencia' && !proofImage && (
+                <p className="text-xs text-gray-500 text-center mt-2">
+                  * Es obligatorio adjuntar el comprobante para transferencias
+                </p>
+              )}
+              {paymentMethod === 'mixto' && remaining > 0 && (
+                <p className="text-xs text-red-500 text-center mt-2 font-bold">
+                  * Debes completar el saldo total para poder enviar la comanda
+                </p>
+              )}
+            </>
           )}
         </div>
 

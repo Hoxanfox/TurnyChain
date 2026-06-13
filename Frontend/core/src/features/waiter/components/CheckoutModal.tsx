@@ -1,11 +1,9 @@
-// =================================================================
-// ARCHIVO: /src/features/waiter/components/CheckoutModal.tsx
-// =================================================================
 import React, { useState, useRef } from 'react';
-import { MdClose, MdAttachMoney, MdPhoneAndroid, MdCameraAlt, MdDelete } from 'react-icons/md';
+import { MdClose, MdAttachMoney, MdPhoneAndroid, MdCameraAlt, MdDelete, MdAdd, MdImage } from 'react-icons/md';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../../../app/store';
-import { uploadPaymentProof, updateOrderStatus } from '../../shared/orders/api/ordersAPI.ts';
+import { uploadSplitPayments, updateOrderStatus } from '../../shared/orders/api/ordersAPI.ts';
+import type { PaymentInput } from '../../shared/orders/api/ordersAPI.ts';
 
 interface CheckoutModalProps {
   orderId: string;
@@ -17,91 +15,49 @@ interface CheckoutModalProps {
   onSuccess: () => void;
 }
 
+type PaymentState = 'summary' | 'adding_payment';
+
 const CheckoutModal: React.FC<CheckoutModalProps> = ({
   orderId, groupOrderIds, orderTotal, tableNumber, forcePaidAfterCheckout = false, onClose, onSuccess
 }) => {
   const token = useSelector((state: RootState) => state.auth.token);
-  const [paymentMethod, setPaymentMethod] = useState<'efectivo' | 'transferencia'>('efectivo');
-  const [proofImage, setProofImage] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const targetOrderIds = groupOrderIds && groupOrderIds.length > 0 ? groupOrderIds : [orderId];
   const isGlobalCheckout = targetOrderIds.length > 1;
 
-  // Referencia oculta para el input de archivo
+  // Estados
+  const [payments, setPayments] = useState<PaymentInput[]>([]);
+  const [paymentState, setPaymentState] = useState<PaymentState>('summary');
+  const [currentMethod, setCurrentMethod] = useState<'efectivo' | 'transferencia'>('efectivo');
+  const [currentAmount, setCurrentAmount] = useState<number | ''>('');
+  const [currentProofImage, setCurrentProofImage] = useState<File | null>(null);
+  const [currentPreviewUrl, setCurrentPreviewUrl] = useState<string | null>(null);
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
-  // Clave única para localStorage basada en el orderId
-  const storageKey = `payment_proof_${orderId}`;
+  const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
+  const remaining = orderTotal - totalPaid;
 
-  // Cargar imagen desde localStorage al montar el componente
-  React.useEffect(() => {
-    const savedImageData = localStorage.getItem(storageKey);
-    if (savedImageData) {
-      console.log('[CheckoutModal] Imagen encontrada en localStorage:', savedImageData);
-      try {
-        const { base64, fileName, fileType } = JSON.parse(savedImageData);
-        // Convertir base64 de vuelta a File
-        fetch(base64)
-          .then(res => res.blob())
-          .then(blob => {
-            const file = new File([blob], fileName, { type: fileType });
-            setProofImage(file);
-            setPreviewUrl(base64);
-            console.log('[CheckoutModal] Imagen restaurada en estado');
-          })
-          .catch(err => {
-            console.error('[CheckoutModal] Error al recuperar imagen guardada:', err);
-            localStorage.removeItem(storageKey);
-          });
-      } catch (err) {
-        console.error('[CheckoutModal] Error al parsear imagen guardada:', err);
-        localStorage.removeItem(storageKey);
-      }
-    } else {
-      console.log('[CheckoutModal] No hay imagen guardada en localStorage');
-    }
-  }, [orderId, storageKey]);
-
-  // Recuperar imagen guardada cada vez que se selecciona transferencia
-  React.useEffect(() => {
-    if (paymentMethod === 'transferencia') {
-      const savedImageData = localStorage.getItem(storageKey);
-      console.log('[CheckoutModal] Intentando recuperar imagen de localStorage:', savedImageData);
-      console.log('[CheckoutModal] Estado completo de localStorage:', {...localStorage});
-      if (savedImageData) {
-        try {
-          const { base64, fileName, fileType } = JSON.parse(savedImageData);
-          fetch(base64)
-            .then(res => res.blob())
-            .then(blob => {
-              const file = new File([blob], fileName, { type: fileType });
-              setProofImage(file);
-              setPreviewUrl(base64);
-              console.log('[CheckoutModal] Imagen restaurada en estado');
-            })
-            .catch(err => {
-              console.error('[CheckoutModal] Error al recuperar imagen guardada:', err);
-              localStorage.removeItem(storageKey);
-            });
-        } catch (err) {
-          console.error('[CheckoutModal] Error al parsear imagen guardada:', err);
-          localStorage.removeItem(storageKey);
-        }
-      } else {
-        setProofImage(null);
-        setPreviewUrl(null);
-        console.log('[CheckoutModal] No hay imagen guardada para transferencia');
-      }
-    }
-  }, [paymentMethod, storageKey]);
-
-  // Formateador de moneda
   const formatMoney = (amount: number) =>
     new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(amount);
 
-  // Manejar captura de foto
+  const handleStartAddingPayment = (method: 'efectivo' | 'transferencia') => {
+    setPaymentState('adding_payment');
+    setCurrentMethod(method);
+    setCurrentAmount(remaining > 0 ? remaining : '');
+    setCurrentProofImage(null);
+    setCurrentPreviewUrl(null);
+    setError(null);
+  };
+
+  const handleCancelAdding = () => {
+    setPaymentState('summary');
+    if (currentPreviewUrl) URL.revokeObjectURL(currentPreviewUrl);
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -113,54 +69,54 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
         setError('El archivo es muy grande. Máximo 20MB');
         return;
       }
-      setProofImage(file);
-      // Crear URL temporal para previsualizar
+      setCurrentProofImage(file);
       const url = URL.createObjectURL(file);
-      setPreviewUrl(url);
+      setCurrentPreviewUrl(url);
       setError(null);
-
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64 = reader.result as string;
-        const imageData = {
-          base64,
-          fileName: file.name,
-          fileType: file.type
-        };
-        console.log('[CheckoutModal] Guardando imagen en localStorage:', { storageKey, imageData });
-        try {
-          localStorage.setItem(storageKey, JSON.stringify(imageData));
-          console.log('[CheckoutModal] Imagen guardada en localStorage:', localStorage.getItem(storageKey));
-          console.log('[CheckoutModal] Estado completo de localStorage:', {...localStorage});
-        } catch (storageError) {
-          console.warn('[CheckoutModal] No se pudo guardar la imagen en localStorage (posible límite de cuota superado). La carga continuará en memoria.', storageError);
-        }
-      };
-      reader.readAsDataURL(file);
     }
   };
 
-  // Log al limpiar imagen
   const handleRemovePhoto = () => {
-    setProofImage(null);
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl);
-    }
-    setPreviewUrl(null);
+    setCurrentProofImage(null);
+    if (currentPreviewUrl) URL.revokeObjectURL(currentPreviewUrl);
+    setCurrentPreviewUrl(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
-    // Limpiar de localStorage
-    localStorage.removeItem(storageKey);
-    console.log('[CheckoutModal] Imagen eliminada manualmente');
-    console.log('[CheckoutModal] Estado completo de localStorage tras eliminar:', {...localStorage});
   };
 
-  const handleSubmit = async () => {
-    // Validaciones
-    if (paymentMethod === 'transferencia' && !proofImage) {
-      setError("Por favor adjunta la foto del comprobante");
+  const handleAddPaymentToArray = () => {
+    if (!currentAmount || Number(currentAmount) <= 0) {
+      setError('Ingresa un monto válido');
+      return;
+    }
+    const amt = Number(currentAmount);
+    if (amt > remaining) {
+      setError('El monto no puede ser mayor al saldo restante');
+      return;
+    }
+    if (currentMethod === 'transferencia' && !currentProofImage) {
+      setError('Adjunta la foto del comprobante de transferencia');
       return;
     }
 
+    setPayments([...payments, { method: currentMethod, amount: amt, file: currentProofImage }]);
+    setPaymentState('summary');
+  };
+
+  const handleRemovePaymentFromArray = (index: number) => {
+    const newPayments = [...payments];
+    newPayments.splice(index, 1);
+    setPayments(newPayments);
+  };
+
+  const handleSubmitAll = async () => {
+    if (remaining > 0) {
+      setError('Aún queda saldo por pagar');
+      return;
+    }
+    if (payments.length === 0) {
+      setError('No hay pagos agregados');
+      return;
+    }
     if (!token) {
       setError('Sesión expirada. Por favor inicie sesión nuevamente.');
       return;
@@ -170,21 +126,12 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
     setError(null);
 
     try {
-      // Si es efectivo, crear un archivo vacío para el backend
-      const fileToUpload = proofImage || new File([''], 'efectivo.txt', { type: 'text/plain' });
-
       for (const targetOrderId of targetOrderIds) {
-        await uploadPaymentProof(targetOrderId, fileToUpload, paymentMethod, token);
-
-        // En flujo de cajero, el cobro debe quedar aplicado de inmediato.
+        await uploadSplitPayments(targetOrderId, payments, token);
         if (forcePaidAfterCheckout) {
           await updateOrderStatus(targetOrderId, 'pagado', token);
         }
       }
-      
-      // ✅ SOLO LIMPIAR LOCALSTORAGE DESPUÉS DEL ÉXITO
-      localStorage.removeItem(storageKey);
-      
       onSuccess();
     } catch (err: any) {
       setError(
@@ -198,23 +145,21 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
     }
   };
 
-  // Cleanup on unmount
   React.useEffect(() => {
     return () => {
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      if (currentPreviewUrl) URL.revokeObjectURL(currentPreviewUrl);
     };
-  }, [previewUrl]);
+  }, [currentPreviewUrl]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
       <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-
         {/* HEADER */}
         <div className="bg-gradient-to-r from-gray-900 to-gray-800 text-white p-5 flex justify-between items-center">
           <div>
             <h2 className="text-xl font-bold">💳 Cobrar Mesa {tableNumber}</h2>
             <p className="text-gray-400 text-sm">
-              {isGlobalCheckout ? `Pago global para ${targetOrderIds.length} comandas` : 'Total a recibir'}
+              {isGlobalCheckout ? `Pago global para ${targetOrderIds.length} comandas` : 'Pagos de la orden'}
             </p>
           </div>
           <button
@@ -226,159 +171,217 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
           </button>
         </div>
 
-        {/* TOTAL EN GRANDE */}
-        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 text-center border-b border-gray-200">
-          <span className="text-4xl font-black text-gray-800 tracking-tight">
-            {formatMoney(orderTotal)}
-          </span>
-          {isGlobalCheckout && (
-            <p className="text-xs text-indigo-700 font-semibold mt-2">Total global del grupo</p>
-          )}
-        </div>
-
-        {/* SELECCIÓN DE MÉTODO (TABS) */}
-        <div className="flex p-3 gap-2 bg-gray-100">
-          <button
-            onClick={() => {
-              setPaymentMethod('efectivo');
-              handleRemovePhoto();
-            }}
-            disabled={isSubmitting}
-            className={`flex-1 py-3 rounded-xl flex items-center justify-center gap-2 font-bold transition-all ${
-              paymentMethod === 'efectivo' 
-                ? 'bg-white text-green-700 shadow-lg border-2 border-green-200' 
-                : 'text-gray-500 hover:bg-gray-200'
-            }`}
-          >
-            <MdAttachMoney size={24} /> Efectivo
-          </button>
-          <button
-            onClick={() => setPaymentMethod('transferencia')}
-            disabled={isSubmitting}
-            className={`flex-1 py-3 rounded-xl flex items-center justify-center gap-2 font-bold transition-all ${
-              paymentMethod === 'transferencia' 
-                ? 'bg-white text-blue-700 shadow-lg border-2 border-blue-200' 
-                : 'text-gray-500 hover:bg-gray-200'
-            }`}
-          >
-            <MdPhoneAndroid size={24} /> Transferencia
-          </button>
-        </div>
-
-        {/* BODY DINÁMICO */}
-        <div className="p-6 overflow-y-auto flex-grow">
-
-          {/* --- CASO 1: EFECTIVO --- */}
-          {paymentMethod === 'efectivo' && (
-            <div className="text-center space-y-4">
-              <div className="bg-green-50 p-4 rounded-xl border-2 border-green-100 text-green-800">
-                <p className="font-semibold text-lg mb-1">✅ Recibe el dinero en efectivo</p>
-                <p className="text-sm opacity-80">Confirma una vez hayas recibido el pago del cliente.</p>
+        {paymentState === 'summary' ? (
+          /* VISTA PRINCIPAL: RESUMEN Y LISTA DE PAGOS */
+          <div className="flex flex-col flex-grow overflow-hidden">
+            {/* SALDOS */}
+            <div className="bg-gray-50 p-6 text-center border-b border-gray-200">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-gray-500 font-semibold">Total:</span>
+                <span className="text-xl font-bold text-gray-800">{formatMoney(orderTotal)}</span>
               </div>
-              <div className="text-7xl animate-bounce">💵</div>
-              <p className="text-gray-600 text-sm italic">El cambio se calcula manualmente</p>
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-gray-500 font-semibold">Pagado:</span>
+                <span className="text-xl font-bold text-green-600">{formatMoney(totalPaid)}</span>
+              </div>
+              <div className="flex justify-between items-center pt-2 border-t border-gray-200">
+                <span className="text-gray-600 font-black text-lg">Restante:</span>
+                <span className={`text-2xl font-black ${remaining === 0 ? 'text-green-600' : 'text-red-500'}`}>
+                  {formatMoney(remaining)}
+                </span>
+              </div>
             </div>
-          )}
 
-          {/* --- CASO 2: TRANSFERENCIA (CÁMARA) --- */}
-          {paymentMethod === 'transferencia' && (
-            <div className="space-y-4">
-              <div className="bg-blue-50 p-4 rounded-lg border-2 border-blue-100 text-blue-800 text-sm">
-                <p className="font-semibold mb-1">📱 Instrucciones:</p>
-                <p>Pide al cliente que transfiera el monto exacto y <strong>toma una foto clara del comprobante</strong> antes de confirmar.</p>
-              </div>
-
-              {/* INPUT CÁMARA OCULTO + BOTÓN PERSONALIZADO */}
-              <input
-                type="file"
-                accept="image/*"
-                capture="environment" // Fuerza cámara trasera
-                className="hidden"
-                ref={fileInputRef}
-                onChange={handleFileChange}
-                disabled={isSubmitting}
-              />
-
-              {!previewUrl ? (
-                // BOTÓN DE CÁMARA GRANDE
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isSubmitting}
-                  className="w-full h-48 border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center gap-3 text-gray-500 hover:bg-blue-50 hover:border-blue-400 hover:text-blue-600 transition-all active:scale-95"
-                >
-                  <MdCameraAlt size={56} />
-                  <div className="text-center">
-                    <span className="font-bold text-lg block">📸 Tomar Foto del Comprobante</span>
-                    <span className="text-xs text-gray-400">Toca aquí para abrir la cámara</span>
-                  </div>
-                </button>
+            {/* LISTA DE PAGOS */}
+            <div className="p-4 overflow-y-auto flex-grow bg-white">
+              <h3 className="font-bold text-gray-700 mb-3 text-sm uppercase tracking-wide">Pagos Añadidos</h3>
+              {payments.length === 0 ? (
+                <div className="text-center p-4 bg-gray-50 rounded-lg text-gray-400 border border-dashed border-gray-300">
+                  Aún no hay pagos añadidos.
+                </div>
               ) : (
-                // PREVISUALIZACIÓN DE FOTO
-                <div className="relative rounded-2xl overflow-hidden border-2 border-green-300 shadow-lg">
-                  <img src={previewUrl} alt="Comprobante" className="w-full h-56 object-cover" />
+                <div className="space-y-2">
+                  {payments.map((p, index) => (
+                    <div key={index} className="flex justify-between items-center p-3 border border-gray-200 rounded-xl bg-gray-50 shadow-sm">
+                      <div className="flex items-center gap-3">
+                        {p.method === 'efectivo' ? (
+                          <div className="bg-green-100 p-2 rounded-full text-green-700"><MdAttachMoney size={20}/></div>
+                        ) : (
+                          <div className="bg-blue-100 p-2 rounded-full text-blue-700"><MdPhoneAndroid size={20}/></div>
+                        )}
+                        <div>
+                          <p className="font-bold text-gray-800 capitalize">{p.method}</p>
+                          {p.method === 'transferencia' && p.file && (
+                            <p className="text-xs text-gray-500">📷 Comprobante adjunto</p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="font-black text-gray-700">{formatMoney(p.amount)}</span>
+                        <button
+                          onClick={() => handleRemovePaymentFromArray(index)}
+                          className="text-red-400 hover:text-red-600 p-1 bg-white rounded-full shadow-sm"
+                        >
+                          <MdDelete size={20}/>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
 
-                  {/* Botón para borrar y reintentar */}
+              {/* BOTONES PARA AÑADIR PAGOS */}
+              {remaining > 0 && (
+                <div className="mt-4 flex gap-2">
                   <button
-                    onClick={handleRemovePhoto}
-                    disabled={isSubmitting}
-                    className="absolute top-3 right-3 bg-red-600 text-white p-2 rounded-full shadow-lg hover:bg-red-700 transition-all active:scale-90"
+                    onClick={() => handleStartAddingPayment('efectivo')}
+                    className="flex-1 py-3 bg-green-50 text-green-700 font-bold rounded-xl border border-green-200 hover:bg-green-100 transition-colors flex justify-center items-center gap-1"
                   >
-                    <MdDelete size={20} />
+                    <MdAdd /> Efectivo
                   </button>
-
-                  <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent text-white text-sm p-3">
-                    <p className="font-semibold">✅ Comprobante adjuntado</p>
-                    <p className="text-xs opacity-90">Revisa que la imagen sea legible</p>
-                  </div>
+                  <button
+                    onClick={() => handleStartAddingPayment('transferencia')}
+                    className="flex-1 py-3 bg-blue-50 text-blue-700 font-bold rounded-xl border border-blue-200 hover:bg-blue-100 transition-colors flex justify-center items-center gap-1"
+                  >
+                    <MdAdd /> Transf.
+                  </button>
                 </div>
               )}
             </div>
-          )}
-        </div>
 
-        {/* ERROR MESSAGE */}
-        {error && (
-          <div className="mx-6 mb-4 p-3 bg-red-50 border-2 border-red-300 rounded-lg">
-            <p className="text-sm text-red-700 font-semibold">⚠️ {error}</p>
+            {/* ERROR SUMMARY */}
+            {error && (
+              <div className="mx-6 my-2 p-3 bg-red-50 border-2 border-red-300 rounded-lg">
+                <p className="text-sm text-red-700 font-semibold">⚠️ {error}</p>
+              </div>
+            )}
+
+            {/* FOOTER CONFIRMAR TODO */}
+            <div className="p-4 border-t border-gray-200 bg-gray-50">
+              <button
+                onClick={handleSubmitAll}
+                disabled={isSubmitting || remaining > 0}
+                className={`w-full py-4 rounded-xl font-black text-lg shadow-lg flex items-center justify-center gap-2 transition-all ${
+                  isSubmitting || remaining > 0
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-indigo-600 to-purple-700 hover:from-indigo-700 hover:to-purple-800 text-white shadow-indigo-300'
+                }`}
+              >
+                {isSubmitting ? (
+                  <>
+                    <span className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></span>
+                    <span>PROCESANDO...</span>
+                  </>
+                ) : (
+                  <>✅ CONFIRMAR Y CERRAR CUENTA</>
+                )}
+              </button>
+            </div>
+          </div>
+        ) : (
+          /* VISTA SECUNDARIA: FORMULARIO AÑADIR PAGO */
+          <div className="flex flex-col flex-grow overflow-y-auto">
+            <div className="bg-gray-100 p-4 border-b border-gray-200 flex items-center gap-3">
+              <button onClick={handleCancelAdding} className="text-gray-500 hover:text-gray-800">
+                <MdClose size={24} />
+              </button>
+              <h3 className="font-bold text-gray-700 capitalize">Añadir Pago: {currentMethod}</h3>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-600 mb-1">Monto a pagar</label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">$</span>
+                  <input
+                    type="number"
+                    value={currentAmount}
+                    onChange={(e) => setCurrentAmount(e.target.value === '' ? '' : Number(e.target.value))}
+                    max={remaining}
+                    className="w-full pl-8 pr-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl font-bold text-gray-800 focus:outline-none focus:border-indigo-500 transition-colors"
+                  />
+                </div>
+                <div className="mt-2 text-right">
+                  <button 
+                    onClick={() => setCurrentAmount(remaining)}
+                    className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded hover:bg-indigo-100"
+                  >
+                    Pagar Restante ({formatMoney(remaining)})
+                  </button>
+                </div>
+              </div>
+
+              {currentMethod === 'transferencia' && (
+                <div>
+                  <label className="block text-sm font-semibold text-gray-600 mb-1">Comprobante (Obligatorio)</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    ref={cameraInputRef}
+                    onChange={handleFileChange}
+                  />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    ref={fileInputRef}
+                    onChange={handleFileChange}
+                  />
+                  {!currentPreviewUrl ? (
+                    <div className="flex gap-2 w-full mt-2">
+                      <button
+                        onClick={() => cameraInputRef.current?.click()}
+                        className="flex-1 h-28 border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center gap-2 text-gray-500 hover:bg-blue-50 hover:border-blue-400 hover:text-blue-600 transition-all active:scale-95"
+                      >
+                        <MdCameraAlt size={32} />
+                        <div className="text-center">
+                          <span className="font-bold text-sm block">Tomar Foto</span>
+                        </div>
+                      </button>
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        className="flex-1 h-28 border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center gap-2 text-gray-500 hover:bg-blue-50 hover:border-blue-400 hover:text-blue-600 transition-all active:scale-95"
+                      >
+                        <MdImage size={32} />
+                        <div className="text-center">
+                          <span className="font-bold text-sm block">Adjuntar Archivo</span>
+                        </div>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="relative rounded-2xl overflow-hidden border-2 border-green-300 shadow-md">
+                      <img src={currentPreviewUrl} alt="Comprobante" className="w-full h-40 object-cover" />
+                      <button
+                        onClick={handleRemovePhoto}
+                        className="absolute top-2 right-2 bg-red-600 text-white p-1.5 rounded-full shadow-lg hover:bg-red-700 transition-all active:scale-90"
+                      >
+                        <MdDelete size={18} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {error && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-xs text-red-700 font-semibold text-center">{error}</p>
+                </div>
+              )}
+
+              <button
+                onClick={handleAddPaymentToArray}
+                className="w-full mt-4 py-3 bg-gray-900 text-white font-bold rounded-xl shadow hover:bg-gray-800 transition-colors"
+              >
+                Añadir a la cuenta
+              </button>
+            </div>
           </div>
         )}
-
-        {/* FOOTER DE ACCIÓN */}
-        <div className="p-4 border-t border-gray-200 bg-gray-50">
-          <button
-            onClick={handleSubmit}
-            disabled={isSubmitting || (paymentMethod === 'transferencia' && !proofImage)}
-            className={`w-full py-4 rounded-xl font-black text-lg shadow-lg flex items-center justify-center gap-2 transition-all ${
-              isSubmitting || (paymentMethod === 'transferencia' && !proofImage)
-                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                : paymentMethod === 'efectivo'
-                  ? 'bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white active:scale-95 shadow-green-300'
-                  : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white active:scale-95 shadow-blue-300'
-            }`}
-          >
-            {isSubmitting ? (
-              <>
-                <span className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></span>
-                <span>PROCESANDO...</span>
-              </>
-            ) : (
-              <>
-                {paymentMethod === 'efectivo' ? '✅ CONFIRMAR PAGO EN EFECTIVO' : '📤 ENVIAR COMPROBANTE'}
-              </>
-            )}
-          </button>
-
-          {paymentMethod === 'transferencia' && !proofImage && (
-            <p className="text-xs text-gray-500 text-center mt-2">
-              * Es obligatorio adjuntar el comprobante para transferencias
-            </p>
-          )}
-        </div>
-
       </div>
     </div>
   );
 };
 
 export default CheckoutModal;
-

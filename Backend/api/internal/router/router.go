@@ -51,7 +51,8 @@ func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *
 	orders.Put("/:id/status", orderHandler.UpdateOrderStatus)
 	orders.Put("/:id/manage", orderHandler.ManageOrder)
 	orders.Put("/:id/items", orderHandler.UpdateOrderItems)
-	orders.Post("/:id/proof", orderHandler.UploadPaymentProof) // Nueva ruta para subir comprobante de pago
+	orders.Post("/:id/proof", orderHandler.UploadPaymentProof) // Ruta existente para 1 solo pago
+	orders.Post("/:id/split-payments", orderHandler.UploadSplitPayments) // Nueva ruta para multiples pagos
 
 	// Rutas de Facturas
 	invoices := protected.Group("/invoices")

@@ -23,6 +23,7 @@ type OrderRepository interface {
 	ManageOrder(orderID uuid.UUID, updates map[string]interface{}) (*domain.Order, error)
 	UpdateOrderItems(orderID uuid.UUID, items []domain.OrderItem, newTotal float64) error
 	AddPaymentProof(orderID uuid.UUID, method string, proofPath string) (*domain.Order, error)
+	AddSplitPayments(orderID uuid.UUID, payments []domain.Payment) (*domain.Order, error)
 	UpdateOrderBlockchainTxHash(orderID uuid.UUID, txHash string) error
 	GetInvoiceHistory(query string, from *time.Time, to *time.Time, limit int, offset int) ([]domain.InvoiceHistoryItem, error)
 	GetWaiterApprovedStats(start time.Time, end time.Time, groupBy string) ([]domain.WaiterApprovedStat, error)
@@ -253,6 +254,35 @@ func (r *orderRepository) GetOrders(filters map[string]interface{}) ([]domain.Or
 		}
 	}
 
+	// 4. CORRECCIÓN: Cargar los pagos múltiples
+	paymentsQuery := `
+		SELECT order_id, id, amount, payment_method, payment_proof_path, created_at
+		FROM order_payments
+		WHERE order_id = ANY($1)
+		ORDER BY created_at ASC`
+	paymentRows, err := r.db.Query(paymentsQuery, pq.Array(orderIDs))
+	if err != nil {
+		return nil, err
+	}
+	defer paymentRows.Close()
+
+	for paymentRows.Next() {
+		var p domain.Payment
+		var orderID uuid.UUID
+		var proofPath sql.NullString
+		if err := paymentRows.Scan(&orderID, &p.ID, &p.Amount, &p.Method, &proofPath, &p.CreatedAt); err != nil {
+			return nil, err
+		}
+		p.OrderID = orderID
+		if proofPath.Valid {
+			path := proofPath.String
+			p.PaymentProofPath = &path
+		}
+		if order, ok := ordersMap[orderID]; ok {
+			order.Payments = append(order.Payments, p)
+		}
+	}
+
 	finalOrders := make([]domain.Order, 0, len(ordersMap))
 	for _, order := range ordersMap {
 		finalOrders = append(finalOrders, *order)
@@ -350,6 +380,31 @@ func (r *orderRepository) loadOrderItems(orderID uuid.UUID) ([]domain.OrderItem,
 	return items, nil
 }
 
+func (r *orderRepository) loadOrderPayments(orderID uuid.UUID) ([]domain.Payment, error) {
+	paymentsQuery := `SELECT id, amount, payment_method, payment_proof_path, created_at FROM order_payments WHERE order_id = $1 ORDER BY created_at ASC`
+	rows, err := r.db.Query(paymentsQuery, orderID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var payments []domain.Payment
+	for rows.Next() {
+		var p domain.Payment
+		var proofPath sql.NullString
+		if err := rows.Scan(&p.ID, &p.Amount, &p.Method, &proofPath, &p.CreatedAt); err != nil {
+			return nil, err
+		}
+		p.OrderID = orderID
+		if proofPath.Valid {
+			path := proofPath.String
+			p.PaymentProofPath = &path
+		}
+		payments = append(payments, p)
+	}
+	return payments, nil
+}
+
 func (r *orderRepository) GetOrderByID(orderID uuid.UUID) (*domain.Order, error) {
 	order := &domain.Order{}
 	orderQuery := `SELECT o.id, o.parent_order_id, o.waiter_id, u.username as waiter_name, o.cashier_id, o.table_number, o.status, o.total, o.order_type, o.customer_name, o.delivery_address, o.delivery_phone, o.delivery_notes, o.payment_method, o.payment_proof_path, o.blockchain_tx_hash, o.print_status, o.print_attempts, o.last_print_error, o.printed_at, o.last_print_attempt_at, o.created_at, o.updated_at 
@@ -435,6 +490,13 @@ func (r *orderRepository) GetOrderByID(orderID uuid.UUID) (*domain.Order, error)
 		return nil, err
 	}
 	order.Items = items
+
+	// Usar el método auxiliar para cargar pagos
+	payments, err := r.loadOrderPayments(orderID)
+	if err != nil {
+		return nil, err
+	}
+	order.Payments = payments
 
 	return order, nil
 }
@@ -543,6 +605,13 @@ func (r *orderRepository) UpdateOrderStatus(orderID, userID uuid.UUID, status st
 		return nil, err
 	}
 	order.Items = items
+
+	// Usar el método auxiliar para cargar pagos
+	payments, err := r.loadOrderPayments(orderID)
+	if err != nil {
+		return nil, err
+	}
+	order.Payments = payments
 
 	return order, nil
 }
@@ -698,6 +767,13 @@ func (r *orderRepository) ManageOrder(orderID uuid.UUID, updates map[string]inte
 		return nil, err
 	}
 	order.Items = items
+
+	// Usar el método auxiliar para cargar pagos
+	payments, err := r.loadOrderPayments(orderID)
+	if err != nil {
+		return nil, err
+	}
+	order.Payments = payments
 
 	return order, nil
 }
@@ -863,6 +939,131 @@ func (r *orderRepository) AddPaymentProof(orderID uuid.UUID, method string, proo
 		return nil, err
 	}
 	order.Items = items
+
+	return order, nil
+}
+
+func (r *orderRepository) AddSplitPayments(orderID uuid.UUID, payments []domain.Payment) (*domain.Order, error) {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	// Clear previous payments (in case this is a retry)
+	_, err = tx.Exec(`DELETE FROM order_payments WHERE order_id = $1`, orderID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Insert payments
+	for _, p := range payments {
+		_, err = tx.Exec(`INSERT INTO order_payments (order_id, amount, payment_method, payment_proof_path) VALUES ($1, $2, $3, $4)`,
+			orderID, p.Amount, p.Method, p.PaymentProofPath)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Update order
+	paymentMethod := "mixto"
+	if len(payments) == 1 {
+		paymentMethod = payments[0].Method
+	}
+
+	var proofPaths string
+	for _, p := range payments {
+		if p.PaymentProofPath != nil {
+			if proofPaths != "" {
+				proofPaths += ","
+			}
+			proofPaths += *p.PaymentProofPath
+		}
+	}
+	var proofPathPtr *string
+	if proofPaths != "" {
+		proofPathPtr = &proofPaths
+	}
+
+	newStatus := "por_verificar"
+
+	query := `UPDATE orders SET payment_method = $1, payment_proof_path = $2, status = $3 WHERE id = $4 
+		      RETURNING id, waiter_id, cashier_id, table_number, status, total, order_type, delivery_address, delivery_phone, delivery_notes, payment_method, payment_proof_path, blockchain_tx_hash, print_status, print_attempts, last_print_error, printed_at, last_print_attempt_at, created_at, updated_at`
+
+	order := &domain.Order{}
+	var deliveryAddress, deliveryPhone, deliveryNotes, pm, pp, blockchainTxHash, printStatus, lastPrintError sql.NullString
+	var printAttempts sql.NullInt64
+	var printedAt, lastPrintAttemptAt sql.NullTime
+
+	err = tx.QueryRow(query, paymentMethod, proofPathPtr, newStatus, orderID).Scan(
+		&order.ID, &order.WaiterID, &order.CashierID, &order.TableNumber, &order.Status, &order.Total, &order.OrderType,
+		&deliveryAddress, &deliveryPhone, &deliveryNotes, &pm, &pp, &blockchainTxHash,
+		&printStatus, &printAttempts, &lastPrintError, &printedAt, &lastPrintAttemptAt,
+		&order.CreatedAt, &order.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+
+	if deliveryAddress.Valid {
+		addr := deliveryAddress.String
+		order.DeliveryAddress = &addr
+	}
+	if deliveryPhone.Valid {
+		phone := deliveryPhone.String
+		order.DeliveryPhone = &phone
+	}
+	if deliveryNotes.Valid {
+		notes := deliveryNotes.String
+		order.DeliveryNotes = &notes
+	}
+	if pm.Valid {
+		pmStr := pm.String
+		order.PaymentMethod = &pmStr
+	}
+	if pp.Valid {
+		ppStr := pp.String
+		order.PaymentProofPath = &ppStr
+	}
+	if blockchainTxHash.Valid {
+		hash := blockchainTxHash.String
+		order.BlockchainTxHash = &hash
+	}
+	order.PrintStatus = "queued"
+	if printStatus.Valid {
+		order.PrintStatus = printStatus.String
+	}
+	if printAttempts.Valid {
+		order.PrintAttempts = int(printAttempts.Int64)
+	}
+	if lastPrintError.Valid {
+		errText := lastPrintError.String
+		order.LastPrintError = &errText
+	}
+	if printedAt.Valid {
+		t := printedAt.Time
+		order.PrintedAt = &t
+	}
+	if lastPrintAttemptAt.Valid {
+		t := lastPrintAttemptAt.Time
+		order.LastPrintAttemptAt = &t
+	}
+
+	waiterQuery := `SELECT username FROM users WHERE id = $1`
+	if err := r.db.QueryRow(waiterQuery, order.WaiterID).Scan(&order.WaiterName); err != nil {
+		order.WaiterName = ""
+	}
+
+	items, err := r.loadOrderItems(orderID)
+	if err != nil {
+		return nil, err
+	}
+	order.Items = items
+	order.Payments = payments // Populate so the frontend can see it
 
 	return order, nil
 }

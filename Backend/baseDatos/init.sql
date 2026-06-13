@@ -141,6 +141,16 @@ CREATE TABLE "order_items" (
   "is_takeout" boolean NOT NULL DEFAULT false
 );
 
+-- Tabla para soportar múltiples pagos por orden (Pagos Divididos)
+CREATE TABLE "order_payments" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "order_id" uuid NOT NULL REFERENCES "orders"("id") ON DELETE CASCADE,
+  "amount" numeric(10, 2) NOT NULL,
+  "payment_method" varchar(20) NOT NULL CHECK (payment_method IN ('efectivo', 'transferencia')),
+  "payment_proof_path" text NULL,
+  "created_at" timestamptz NOT NULL DEFAULT (now())
+);
+
 -- =================================================================
 -- FUNCIONES Y TRIGGERS
 -- =================================================================

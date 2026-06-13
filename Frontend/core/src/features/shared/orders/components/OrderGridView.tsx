@@ -34,7 +34,7 @@ const OrderGridView: React.FC<OrderGridViewProps> = ({ orders, renderActions, hi
             {order.payment_method && (
               <div className="absolute top-2 right-2">
                 <span className="text-2xl" title={order.payment_method}>
-                  {order.payment_method === 'transferencia' ? '??' : '??'}
+                  {order.payment_method === 'transferencia' ? '📱' : order.payment_method === 'mixto' ? '🔀' : '💵'}
                 </span>
                 {order.payment_proof_path && (
                   <span
@@ -72,7 +72,7 @@ const OrderGridView: React.FC<OrderGridViewProps> = ({ orders, renderActions, hi
 
             {order.payment_method && (
               <div className="mt-2 text-xs text-gray-600 bg-gray-50 px-2 py-1 rounded">
-                {order.payment_method === 'transferencia' ? 'Transferencia' : 'Efectivo'}
+                {order.payment_method === 'transferencia' ? 'Transferencia' : order.payment_method === 'mixto' ? 'Mixto' : 'Efectivo'}
                 {order.payment_proof_path && ' - Con comprobante'}
               </div>
             )}

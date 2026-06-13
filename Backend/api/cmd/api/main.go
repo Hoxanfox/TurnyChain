@@ -41,6 +41,9 @@ func main() {
 	if err := applyAuthSessionMigrations(db); err != nil {
 		log.Fatalf("Error aplicando migraciones de sesiones: %v", err)
 	}
+	if err := applyOrderPaymentsMigration(db); err != nil {
+		log.Fatalf("Error aplicando migraciones de order_payments: %v", err)
+	}
 
 	wsHub := wshub.NewHub()
 	go wsHub.Run()
@@ -219,5 +222,28 @@ func applyAuthSessionMigrations(db *sql.DB) error {
 	}
 
 	log.Println("Migraciones de sesiones verificadas: user_sessions")
+	return nil
+}
+
+func applyOrderPaymentsMigration(db *sql.DB) error {
+	statements := []string{
+		`CREATE TABLE IF NOT EXISTS order_payments (
+			id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+			order_id uuid NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+			amount numeric(10, 2) NOT NULL,
+			payment_method varchar(20) NOT NULL CHECK (payment_method IN ('efectivo', 'transferencia')),
+			payment_proof_path text NULL,
+			created_at timestamptz NOT NULL DEFAULT now()
+		)`,
+		`CREATE INDEX IF NOT EXISTS order_payments_order_id_idx ON order_payments (order_id)`,
+	}
+
+	for _, stmt := range statements {
+		if _, err := db.Exec(stmt); err != nil {
+			return err
+		}
+	}
+
+	log.Println("Migraciones de pagos divididos verificadas: order_payments")
 	return nil
 }

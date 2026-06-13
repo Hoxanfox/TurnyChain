@@ -350,10 +350,10 @@ const ColleagueOrdersModal: React.FC<ColleagueOrdersModalProps> = ({
                     <div className="p-3 bg-blue-50 border-b">
                       <div className="flex items-center gap-2 text-sm">
                         <span className="text-xl">
-                          {current.payment_method === 'transferencia' ? '📱' : '💵'}
+                          {current.payment_method === 'transferencia' ? '📱' : current.payment_method === 'mixto' ? '🔀' : '💵'}
                         </span>
                         <span className="font-semibold text-gray-700">
-                          {current.payment_method === 'transferencia' ? 'Transferencia' : 'Efectivo'}
+                          {current.payment_method === 'transferencia' ? 'Transferencia' : current.payment_method === 'mixto' ? 'Mixto' : 'Efectivo'}
                         </span>
                         {current.payment_proof_path && (
                           <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">

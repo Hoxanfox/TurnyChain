@@ -203,3 +203,35 @@ export const editOrder = async (orderId: string, editRequest: EditOrderRequest, 
 
   return response.data;
 };
+
+export interface PaymentInput {
+  method: 'efectivo' | 'transferencia';
+  amount: number;
+  file?: File | null;
+}
+
+export const uploadSplitPayments = async (orderId: string, payments: PaymentInput[], token: string): Promise<Order> => {
+  const formData = new FormData();
+  
+  const paymentsData = payments.map(p => ({
+    method: p.method,
+    amount: p.amount
+  }));
+  
+  formData.append('payments_data', JSON.stringify(paymentsData));
+  
+  payments.forEach((p, index) => {
+    if (p.method === 'transferencia' && p.file) {
+      formData.append(`proof_${index}`, p.file);
+    }
+  });
+
+  const config = {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  };
+
+  const response = await axios.post(`${API_URL}/${orderId}/split-payments`, formData, config);
+  return response.data;
+};

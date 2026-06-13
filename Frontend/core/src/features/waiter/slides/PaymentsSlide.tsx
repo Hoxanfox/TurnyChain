@@ -407,10 +407,10 @@ const PaymentsSlide: React.FC<PaymentsSlideProps> = ({
           <div className="p-3 bg-blue-50 border-b">
             <div className="flex items-center gap-2 text-sm">
               <span className="text-xl">
-                {order.payment_method === 'transferencia' ? '📱' : '💵'}
+                {order.payment_method === 'transferencia' ? '📱' : order.payment_method === 'mixto' ? '🔀' : '💵'}
               </span>
               <span className="font-semibold text-gray-700">
-                {order.payment_method === 'transferencia' ? 'Transferencia' : 'Efectivo'}
+                {order.payment_method === 'transferencia' ? 'Transferencia' : order.payment_method === 'mixto' ? 'Mixto' : 'Efectivo'}
               </span>
               {order.payment_proof_path && (
                 <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
@@ -431,7 +431,7 @@ const PaymentsSlide: React.FC<PaymentsSlideProps> = ({
           </button>
 
           {/* Botón para cobrar órdenes entregadas sin método de pago */}
-          {!isChild && isPorCobrar && !order.payment_method && (
+          {isPorCobrar && !order.payment_method && (
             <button
               onClick={() => handleOpenCheckout(order.id, order.total, order.table_number)}
               className="flex-1 py-2 px-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 transition-all font-bold text-sm shadow-md"
@@ -441,7 +441,7 @@ const PaymentsSlide: React.FC<PaymentsSlideProps> = ({
           )}
 
           {/* Botón para reintentar pago en órdenes por verificar O entregadas con método de pago */}
-          {!isChild && (order.status === 'por_verificar' || (order.status === 'entregado' && order.payment_method)) && (
+          {(order.status === 'por_verificar' || (order.status === 'entregado' && order.payment_method)) && (
             <button
               onClick={() => handleOpenCheckout(order.id, order.total, order.table_number)}
               className="flex-1 py-2 px-3 bg-gradient-to-r from-orange-600 to-orange-700 text-white rounded-lg hover:from-orange-700 hover:to-orange-800 transition-all font-bold text-sm shadow-md"
@@ -569,7 +569,7 @@ const PaymentsSlide: React.FC<PaymentsSlideProps> = ({
           const children = childrenByParent.get(parentOrder.id) || [];
           const groupOrders = [parentOrder, ...children];
           const payableOrders = groupOrders.filter(
-            (order) => order.status === 'entregado' || order.status === 'por_verificar' || order.status === 'pendiente_aprobacion'
+            (order) => ((order.status === 'entregado' || order.status === 'pendiente_aprobacion') && !order.payment_method) || (order.status === 'entregado' && !!order.payment_method)
           );
           const payableGroupTotal = payableOrders.reduce((sum, current) => sum + current.total, 0);
           const payableOrderIds = payableOrders.map((order) => order.id);

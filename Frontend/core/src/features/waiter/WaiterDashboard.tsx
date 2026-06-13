@@ -50,6 +50,8 @@ import {
 } from './utils/waiterUtils.ts';
 
 import { formatMoney } from '../../utils/formatUtils.ts';
+import { uploadSplitPayments } from '../shared/orders/api/ordersAPI.ts';
+import type { PaymentInput } from '../shared/orders/api/ordersAPI.ts';
 // Importar el modal de delivery
 import DeliveryInfoModal from './components/DeliveryInfoModal';
 // Importar toast y confetti
@@ -106,7 +108,7 @@ const WaiterDashboard: React.FC = () => {
   const [validationStep, setValidationStep] = useState<'session' | 'printer' | 'saving'>('session');
   const [isPaymentFlowRunning, setIsPaymentFlowRunning] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
-  const [lastPaymentAttempt, setLastPaymentAttempt] = useState<{ paymentMethod: 'efectivo' | 'transferencia'; proofFile: File | null } | null>(null);
+  const [lastPaymentAttempt, setLastPaymentAttempt] = useState<{ paymentMethod: 'efectivo' | 'transferencia' | 'mixto'; proofFile: File | null; splitPayments?: PaymentInput[] } | null>(null);
   const [pendingSubmissionMode, setPendingSubmissionMode] = useState<'charge' | 'send' | null>(null);
   const [pendingTakeoutNotes, setPendingTakeoutNotes] = useState<string>('');
   const [isSendWithoutChargeModalOpen, setIsSendWithoutChargeModalOpen] = useState(false);
@@ -289,52 +291,102 @@ const WaiterDashboard: React.FC = () => {
   };
 
   const submitOrderWithoutCharge = async (notes?: string) => {
-    if (createOrderStatus === 'loading') return;
+    if (createOrderStatus === 'loading' || isPaymentFlowRunning) return;
     if (!isOnline) {
       toast.error('Sin conexion a internet. Revisa tu red antes de enviar.');
       return;
     }
 
-    const customerNameForPayload =
-      orderType === 'llevar'
-        ? (notes || '')
-        : orderType === 'domicilio'
-        ? (deliveryData?.notes || `Cliente mesa ${checkoutTableNumber}`)
-        : undefined;
-
-    const payload = buildOrderPayload(
-      cart,
-      tableId,
-      tables,
-      orderType,
-      selectedParentOrder?.id,
-      customerNameForPayload,
-      deliveryData || undefined
-    );
-    if (!payload) return;
-
-    if (orderType === 'llevar' && notes) {
-      payload.delivery_notes = notes;
-    }
+    setIsPaymentFlowRunning(true);
 
     try {
-      await dispatch(addNewOrder({ orderData: payload })).unwrap();
+      setValidationError(null);
+      setValidationStep('session');
+      setIsValidationModalOpen(true);
+
+      let stepStartedAt = Date.now();
+      const sessionCheck = await validatePaymentSession(token);
+      await waitForMinStepDuration(stepStartedAt);
+      if (!sessionCheck.ok) {
+        setValidationError(sessionCheck.message);
+        toast.error(sessionCheck.message);
+        if (sessionCheck.shouldLogout) {
+          setIsValidationModalOpen(false);
+          dispatch(logout());
+          navigate('/login', { replace: true });
+        }
+        return;
+      }
+
+      setValidationStep('printer');
+      stepStartedAt = Date.now();
+      const printerCheck = await validatePrinterOperational(token);
+      await waitForMinStepDuration(stepStartedAt);
+      if (!printerCheck.ok) {
+        setValidationError(printerCheck.message);
+        toast.error(printerCheck.message);
+        if (printerCheck.shouldLogout) {
+          setIsValidationModalOpen(false);
+          dispatch(logout());
+          navigate('/login', { replace: true });
+        }
+        return;
+      }
+
+      setValidationStep('saving');
+      stepStartedAt = Date.now();
+
+      const customerNameForPayload =
+        orderType === 'llevar'
+          ? (notes || '')
+          : orderType === 'domicilio'
+          ? (deliveryData?.notes || `Cliente mesa ${checkoutTableNumber}`)
+          : undefined;
+
+      const payload = buildOrderPayload(
+        cart,
+        tableId,
+        tables,
+        orderType,
+        selectedParentOrder?.id,
+        customerNameForPayload,
+        deliveryData || undefined
+      );
+      if (!payload) return;
+
+      if (orderType === 'llevar' && notes) {
+        payload.delivery_notes = notes;
+      }
+
+      const createdOrder = await dispatch(addNewOrder({ orderData: payload })).unwrap();
+
+      await waitForMinStepDuration(stepStartedAt, 700);
+
+      toast('📌 Comanda enviada por cobrar', {
+        icon: '🧾',
+        duration: 3500,
+      });
+
+      toast.loading('🖨️ Enviando a impresora. Te avisaremos cuando termine.', {
+        id: `print-status-${createdOrder.id}`,
+        duration: 5000,
+      });
+
+      setIsValidationModalOpen(false);
+      setValidationError(null);
+
+      setCart([]);
+      setTableId('');
+      setOrderType('mesa');
+      setDeliveryData(null);
+      setSelectedParentOrder(null);
+      localStorage.removeItem('waiter-cart-draft');
     } catch (error) {
+      setValidationError('No se pudo enviar la comanda. Intenta nuevamente.');
       toast.error('No se pudo enviar la comanda. Intenta nuevamente.');
-      return;
+    } finally {
+      setIsPaymentFlowRunning(false);
     }
-
-    toast('📌 Comanda enviada por cobrar', {
-      icon: '🧾',
-      duration: 3500,
-    });
-
-    setCart([]);
-    setTableId('');
-    setOrderType('mesa');
-    setDeliveryData(null);
-    setSelectedParentOrder(null);
-    localStorage.removeItem('waiter-cart-draft');
   };
 
   const handleSendOrder = (notes?: string, mode: 'charge' | 'send' = 'charge') => {
@@ -444,7 +496,7 @@ const WaiterDashboard: React.FC = () => {
     dispatch(fetchMyOrders()); // Recargar órdenes después del pago
   };
 
-  const runPaymentFlow = async (paymentMethod: 'efectivo' | 'transferencia', proofFile: File | null): Promise<boolean> => {
+  const runPaymentFlow = async (paymentMethod: 'efectivo' | 'transferencia' | 'mixto', proofFile: File | null, splitPayments?: PaymentInput[]): Promise<boolean> => {
     if (createOrderStatus === 'loading' || isPaymentFlowRunning) return false;
     if (!isOnline) {
       toast.error('Sin conexion a internet. No se puede validar ni enviar la comanda.');
@@ -529,10 +581,20 @@ const WaiterDashboard: React.FC = () => {
       const requestId = buildRequestId();
       const createdOrder = await dispatch(addNewOrder({
         orderData: payload,
-        paymentMethod,
-        paymentProofFile: proofFile,
+        paymentMethod: paymentMethod === 'mixto' ? undefined : paymentMethod,
+        paymentProofFile: paymentMethod === 'mixto' ? undefined : proofFile,
         requestId,
       })).unwrap();
+
+      if (paymentMethod === 'mixto' && splitPayments && splitPayments.length > 0) {
+        toast.loading('💳 Procesando pagos mixtos...', { id: `split-payments-${createdOrder.id}` });
+        try {
+          await uploadSplitPayments(createdOrder.id, splitPayments, token || '');
+          toast.success('✅ Pagos mixtos procesados', { id: `split-payments-${createdOrder.id}` });
+        } catch (err: any) {
+          toast.error(err.response?.data?.error || 'Error al procesar pagos mixtos. Revisa en detalle de la orden.', { id: `split-payments-${createdOrder.id}` });
+        }
+      }
 
       await waitForMinStepDuration(stepStartedAt, 700);
 
@@ -569,16 +631,16 @@ const WaiterDashboard: React.FC = () => {
     }
   };
 
-  const handleConfirmPaymentBeforeSend = async (paymentMethod: 'efectivo' | 'transferencia', proofFile: File | null): Promise<boolean> => {
-    setLastPaymentAttempt({ paymentMethod, proofFile });
-    return runPaymentFlow(paymentMethod, proofFile);
+  const handleConfirmPaymentBeforeSend = async (paymentMethod: 'efectivo' | 'transferencia' | 'mixto', proofFile: File | null, splitPayments?: PaymentInput[]): Promise<boolean> => {
+    setLastPaymentAttempt({ paymentMethod, proofFile, splitPayments });
+    return runPaymentFlow(paymentMethod, proofFile, splitPayments);
   };
 
   const handleRetryPaymentFlow = async () => {
     if (!lastPaymentAttempt) {
       return;
     }
-    await runPaymentFlow(lastPaymentAttempt.paymentMethod, lastPaymentAttempt.proofFile);
+    await runPaymentFlow(lastPaymentAttempt.paymentMethod, lastPaymentAttempt.proofFile, lastPaymentAttempt.splitPayments);
   };
 
   const handleBackToCheckout = () => {

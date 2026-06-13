@@ -31,6 +31,16 @@ export interface OrderItem {
   is_takeout?: boolean; // Nuevo: indica si el item es para llevar
 }
 
+// Nuevo: Interfaz de Pago para Pagos Divididos (Split Payments)
+export interface Payment {
+  id: string;
+  order_id: string;
+  amount: number;
+  method: string; // "transferencia" | "efectivo"
+  payment_proof_path?: string; // Ruta de la imagen del comprobante
+  created_at: string;
+}
+
 // Orden completa que RECIBIMOS del backend
 export interface Order {
   id: string;
@@ -42,8 +52,9 @@ export interface Order {
   total: number;
     created_at: string;
   items: OrderItem[];
-  payment_method?: string; // "transferencia" | "efectivo"
-  payment_proof_path?: string; // Ruta de la imagen del comprobante
+  payment_method?: string; // "transferencia" | "efectivo" | "mixto"
+  payment_proof_path?: string; // Ruta de la imagen del comprobante (legacy)
+  payments?: Payment[]; // Arreglo de pagos múltiples (Split Payments)
   // Nuevo: Tipo de orden
   order_type?: string; // "mesa" | "llevar" | "domicilio"
   // Nuevo: Campos para domicilio

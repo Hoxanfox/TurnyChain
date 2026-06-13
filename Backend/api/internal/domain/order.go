@@ -64,9 +64,10 @@ type Order struct {
 	DeliveryPhone   *string `json:"delivery_phone,omitempty" db:"delivery_phone"`
 	DeliveryNotes   *string `json:"delivery_notes,omitempty" db:"delivery_notes"`
 	// Nuevos campos para el flujo de pago con evidencia
-	PaymentMethod    *string `json:"payment_method,omitempty" db:"payment_method"`
-	PaymentProofPath *string `json:"payment_proof_path,omitempty" db:"payment_proof_path"`
-	BlockchainTxHash *string `json:"blockchain_tx_hash,omitempty" db:"blockchain_tx_hash"`
+	PaymentMethod    *string   `json:"payment_method,omitempty" db:"payment_method"`
+	PaymentProofPath *string   `json:"payment_proof_path,omitempty" db:"payment_proof_path"`
+	Payments         []Payment `json:"payments,omitempty"` // Arreglo de pagos múltiples (Split Payments)
+	BlockchainTxHash *string   `json:"blockchain_tx_hash,omitempty" db:"blockchain_tx_hash"`
 	// Estado de impresión de comandas
 	PrintStatus        string     `json:"print_status" db:"print_status"`
 	PrintAttempts      int        `json:"print_attempts" db:"print_attempts"`
@@ -88,6 +89,15 @@ type OrderItem struct {
 	CategoryID          *uuid.UUID `json:"category_id,omitempty" db:"category_id"`
 	CategoryStationID   *uuid.UUID `json:"category_station_id,omitempty" db:"category_station_id"`
 	CategoryStationName string     `json:"category_station_name,omitempty" db:"category_station_name"`
+}
+
+type Payment struct {
+	ID               uuid.UUID `json:"id" db:"id"`
+	OrderID          uuid.UUID `json:"order_id" db:"order_id"`
+	Amount           float64   `json:"amount" db:"amount"`
+	Method           string    `json:"method" db:"payment_method"`
+	PaymentProofPath *string   `json:"payment_proof_path,omitempty" db:"payment_proof_path"`
+	CreatedAt        time.Time `json:"created_at" db:"created_at"`
 }
 
 // EditOrderRequest estructura para edición granular de órdenes

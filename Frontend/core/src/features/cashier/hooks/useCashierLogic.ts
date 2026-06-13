@@ -80,12 +80,24 @@ export const useCashierLogic = (activeOrders: Order[]) => {
 
       // Estadísticas por método de pago (solo para órdenes pagadas)
       if (order.status === 'pagado') {
-        if (order.payment_method === 'efectivo') {
-          stats.cashTotal += order.total;
-          stats.dailyCash += order.total;
-        } else if (order.payment_method === 'transferencia') {
-          stats.transferTotal += order.total;
-          stats.dailyTransfer += order.total;
+        if (order.payments && order.payments.length > 0) {
+          order.payments.forEach(p => {
+            if (p.method === 'efectivo') {
+              stats.cashTotal += p.amount;
+              stats.dailyCash += p.amount;
+            } else if (p.method === 'transferencia') {
+              stats.transferTotal += p.amount;
+              stats.dailyTransfer += p.amount;
+            }
+          });
+        } else {
+          if (order.payment_method === 'efectivo') {
+            stats.cashTotal += order.total;
+            stats.dailyCash += order.total;
+          } else if (order.payment_method === 'transferencia') {
+            stats.transferTotal += order.total;
+            stats.dailyTransfer += order.total;
+          }
         }
       }
     });
@@ -149,8 +161,13 @@ export const useCashierLogic = (activeOrders: Order[]) => {
       }
 
       // Filtro por método de pago
-      if (!isPorCobrarStatus(order.status) && paymentMethodFilter !== 'all' && order.payment_method !== paymentMethodFilter) {
-        return false;
+      if (!isPorCobrarStatus(order.status) && paymentMethodFilter !== 'all') {
+        if (order.payments && order.payments.length > 0) {
+          const hasMethod = order.payments.some(p => p.method === paymentMethodFilter);
+          if (!hasMethod) return false;
+        } else {
+          if (order.payment_method !== paymentMethodFilter) return false;
+        }
       }
 
       // Búsqueda por texto

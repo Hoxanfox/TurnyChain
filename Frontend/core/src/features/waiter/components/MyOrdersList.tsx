@@ -146,7 +146,7 @@ const MyOrdersList: React.FC<MyOrdersListProps> = ({
           </span>
           {order.payment_method && (
             <span className="text-xs">
-              {order.payment_method === 'transferencia' ? '📱' : '💵'}
+              {order.payment_method === 'transferencia' ? '📱' : order.payment_method === 'mixto' ? '🔀' : '💵'}
             </span>
           )}
         </div>

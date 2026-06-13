@@ -95,7 +95,7 @@ export const QuickProofView: React.FC<QuickProofViewProps> = ({
             <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-blue-800">Método de pago</p>
               <p className="text-base font-bold text-blue-900 mt-1">
-                {activeOrder.payment_method === 'transferencia' ? '📱 Transferencia' : '💵 Efectivo'}
+                {activeOrder.payment_method === 'transferencia' ? '📱 Transferencia' : activeOrder.payment_method === 'mixto' ? '🔀 Mixto' : '💵 Efectivo'}
               </p>
             </div>
           </div>

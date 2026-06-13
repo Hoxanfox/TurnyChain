@@ -257,7 +257,7 @@ const CurrentOrder: React.FC<CurrentOrderProps> = ({
           <button
             onClick={() => onSendOrderWithoutCharge(orderType === 'llevar' ? takeoutNotes : undefined)}
             className="w-full bg-amber-500 text-white py-3 rounded-2xl hover:bg-amber-600 active:bg-amber-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all font-bold text-sm shadow-md disabled:shadow-none"
-            disabled={true}
+            disabled={!tableId || cart.length === 0 || (orderType === 'llevar' && takeoutNotes.trim() === '')}
           >
             Enviar Sin Cobrar
           </button>

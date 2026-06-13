@@ -43,7 +43,7 @@ export const CashierMobileUrgentList: React.FC<CashierMobileUrgentListProps> = (
             </div>
             <div className="text-right">
               <p className="text-2xl font-bold text-green-600">${order.total.toFixed(2)}</p>
-              <p className="text-xs text-gray-500">{order.payment_method}</p>
+              <p className="text-xs text-gray-500">{order.payment_method === 'mixto' ? '🔀 Mixto' : order.payment_method === 'transferencia' ? '📱 Transf.' : order.payment_method === 'efectivo' ? '💵 Efectivo' : order.payment_method}</p>
             </div>
           </div>
 

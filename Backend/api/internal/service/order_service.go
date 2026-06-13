@@ -25,6 +25,7 @@ type OrderService interface {
 	UpdateOrderItems(orderID uuid.UUID, items []domain.OrderItem) (*domain.Order, error)
 	ManageOrderAsAdmin(orderID uuid.UUID, status *string, newWaiterID *uuid.UUID) (*domain.Order, error)
 	AddPaymentProof(orderID uuid.UUID, method string, proofPath string) (*domain.Order, error)
+	AddSplitPayments(orderID uuid.UUID, payments []domain.Payment) (*domain.Order, error)
 	GetWaiterApprovedStats(userRole string, start time.Time, end time.Time, groupBy string) ([]domain.WaiterApprovedStat, error)
 }
 
@@ -509,6 +510,41 @@ func (s *orderService) AddPaymentProof(orderID uuid.UUID, method string, proofPa
 		"status":       order.Status,
 		"action":       "resubmitted", // Indica que es un reenvío o nuevo envío
 		"order":        order,         // Incluir la orden completa para el frontend
+	})
+	log.Printf("📡 [Backend] Notificación 'PAYMENT_VERIFICATION_PENDING' enviada a cajeros para orden %s", orderID.String())
+
+	return order, nil
+}
+
+func (s *orderService) AddSplitPayments(orderID uuid.UUID, payments []domain.Payment) (*domain.Order, error) {
+	if len(payments) == 0 {
+		return nil, errors.New("no payments provided")
+	}
+
+	log.Printf("📤 [Backend] Recibiendo pagos divididos para orden %s", orderID.String())
+	for i, p := range payments {
+		log.Printf("   - Pago %d: %s | Monto: %.2f | Ruta comprobante: %v", i+1, p.Method, p.Amount, p.PaymentProofPath)
+	}
+
+	order, err := s.orderRepo.AddSplitPayments(orderID, payments)
+	if err != nil {
+		log.Printf("❌ [Backend] Error al actualizar orden %s con pagos divididos: %v", orderID.String(), err)
+		return nil, err
+	}
+
+	log.Printf("✅ [Backend] Orden %s actualizada a estado '%s' con %d pagos", orderID.String(), order.Status, len(payments))
+
+	s.wsHub.BroadcastMessage("ORDER_UPDATED", order)
+	log.Printf("📡 [Backend] Evento broadcast 'ORDER_UPDATED' emitido para orden %s", orderID.String())
+
+	s.wsHub.BroadcastToRole("cajero", "PAYMENT_VERIFICATION_PENDING", map[string]interface{}{
+		"order_id":     order.ID.String(),
+		"table_number": order.TableNumber,
+		"method":       order.PaymentMethod,
+		"total":        order.Total,
+		"status":       order.Status,
+		"action":       "split_payments_submitted",
+		"order":        order,
 	})
 	log.Printf("📡 [Backend] Notificación 'PAYMENT_VERIFICATION_PENDING' enviada a cajeros para orden %s", orderID.String())
 
