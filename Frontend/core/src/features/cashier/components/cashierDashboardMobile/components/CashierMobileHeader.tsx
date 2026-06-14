@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import LogoutButton from '../../../../../components/LogoutButton';
 
 interface CashierMobileHeaderProps {
@@ -38,6 +39,7 @@ export const CashierMobileHeader: React.FC<CashierMobileHeaderProps> = ({
   onViewUrgent,
   onOpenCashRegister,
 }) => {
+  const navigate = useNavigate();
   const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false);
 
   return (
@@ -51,27 +53,7 @@ export const CashierMobileHeader: React.FC<CashierMobileHeaderProps> = ({
               <p className="text-sm opacity-90 truncate">{activeOrdersCount} ordenes activas</p>
             </div>
           </div>
-          <div className="flex gap-1.5 flex-shrink-0 flex-wrap justify-end">
-            <button
-              onClick={onOpenQuickTablePicker}
-              className="relative p-2.5 bg-white bg-opacity-20 rounded-xl hover:bg-opacity-30 transition-all"
-              title="Seleccion rapida de mesa"
-            >
-              <span className="text-xl">🪑</span>
-              {quickTablesCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs font-bold rounded-full min-w-4 h-4 px-1 flex items-center justify-center">
-                  {quickTablesCount}
-                </span>
-              )}
-            </button>
-            <button
-              onClick={onOpenCashRegister}
-              className="relative p-2.5 bg-green-500 hover:bg-green-600 rounded-xl transition-all shadow-md flex items-center justify-center gap-1 border border-green-400"
-              title="Control de Caja"
-            >
-              <span className="text-xl">🏪</span>
-              <span className="font-bold text-sm">Caja</span>
-            </button>
+          <div className="flex gap-2 flex-shrink-0 flex-wrap justify-end items-center">
             <div className="relative">
               <button
                 onClick={() => setIsActionsMenuOpen((prev) => !prev)}
@@ -124,6 +106,36 @@ export const CashierMobileHeader: React.FC<CashierMobileHeaderProps> = ({
                   <div className="bg-gray-50 border-y border-gray-200 px-3 py-2 mt-1">
                     <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Herramientas</p>
                   </div>
+                  <button
+                    onClick={() => {
+                      onOpenCashRegister();
+                      setIsActionsMenuOpen(false);
+                    }}
+                    className="w-full text-left px-4 py-3 text-green-700 hover:bg-green-50 font-semibold border-b border-gray-100 flex justify-between items-center"
+                  >
+                    <span>🏪 Control de Caja</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      onOpenQuickTablePicker();
+                      setIsActionsMenuOpen(false);
+                    }}
+                    className="w-full text-left px-4 py-3 text-blue-700 hover:bg-blue-50 font-semibold border-b border-gray-100 flex justify-between items-center"
+                  >
+                    <span>🪑 Mesas</span>
+                    {quickTablesCount > 0 && (
+                      <span className="bg-blue-500 text-white text-[10px] px-2 py-0.5 rounded-full">{quickTablesCount}</span>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => {
+                      navigate('/cashier/take-order');
+                      setIsActionsMenuOpen(false);
+                    }}
+                    className="w-full text-left px-4 py-3 text-emerald-700 hover:bg-emerald-50 font-semibold border-b border-gray-100"
+                  >
+                    📝 Tomar Comanda
+                  </button>
                   <button
                     onClick={() => {
                       onOpenPrintSettings();

@@ -370,7 +370,7 @@ const ColleagueOrdersModal: React.FC<ColleagueOrdersModalProps> = ({
                     >
                       👁️ Ver Detalles
                     </button>
-                    {!isChild && isPendingPayment && !current.payment_method && (
+                    {isPendingPayment && !current.payment_method && (
                       <button
                         onClick={() => onCheckout(current.id, current.total, current.table_number)}
                         className="flex-1 py-2.5 bg-gradient-to-r from-violet-600 to-purple-700 text-white rounded-xl hover:from-violet-700 hover:to-purple-800 transition-all font-bold text-sm shadow-md active:scale-95"
@@ -378,7 +378,7 @@ const ColleagueOrdersModal: React.FC<ColleagueOrdersModalProps> = ({
                         💳 Cobrar
                       </button>
                     )}
-                    {!isChild && (current.status === 'entregado' && current.payment_method) && (
+                    {(current.status === 'entregado' && current.payment_method) && (
                       <button
                         onClick={() => onCheckout(current.id, current.total, current.table_number)}
                         className="flex-1 py-2.5 bg-gradient-to-r from-orange-600 to-orange-700 text-white rounded-xl hover:from-orange-700 hover:to-orange-800 transition-all font-bold text-sm shadow-md active:scale-95"

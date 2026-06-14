@@ -58,6 +58,9 @@ import type { PaymentInput } from '../shared/orders/api/ordersAPI.ts';
 import DeliveryInfoModal from './components/DeliveryInfoModal';
 // Importar toast y confetti
 import toast, { Toaster } from 'react-hot-toast';
+import { useWaiterGamification } from './hooks/useWaiterGamification';
+import { FireParticles } from './components/FireParticles';
+import './styles/Gamification.css';
 
 const WaiterDashboard: React.FC = () => {
     // Estado para nota especial de checkout en pedidos para llevar
@@ -66,7 +69,7 @@ const WaiterDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { tables } = useSelector((state: RootState) => state.tables);
   const { createOrderStatus } = useSelector((state: RootState) => state.orders);
-  const { token } = useSelector((state: RootState) => state.auth);
+  const { token, user } = useSelector((state: RootState) => state.auth);
   const swiperRef = useRef<SwiperType | null>(null);
   const isDesktop = useIsDesktop();
 
@@ -74,13 +77,22 @@ const WaiterDashboard: React.FC = () => {
   const [lastWsNotification, setLastWsNotification] = useState<string | null>(null);
   const [showQRModal, setShowQRModal] = useState(false);
 
+  // 🏆 Hook de Gamificación
+  const { validOrdersCount, isMaestro, isCelebrating, stopCelebrating } = useWaiterGamification();
+
   const handleWaiterWsNotification = useCallback((options: { title: string; message: string; type: 'info' | 'success' | 'warning' | 'error'; orderId?: string }) => {
     if (options.orderId) {
       toast.dismiss(`print-status-${options.orderId}`);
     }
 
-    setHasWsNotification(true);
-    setLastWsNotification(options.message || options.title);
+    const isPayment = options.title.toLowerCase().includes('pago') || 
+                      options.message.toLowerCase().includes('pago') ||
+                      options.title.toLowerCase().includes('cobro');
+
+    if (isPayment) {
+      setHasWsNotification(true);
+      setLastWsNotification(options.message || options.title);
+    }
   }, []);
 
   useWaiterWebSocket(handleWaiterWsNotification);
@@ -359,19 +371,9 @@ const WaiterDashboard: React.FC = () => {
         payload.delivery_notes = notes;
       }
 
-      const createdOrder = await dispatch(addNewOrder({ orderData: payload })).unwrap();
+      await dispatch(addNewOrder({ orderData: payload })).unwrap();
 
       await waitForMinStepDuration(stepStartedAt, 700);
-
-      toast('📌 Comanda enviada por cobrar', {
-        icon: '🧾',
-        duration: 3500,
-      });
-
-      toast.loading('🖨️ Enviando a impresora. Te avisaremos cuando termine.', {
-        id: `print-status-${createdOrder.id}`,
-        duration: 5000,
-      });
 
       setIsValidationModalOpen(false);
       setValidationError(null);
@@ -657,20 +659,44 @@ const WaiterDashboard: React.FC = () => {
       <Toaster position="top-center" />
 
       <div className="flex flex-col h-screen-mobile bg-gray-100">
-        {/* Header - Compacto */}
-        <header className="bg-gradient-to-r from-indigo-600 to-indigo-700 shadow-md px-4 py-2 flex justify-between items-center">
-          <h1 
-            onClick={() => {
-              if (hasWsNotification) {
-                setHasWsNotification(false);
-              }
-            }}
-            className={`text-lg font-bold text-white cursor-pointer inline-block ${hasWsNotification ? 'animate-[spin_0.5s_linear_infinite] text-yellow-300 drop-shadow-md' : ''}`}
-            title={hasWsNotification ? (lastWsNotification || 'Nuevas notificaciones - Clic para limpiar') : ''}
-          >
-            Mesero
-          </h1>
-          <div className="flex gap-2 items-center">
+
+        {/* Overlay de Video de Celebración */}
+        {isCelebrating && (
+          <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="relative w-full max-w-md rounded-2xl overflow-hidden shadow-[0_0_30px_rgba(255,140,0,0.5)] animate-[float-up_0.5s_ease-out]">
+              <video 
+                autoPlay 
+                playsInline 
+                onEnded={stopCelebrating}
+                className="w-full h-auto object-contain"
+              >
+                <source src="/mira_ayudame_a_realizar_una_an.mp4" type="video/mp4" />
+              </video>
+            </div>
+          </div>
+        )}
+
+        <header className="relative px-4 py-2 flex justify-between items-center shadow-md transition-all duration-500 bg-gradient-to-r from-indigo-600 to-indigo-700">
+          {/* Capa de Fondos Gamificación */}
+          <div className="gamification-bg-container rounded-b-lg">
+            {!isMaestro && validOrdersCount > 0 && (
+              <FireParticles count={validOrdersCount} />
+            )}
+          </div>
+          <div className="flex items-center gap-2 z-10">
+            <h1 
+              onClick={() => {
+                if (hasWsNotification) {
+                  setHasWsNotification(false);
+                }
+              }}
+              className={`font-bold cursor-pointer inline-block ${hasWsNotification ? 'animate-[spin_0.5s_linear_infinite] drop-shadow-md text-yellow-300' : ''} ${isMaestro ? 'maestro-text text-lg tracking-wide' : 'text-lg text-white'}`}
+              title={hasWsNotification ? (lastWsNotification || 'Nuevas notificaciones - Clic para limpiar') : ''}
+            >
+              {isMaestro ? `⭐ Consagrado` : 'Mesero'}
+            </h1>
+          </div>
+          <div className="flex gap-2 items-center z-10">
             <button 
               onClick={() => setShowQRModal(true)}
               className="w-9 h-9 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors shadow-sm"
@@ -678,6 +704,14 @@ const WaiterDashboard: React.FC = () => {
             >
               <FaQrcode className="text-white text-lg" />
             </button>
+            {user?.role === 'cajero' && (
+              <button
+                onClick={() => navigate('/dashboard')}
+                className="bg-amber-500 text-white px-3 py-1.5 rounded-lg shadow-sm hover:bg-amber-600 transition-colors text-sm font-bold"
+              >
+                Volver
+              </button>
+            )}
             <button
               onClick={() => swiperRef.current?.slideTo(3)}
               className="bg-white text-indigo-700 px-3 py-1.5 rounded-lg shadow-sm hover:bg-gray-50 transition-colors text-sm font-medium"

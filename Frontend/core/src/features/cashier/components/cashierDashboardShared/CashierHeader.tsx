@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import LogoutButton from '../../../../components/LogoutButton';
 
 interface CashierHeaderProps {
@@ -34,6 +35,7 @@ export const CashierHeader: React.FC<CashierHeaderProps> = ({
   quickTablesCount = 0,
   onOpenQuickTableSelect,
 }) => {
+  const navigate = useNavigate();
   const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false);
 
   return (
@@ -67,6 +69,13 @@ export const CashierHeader: React.FC<CashierHeaderProps> = ({
         </div>
 
         <div className="flex items-center gap-2 mt-4 md:mt-0">
+          <button
+            onClick={() => navigate('/cashier/take-order')}
+            className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-lg hover:from-emerald-600 hover:to-teal-600 transition-all font-bold shadow-lg hover:shadow-xl transform hover:scale-105"
+            title="Tomar Comanda como Mesero"
+          >
+            📝 Tomar Comanda
+          </button>
           {onOpenQuickTableSelect && (
             <button
               onClick={onOpenQuickTableSelect}

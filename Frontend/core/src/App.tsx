@@ -94,6 +94,7 @@ const App: React.FC = () => {
         <Route path="/cashier/search/waiter/:waiterName" element={<ProtectedRoute user={user}><CashierWaiterSearchPage /></ProtectedRoute>} />
         <Route path="/cashier/history" element={<ProtectedRoute user={user}><CashierInvoiceHistoryPage /></ProtectedRoute>} />
         <Route path="/cashier/metrics" element={<ProtectedRoute user={user}><CashierMetricsPage /></ProtectedRoute>} />
+        <Route path="/cashier/take-order" element={<ProtectedRoute user={user}><WaiterDashboard /></ProtectedRoute>} />
         <Route path="*" element={<Navigate to={user ? "/dashboard" : "/login"} replace />} />
       </Routes>
     </Router>

@@ -45,13 +45,16 @@ import DeliveryInfoModal from './components/DeliveryInfoModal';
 // Importar toast para versión desktop
 import toast, { Toaster } from 'react-hot-toast';
 import { useWaiterWebSocket } from '../../hooks/useWaiterWebSocket';
+import { useWaiterGamification } from './hooks/useWaiterGamification';
+import { FireParticles } from './components/FireParticles';
+import './styles/Gamification.css';
 
 const WaiterDashboardDesktop: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
   const { tables } = useSelector((state: RootState) => state.tables);
   const { createOrderStatus } = useSelector((state: RootState) => state.orders);
-  const { token } = useSelector((state: RootState) => state.auth);
+  const { token, user } = useSelector((state: RootState) => state.auth);
   const { status } = useSelector((state: RootState) => state.tables);
 
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -85,6 +88,9 @@ const WaiterDashboardDesktop: React.FC = () => {
   const [pendingSendWithoutChargeNotes, setPendingSendWithoutChargeNotes] = useState<string>('');
   const [isOnline, setIsOnline] = useState<boolean>(isClientOnline());
 
+  // 🏆 Hook de Gamificación
+  const { validOrdersCount, isMaestro, isCelebrating, stopCelebrating } = useWaiterGamification();
+
   const buildRequestId = () =>
     globalThis.crypto?.randomUUID?.() ||
     `req-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
@@ -105,8 +111,14 @@ const WaiterDashboardDesktop: React.FC = () => {
       toast.dismiss(`print-status-${options.orderId}`);
     }
 
-    setHasWsNotification(true);
-    setLastWsNotification(options.message || options.title);
+    const isPayment = options.title.toLowerCase().includes('pago') || 
+                      options.message.toLowerCase().includes('pago') ||
+                      options.title.toLowerCase().includes('cobro');
+
+    if (isPayment) {
+      setHasWsNotification(true);
+      setLastWsNotification(options.message || options.title);
+    }
   }, []);
 
   useWaiterWebSocket(handleWaiterWsNotification);
@@ -325,19 +337,9 @@ const WaiterDashboardDesktop: React.FC = () => {
         payload.delivery_notes = notes;
       }
 
-      const createdOrder = await dispatch(addNewOrder({ orderData: payload })).unwrap();
+      await dispatch(addNewOrder({ orderData: payload })).unwrap();
 
       await waitForMinStepDuration(stepStartedAt, 700);
-
-      toast('📌 Comanda enviada por cobrar', {
-        icon: '🧾',
-        duration: 3500,
-      });
-
-      toast.loading('🖨️ Enviando a impresora. Te avisaremos cuando termine.', {
-        id: `print-status-${createdOrder.id}`,
-        duration: 5000,
-      });
 
       setIsValidationModalOpen(false);
       setValidationError(null);
@@ -599,20 +601,44 @@ const WaiterDashboardDesktop: React.FC = () => {
       <Toaster position="top-center" />
 
       <div className="flex flex-col h-screen bg-gray-100">
+        
+        {/* Overlay de Video de Celebración */}
+        {isCelebrating && (
+          <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="relative w-full max-w-4xl rounded-2xl overflow-hidden shadow-[0_0_50px_rgba(255,140,0,0.4)] animate-[float-up_0.5s_ease-out]">
+              <video 
+                autoPlay 
+                playsInline 
+                onEnded={stopCelebrating}
+                className="w-full h-auto object-contain"
+              >
+                <source src="/mira_ayudame_a_realizar_una_an.mp4" type="video/mp4" />
+              </video>
+            </div>
+          </div>
+        )}
+
         {/* Header - Compacto */}
-        <header className="bg-gradient-to-r from-indigo-600 to-indigo-700 shadow-md px-6 py-2.5 flex justify-between items-center">
-          <h1 
-            onClick={() => {
-              if (hasWsNotification) {
-                setHasWsNotification(false);
-              }
-            }}
-            className={`text-xl font-bold text-white cursor-pointer inline-block ${hasWsNotification ? 'animate-[spin_0.5s_linear_infinite] text-yellow-300 drop-shadow-md' : ''}`}
-            title={hasWsNotification ? (lastWsNotification || 'Nuevas notificaciones - Clic para limpiar') : ''}
-          >
-            Panel Mesero
-          </h1>
-          <div className="flex gap-3 items-center">
+        <header className="relative px-6 py-2.5 flex justify-between items-center shadow-md transition-all duration-500 bg-gradient-to-r from-indigo-600 to-indigo-700">
+          <div className="gamification-bg-container rounded-b-lg">
+            {!isMaestro && validOrdersCount > 0 && (
+              <FireParticles count={validOrdersCount} />
+            )}
+          </div>
+          <div className="flex items-center gap-4 z-10">
+            <h1 
+              onClick={() => {
+                if (hasWsNotification) {
+                  setHasWsNotification(false);
+                }
+              }}
+              className={`font-bold cursor-pointer inline-block ${hasWsNotification ? 'animate-[spin_0.5s_linear_infinite] drop-shadow-md text-yellow-300' : ''} ${isMaestro ? 'maestro-text text-2xl tracking-wide' : 'text-xl text-white'}`}
+              title={hasWsNotification ? (lastWsNotification || 'Nuevas notificaciones - Clic para limpiar') : ''}
+            >
+              {isMaestro ? `⭐ Consagrado` : 'Panel Mesero'}
+            </h1>
+          </div>
+          <div className="flex gap-3 items-center z-10">
             <button 
               onClick={() => setShowQRModal(true)}
               className="w-9 h-9 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors shadow-sm"
@@ -620,6 +646,14 @@ const WaiterDashboardDesktop: React.FC = () => {
             >
               <FaQrcode className="text-white text-lg" />
             </button>
+            {user?.role === 'cajero' && (
+              <button
+                onClick={() => navigate('/dashboard')}
+                className="bg-amber-500 text-white px-4 py-1.5 rounded-lg shadow-sm hover:bg-amber-600 transition-colors font-bold"
+              >
+                Volver a Caja
+              </button>
+            )}
             <button
               onClick={() => setIsMyOrdersModalOpen(true)}
               className="bg-white text-indigo-700 px-4 py-1.5 rounded-lg shadow-sm hover:bg-gray-50 transition-colors font-medium"

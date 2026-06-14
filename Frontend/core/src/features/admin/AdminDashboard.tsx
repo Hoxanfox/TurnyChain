@@ -33,17 +33,18 @@ interface TabConfig {
 }
 
 const AdminDashboard: React.FC = () => {
-  const dispatch = useDispatch();
   const [activeTab, setActiveTab] = useState<AdminTab>('users');
   const [showStatistics, setShowStatistics] = useState(false);
   const isDesktop = useIsDesktop();
 
-  // Obtener estadísticas del store
   const users = useSelector((state: RootState) => state.users?.users || []);
   const menuItems = useSelector((state: RootState) => state.menu?.items || []);
   const categories = useSelector((state: RootState) => state.categories?.items || []);
   const myOrders = useSelector((state: RootState) => state.orders?.myOrders || []);
-  const backendErrors = useSelector((state: RootState) => state.backendLogs?.items || []);
+
+  const activeOrders = myOrders.filter((order) =>
+    order.status === 'pending' || order.status === 'confirmed'
+  ).length;
 
   const tabs: TabConfig[] = [
     { id: 'users', label: 'Usuarios', icon: FaUsers, color: 'blue' },
@@ -70,9 +71,6 @@ const AdminDashboard: React.FC = () => {
     `;
   };
 
-  const activeOrders = myOrders.filter((order) =>
-    order.status === 'pending' || order.status === 'confirmed'
-  ).length;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
@@ -128,54 +126,7 @@ const AdminDashboard: React.FC = () => {
           )}
         </div>
 
-        <section className="mb-4 sm:mb-6 bg-white rounded-xl shadow-md border border-red-100">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-red-100">
-            <div>
-              <h2 className="text-base sm:text-lg font-bold text-red-700">Errores Backend (en vivo)</h2>
-              <p className="text-xs sm:text-sm text-gray-600">
-                Se muestran los ultimos errores 500/panics recibidos por WebSocket para depuracion.
-              </p>
-            </div>
-            <button
-              onClick={() => dispatch(clearBackendErrors())}
-              className="px-3 py-1.5 rounded-md text-xs sm:text-sm font-semibold bg-red-50 text-red-700 hover:bg-red-100"
-            >
-              Limpiar
-            </button>
-          </div>
-
-          <div className="max-h-56 overflow-y-auto">
-            {backendErrors.length === 0 ? (
-              <p className="px-4 py-3 text-sm text-gray-500">Sin errores recientes.</p>
-            ) : (
-              <ul className="divide-y divide-gray-100">
-                {backendErrors.slice(0, 30).map((log, index) => (
-                  <li key={`${log.timestamp}-${index}`} className="px-4 py-3">
-                    <div className="flex flex-wrap gap-2 text-xs mb-1">
-                      {typeof log.status === 'number' && (
-                        <span className="px-2 py-0.5 rounded bg-red-100 text-red-700 font-semibold">
-                          {log.status}
-                        </span>
-                      )}
-                      {log.method && (
-                        <span className="px-2 py-0.5 rounded bg-gray-100 text-gray-700 font-semibold">
-                          {log.method}
-                        </span>
-                      )}
-                      {log.path && (
-                        <span className="px-2 py-0.5 rounded bg-gray-100 text-gray-700 break-all">
-                          {log.path}
-                        </span>
-                      )}
-                      <span className="text-gray-500">{new Date(log.timestamp).toLocaleString()}</span>
-                    </div>
-                    <p className="text-sm text-gray-800 break-words">{log.message}</p>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </section>
+        <BackendErrorLogsPanel />
 
         {/* Tabs Navigation - Mejorado para móviles */}
         <div className="mb-4 sm:mb-6">
@@ -264,6 +215,62 @@ const AdminDashboard: React.FC = () => {
       {/* 🆕 Botón Flotante para Importar/Exportar Datos */}
       <DataExchangeButton />
     </div>
+  );
+};
+
+const BackendErrorLogsPanel: React.FC = () => {
+  const dispatch = useDispatch();
+  const backendErrors = useSelector((state: RootState) => state.backendLogs?.items || []);
+
+  return (
+    <section className="mb-4 sm:mb-6 bg-white rounded-xl shadow-md border border-red-100">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-red-100">
+        <div>
+          <h2 className="text-base sm:text-lg font-bold text-red-700">Errores Backend (en vivo)</h2>
+          <p className="text-xs sm:text-sm text-gray-600">
+            Se muestran los ultimos errores 500/panics recibidos por WebSocket para depuracion.
+          </p>
+        </div>
+        <button
+          onClick={() => dispatch(clearBackendErrors())}
+          className="px-3 py-1.5 rounded-md text-xs sm:text-sm font-semibold bg-red-50 text-red-700 hover:bg-red-100"
+        >
+          Limpiar
+        </button>
+      </div>
+
+      <div className="max-h-56 overflow-y-auto">
+        {backendErrors.length === 0 ? (
+          <p className="px-4 py-3 text-sm text-gray-500">Sin errores recientes.</p>
+        ) : (
+          <ul className="divide-y divide-gray-100">
+            {backendErrors.slice(0, 30).map((log, index) => (
+              <li key={`${log.timestamp}-${index}`} className="px-4 py-3">
+                <div className="flex flex-wrap gap-2 text-xs mb-1">
+                  {typeof log.status === 'number' && (
+                    <span className="px-2 py-0.5 rounded bg-red-100 text-red-700 font-semibold">
+                      {log.status}
+                    </span>
+                  )}
+                  {log.method && (
+                    <span className="px-2 py-0.5 rounded bg-gray-100 text-gray-700 font-semibold">
+                      {log.method}
+                    </span>
+                  )}
+                  {log.path && (
+                    <span className="px-2 py-0.5 rounded bg-gray-100 text-gray-700 break-all">
+                      {log.path}
+                    </span>
+                  )}
+                  <span className="text-gray-500">{new Date(log.timestamp).toLocaleString()}</span>
+                </div>
+                <p className="text-sm text-gray-800 break-words">{log.message}</p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </section>
   );
 };
 
