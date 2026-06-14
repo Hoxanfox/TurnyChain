@@ -51,8 +51,7 @@ const ColleagueOrdersModal: React.FC<ColleagueOrdersModalProps> = ({
       const isMesaOrder = (order.order_type || 'mesa') === 'mesa';
       const isPendingPayment =
         order.status === 'entregado' ||
-        order.status === 'pendiente_aprobacion' ||
-        order.status === 'por_verificar';
+        order.status === 'pendiente_aprobacion';
       return isToday && isMesaOrder && isPendingPayment;
     });
   }, [activeOrders]);
@@ -246,7 +245,7 @@ const ColleagueOrdersModal: React.FC<ColleagueOrdersModalProps> = ({
             const children = childrenByParent.get(order.id) || [];
             const groupOrders = [order, ...children];
             const payableOrders = groupOrders.filter(
-              (current) => current.status === 'entregado' || current.status === 'por_verificar' || current.status === 'pendiente_aprobacion'
+              (current) => current.status === 'entregado' || current.status === 'pendiente_aprobacion'
             );
             const payableGroupTotal = payableOrders.reduce((sum, current) => sum + current.total, 0);
             const payableOrderIds = payableOrders.map((current) => current.id);
@@ -379,7 +378,7 @@ const ColleagueOrdersModal: React.FC<ColleagueOrdersModalProps> = ({
                         💳 Cobrar
                       </button>
                     )}
-                    {!isChild && (current.status === 'por_verificar' || (current.status === 'entregado' && current.payment_method)) && (
+                    {!isChild && (current.status === 'entregado' && current.payment_method) && (
                       <button
                         onClick={() => onCheckout(current.id, current.total, current.table_number)}
                         className="flex-1 py-2.5 bg-gradient-to-r from-orange-600 to-orange-700 text-white rounded-xl hover:from-orange-700 hover:to-orange-800 transition-all font-bold text-sm shadow-md active:scale-95"

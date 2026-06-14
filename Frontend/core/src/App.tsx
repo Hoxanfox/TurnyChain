@@ -14,6 +14,11 @@ import CashierDashboard from './features/cashier/CashierDashboard';
 import type { User } from './types/auth';
 import { useWebSockets } from './hooks/useWebSockets'; // <-- 1. IMPORTAR EL HOOK
 
+import CashierOrderSearchPage from './features/cashier/CashierOrderSearchPage';
+import CashierWaiterSearchPage from './features/cashier/CashierWaiterSearchPage';
+import CashierMetricsPage from './features/cashier/components/cashierDashboardMobile/pages/CashierMetricsPage';
+import CashierInvoiceHistoryPage from './features/cashier/components/cashierDashboardMobile/pages/CashierInvoiceHistoryPage';
+
 // Componente para gestionar la conexión WebSocket global
 const WebSocketManager: React.FC = () => {
   useWebSockets(); // <-- 2. USAR EL HOOK
@@ -29,9 +34,9 @@ const DashboardRedirect: React.FC<{ user: User | null }> = ({ user }) => {
   }
 };
 
-const ProtectedRoute: React.FC<{ user: User | null }> = ({ user }) => {
+const ProtectedRoute: React.FC<{ user: User | null; children?: React.ReactNode }> = ({ user, children }) => {
   if (!user) { return <Navigate to="/login" replace />; }
-  return <DashboardRedirect user={user} />;
+  return children ? <>{children}</> : <DashboardRedirect user={user} />;
 };
 
 const App: React.FC = () => {
@@ -85,6 +90,10 @@ const App: React.FC = () => {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/dashboard" element={<ProtectedRoute user={user} />} />
+        <Route path="/cashier/search/:orderId" element={<ProtectedRoute user={user}><CashierOrderSearchPage /></ProtectedRoute>} />
+        <Route path="/cashier/search/waiter/:waiterName" element={<ProtectedRoute user={user}><CashierWaiterSearchPage /></ProtectedRoute>} />
+        <Route path="/cashier/history" element={<ProtectedRoute user={user}><CashierInvoiceHistoryPage /></ProtectedRoute>} />
+        <Route path="/cashier/metrics" element={<ProtectedRoute user={user}><CashierMetricsPage /></ProtectedRoute>} />
         <Route path="*" element={<Navigate to={user ? "/dashboard" : "/login"} replace />} />
       </Routes>
     </Router>
