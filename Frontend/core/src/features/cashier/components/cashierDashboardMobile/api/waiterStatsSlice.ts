@@ -2,6 +2,7 @@ import { createAsyncThunk, createSlice, type PayloadAction } from '@reduxjs/tool
 import type { RootState } from '../../../../../app/store';
 import { fetchWaiterApprovedStats } from './waiterStatsApi';
 import type { WaiterApprovedStat, WaiterStatsFilterMode } from '../types/waiterStatsTypes';
+import { getMonthValue, getTodayValue } from '../utils/invoiceHistoryFormatters';
 
 interface WaiterStatsState {
   items: WaiterApprovedStat[];
@@ -14,18 +15,15 @@ interface WaiterStatsState {
   rangeTo: string;
 }
 
-const todayIso = new Date().toISOString().slice(0, 10);
-const monthIso = new Date().toISOString().slice(0, 7);
-
 const initialState: WaiterStatsState = {
   items: [],
   status: 'idle',
   error: null,
   filterMode: 'day',
-  dayValue: todayIso,
-  monthValue: monthIso,
-  rangeFrom: todayIso,
-  rangeTo: todayIso,
+  dayValue: getTodayValue(),
+  monthValue: getMonthValue(),
+  rangeFrom: getTodayValue(),
+  rangeTo: getTodayValue(),
 };
 
 export const fetchWaiterStatsThunk = createAsyncThunk(

@@ -250,9 +250,12 @@ func (h *OrderHandler) GetOrdersToday(c *fiber.Ctx) error {
 	myOrders := c.Query("my_orders")
 	teamOrders := c.Query("team_orders")
 
-	location := time.Now().Location()
-	now := time.Now().In(location)
-	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, location)
+	loc := time.Local
+	if bogota, err := time.LoadLocation("America/Bogota"); err == nil {
+		loc = bogota
+	}
+	now := time.Now().In(loc)
+	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
 	endOfDay := startOfDay.Add(24 * time.Hour)
 
 	log.Printf("📥 [GetOrdersToday] Request - UserID: %s, Role: %s, Status: %s, MyOrders: %s, TeamOrders: %s", userID, userRole, status, myOrders, teamOrders)
@@ -274,7 +277,10 @@ func (h *OrderHandler) GetWaiterApprovedStats(c *fiber.Ctx) error {
 	fromParam := c.Query("from")
 	toParam := c.Query("to")
 
-	location := time.Now().Location()
+	loc := time.Local
+	if bogota, err := time.LoadLocation("America/Bogota"); err == nil {
+		loc = bogota
+	}
 
 	var start time.Time
 	var end time.Time
@@ -282,31 +288,31 @@ func (h *OrderHandler) GetWaiterApprovedStats(c *fiber.Ctx) error {
 
 	switch {
 	case dayParam != "":
-		parsed, err := time.ParseInLocation("2006-01-02", dayParam, location)
+		parsed, err := time.ParseInLocation("2006-01-02", dayParam, loc)
 		if err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid day, use YYYY-MM-DD"})
 		}
-		start = time.Date(parsed.Year(), parsed.Month(), parsed.Day(), 0, 0, 0, 0, location)
+		start = time.Date(parsed.Year(), parsed.Month(), parsed.Day(), 0, 0, 0, 0, loc)
 		end = start.Add(24 * time.Hour)
 	case monthParam != "":
-		parsed, err := time.ParseInLocation("2006-01", monthParam, location)
+		parsed, err := time.ParseInLocation("2006-01", monthParam, loc)
 		if err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid month, use YYYY-MM"})
 		}
-		start = time.Date(parsed.Year(), parsed.Month(), 1, 0, 0, 0, 0, location)
+		start = time.Date(parsed.Year(), parsed.Month(), 1, 0, 0, 0, 0, loc)
 		end = start.AddDate(0, 1, 0)
 		groupBy = "month"
 	case fromParam != "" && toParam != "":
-		fromParsed, err := time.ParseInLocation("2006-01-02", fromParam, location)
+		fromParsed, err := time.ParseInLocation("2006-01-02", fromParam, loc)
 		if err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid from, use YYYY-MM-DD"})
 		}
-		toParsed, err := time.ParseInLocation("2006-01-02", toParam, location)
+		toParsed, err := time.ParseInLocation("2006-01-02", toParam, loc)
 		if err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid to, use YYYY-MM-DD"})
 		}
-		start = time.Date(fromParsed.Year(), fromParsed.Month(), fromParsed.Day(), 0, 0, 0, 0, location)
-		end = time.Date(toParsed.Year(), toParsed.Month(), toParsed.Day(), 0, 0, 0, 0, location).Add(24 * time.Hour)
+		start = time.Date(fromParsed.Year(), fromParsed.Month(), fromParsed.Day(), 0, 0, 0, 0, loc)
+		end = time.Date(toParsed.Year(), toParsed.Month(), toParsed.Day(), 0, 0, 0, 0, loc).Add(24 * time.Hour)
 	default:
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Provide day, month, or from/to"})
 	}
