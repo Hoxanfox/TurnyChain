@@ -54,9 +54,10 @@ const App: React.FC = () => {
       if (logoSetting && logoSetting.value) {
         let logoUrl = logoSetting.value;
         if (!logoUrl.startsWith('http')) {
-          const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+          const API_URL = import.meta.env.VITE_API_URL || '/api';
+          const base = API_URL.startsWith('http') ? API_URL : `${window.location.origin}${API_URL}`;
           logoUrl = logoUrl.startsWith('/uploads/') ? logoUrl.replace('/uploads/', '/api/static/') : logoUrl;
-          logoUrl = `${API_URL.replace('/api', '')}${logoUrl}`;
+          logoUrl = `${base.replace('/api', '')}${logoUrl}`;
         }
         
         let link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;

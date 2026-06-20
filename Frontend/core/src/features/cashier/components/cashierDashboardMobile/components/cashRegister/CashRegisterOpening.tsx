@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { openSession } from '../../../../api/cashRegisterAPI';
+import { openSession } from '../../api/cashRegisterApi';
 import { CashDenominationsModal } from './CashDenominationsModal';
 
 interface CashRegisterOpeningProps {

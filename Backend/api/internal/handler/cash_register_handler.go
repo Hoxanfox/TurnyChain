@@ -2,6 +2,7 @@ package handler
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/service"
@@ -64,6 +65,11 @@ func (h *CashRegisterHandler) AddExpense(c *fiber.Ctx) error {
 
 	file, err := c.FormFile("image")
 	if err == nil {
+		// Crear carpeta uploads/expenses si no existe
+		if err := os.MkdirAll(filepath.Join("uploads", "expenses"), os.ModePerm); err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not create upload directory"})
+		}
+
 		fileName := fmt.Sprintf("%s%s", uuid.New().String(), filepath.Ext(file.Filename))
 		path := filepath.Join("uploads", "expenses", fileName)
 		

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import type { CashRegisterSessionDetails } from '../../../../api/cashRegisterAPI';
-import { closeSession } from '../../../../api/cashRegisterAPI';
+import type { CashRegisterSessionDetails } from '../../api/cashRegisterApi';
+import { closeSession } from '../../api/cashRegisterApi';
 import { CashDenominationsModal } from './CashDenominationsModal';
 
 interface CashRegisterClosingProps {

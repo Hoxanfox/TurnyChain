@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import type { CashRegisterSessionDetails } from '../../../../api/cashRegisterAPI';
-import { getCurrentSessionDetails } from '../../../../api/cashRegisterAPI';
+import type { CashRegisterSessionDetails } from '../../api/cashRegisterApi';
+import { getCurrentSessionDetails } from '../../api/cashRegisterApi';
 import { CashRegisterOpening } from './CashRegisterOpening';
 import { CashRegisterActive } from './CashRegisterActive';
 import { CashRegisterClosing } from './CashRegisterClosing';

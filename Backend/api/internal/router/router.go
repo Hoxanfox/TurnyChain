@@ -61,10 +61,13 @@ func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *
 	orders.Post("/with-payment", orderHandler.CreateOrderWithPayment) // Nueva ruta para orden con pago
 	orders.Get("/", orderHandler.GetOrders)
 	orders.Get("/today", orderHandler.GetOrdersToday)
+	orders.Get("/waiter-approved-stats", orderHandler.GetWaiterApprovedStats) // Nueva ruta para estadísticas de meseros
 	orders.Get("/:id", orderHandler.GetOrderByID)
 	orders.Put("/:id/status", orderHandler.UpdateOrderStatus)
 	orders.Put("/:id/manage", orderHandler.ManageOrder)
 	orders.Put("/:id/items", orderHandler.UpdateOrderItems)
+	orders.Patch("/:id/edit", orderHandler.EditOrder) // Nueva ruta para edición granular de orden
+	orders.Post("/:id/link", orderHandler.LinkOrder) // Nueva ruta para vincular órdenes
 	orders.Post("/:id/proof", orderHandler.UploadPaymentProof) // Ruta existente para 1 solo pago
 	orders.Post("/:id/split-payments", orderHandler.UploadSplitPayments) // Nueva ruta para multiples pagos
 

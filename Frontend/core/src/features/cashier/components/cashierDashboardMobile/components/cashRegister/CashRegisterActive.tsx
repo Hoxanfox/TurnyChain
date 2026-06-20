@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
-import type { CashRegisterSessionDetails } from '../../../../api/cashRegisterAPI';
-import { addExpense } from '../../../../api/cashRegisterAPI';
+import type { CashRegisterSessionDetails } from '../../api/cashRegisterApi';
+import { addExpense } from '../../api/cashRegisterApi';
 
 interface CashRegisterActiveProps {
   details: CashRegisterSessionDetails;
