@@ -1,34 +1,61 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSelector } from 'react-redux';
+import type { RootState } from '../../../../../app/store';
 import type { CashierMetricsSummary, WaiterMetric } from '../types/metricsTypes';
 import { getMonthValue } from '../utils/invoiceHistoryFormatters';
-
-const MOCK_METRICS: WaiterMetric[] = [
-  { name: 'Laura', total: 4250, count: 32, average: 132.81, share: 36.4 },
-  { name: 'Carlos', total: 3180, count: 24, average: 132.5, share: 27.2 },
-  { name: 'Andrea', total: 2440, count: 18, average: 135.56, share: 20.9 },
-  { name: 'Miguel', total: 1220, count: 11, average: 110.91, share: 10.4 },
-  { name: 'Sin mesero', total: 590, count: 5, average: 118, share: 5.1 },
-];
+import { fetchWaiterApprovedStats } from '../api/waiterStatsApi';
 
 export const useCashierMetrics = () => {
+  const token = useSelector((state: RootState) => state.auth.token);
   const [month, setMonth] = useState(getMonthValue());
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [error, setError] = useState<string | null>(null);
-  const [hasMore, setHasMore] = useState(false);
   const [metrics, setMetrics] = useState<WaiterMetric[]>([]);
 
-  const loadData = useCallback(async (append: boolean) => {
+  const loadData = useCallback(async () => {
+    if (!token) {
+      setError('Token de autenticación no encontrado');
+      setStatus('error');
+      return;
+    }
+
     setStatus('loading');
     setError(null);
 
-    const nextMetrics = append ? [...metrics, ...MOCK_METRICS] : MOCK_METRICS;
-    setMetrics(nextMetrics);
-    setHasMore(false);
-    setStatus('success');
-  }, [metrics]);
+    try {
+      const rawStats = await fetchWaiterApprovedStats({
+        token,
+        month,
+      });
+
+      const totalRevenue = rawStats.reduce((sum, item) => sum + (item.total_amount || 0), 0);
+
+      const transformed: WaiterMetric[] = rawStats.map((item) => {
+        const total = item.total_amount || 0;
+        const count = item.approved_count || 0;
+        return {
+          name: item.waiter_name || 'Sin nombre',
+          total,
+          count,
+          average: count > 0 ? total / count : 0,
+          share: totalRevenue > 0 ? parseFloat(((total / totalRevenue) * 100).toFixed(1)) : 0,
+        };
+      });
+
+      // Ordenar por total descendente
+      transformed.sort((a, b) => b.total - a.total);
+
+      setMetrics(transformed);
+      setStatus('success');
+    } catch (err: any) {
+      console.error('Error loading cashier metrics:', err);
+      setError(err.response?.data?.error || err.message || 'Error al obtener métricas');
+      setStatus('error');
+    }
+  }, [token, month]);
 
   useEffect(() => {
-    loadData(false);
+    loadData();
   }, [loadData]);
 
   const summary = useMemo((): CashierMetricsSummary => {
@@ -48,7 +75,6 @@ export const useCashierMetrics = () => {
   }, [metrics]);
 
   const reset = useCallback(() => {
-    setHasMore(false);
     setStatus('idle');
     setError(null);
     setMetrics([]);
@@ -65,7 +91,7 @@ export const useCashierMetrics = () => {
     error,
     metrics,
     summary,
-    hasMore,
+    hasMore: false,
     loadData,
     setMonth: updateMonth,
   };

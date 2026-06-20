@@ -3,6 +3,7 @@ export type WaiterApprovedStat = {
   waiter_id: string;
   waiter_name: string;
   approved_count: number;
+  total_amount: number;
 };
 
 export type WaiterStatsFilterMode = 'day' | 'month' | 'range';

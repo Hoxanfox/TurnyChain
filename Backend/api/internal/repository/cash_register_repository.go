@@ -129,7 +129,7 @@ func (r *postgresCashRegisterRepository) GetSalesByTimeRange(openTime time.Time,
 		FROM order_payments op
 		JOIN orders o ON o.id = op.order_id
 		WHERE o.status = 'pagado' 
-		AND op.created_at >= $1 AND op.created_at <= $2
+		AND o.updated_at >= $1 AND o.updated_at <= $2
 	`
 	err := r.db.QueryRow(splitQuery, openTime, closeTime).Scan(&splitCash, &splitTransfer, &splitCashCount, &splitTransferCount)
 	if err != nil {

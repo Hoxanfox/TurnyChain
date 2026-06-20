@@ -304,7 +304,8 @@ func (r *orderRepository) GetWaiterApprovedStats(start time.Time, end time.Time,
 			to_char(date_trunc($1, o.updated_at), $2) as period,
 			o.waiter_id,
 			COALESCE(u.username, '') as waiter_name,
-			COUNT(*) as approved_count
+			COUNT(*) as approved_count,
+			COALESCE(SUM(o.total), 0) as total_amount
 		FROM orders o
 		LEFT JOIN users u ON o.waiter_id = u.id
 		WHERE o.status = 'pagado'
@@ -323,7 +324,7 @@ func (r *orderRepository) GetWaiterApprovedStats(start time.Time, end time.Time,
 	stats := make([]domain.WaiterApprovedStat, 0)
 	for rows.Next() {
 		var stat domain.WaiterApprovedStat
-		if err := rows.Scan(&stat.Period, &stat.WaiterID, &stat.WaiterName, &stat.ApprovedCount); err != nil {
+		if err := rows.Scan(&stat.Period, &stat.WaiterID, &stat.WaiterName, &stat.ApprovedCount, &stat.TotalAmount); err != nil {
 			return nil, err
 		}
 		stats = append(stats, stat)
