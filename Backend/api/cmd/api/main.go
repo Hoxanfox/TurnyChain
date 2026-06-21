@@ -21,6 +21,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	_ "github.com/lib/pq"
+	_ "time/tzdata"
 )
 
 func main() {

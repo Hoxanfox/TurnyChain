@@ -88,11 +88,11 @@ export async function compressImage(file: File, maxSize: number = 1200, quality:
 /**
  * Validar archivo de imagen
  * @param file - Archivo a validar
+ * @param maxSizeBytes - Tamaño máximo en bytes (default: 20MB)
  * @returns Objeto con valid (boolean) y error opcional (string)
  */
-export function validateImageFile(file: File): { valid: boolean; error?: string } {
+export function validateImageFile(file: File, maxSizeBytes: number = 20 * 1024 * 1024): { valid: boolean; error?: string } {
   const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-  const maxSize = 5 * 1024 * 1024; // 5MB
 
   if (!validTypes.includes(file.type)) {
     return {
@@ -101,10 +101,11 @@ export function validateImageFile(file: File): { valid: boolean; error?: string 
     };
   }
 
-  if (file.size > maxSize) {
+  if (file.size > maxSizeBytes) {
+    const maxSizeMB = Math.round(maxSizeBytes / (1024 * 1024));
     return {
       valid: false,
-      error: 'El archivo no debe superar 5MB'
+      error: `El archivo no debe superar los ${maxSizeMB}MB`
     };
   }
 

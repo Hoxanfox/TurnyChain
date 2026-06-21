@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"log"
 	"time"
 
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/domain"
@@ -72,8 +73,17 @@ func (s *cashRegisterService) GetCurrentSessionDetails() (*domain.CashRegisterSe
 		totalExpenses += e.Amount
 	}
 
-	// Sumar las ventas desde que abrió la caja hasta AHORA
-	totalCashSales, totalTransferSales, cashCount, transferCount, err := s.repo.GetSalesByTimeRange(session.OpenTime, time.Now())
+	loc := time.Local
+	if bogota, err := time.LoadLocation("America/Bogota"); err == nil {
+		loc = bogota
+	}
+	openTimeInLoc := session.OpenTime.In(loc)
+	startOfOpenDay := time.Date(openTimeInLoc.Year(), openTimeInLoc.Month(), openTimeInLoc.Day(), 0, 0, 0, 0, loc)
+
+	log.Printf("📊 [GetCurrentSessionDetails] Calculating daily sales from start of day: %s (Session OpenTime: %s) to Now", startOfOpenDay.Format(time.RFC3339), session.OpenTime.Format(time.RFC3339))
+
+	// Sumar las ventas del día completo (desde las 00:00:00 del día de apertura de la caja hasta AHORA)
+	totalCashSales, totalTransferSales, cashCount, transferCount, err := s.repo.GetSalesByTimeRange(startOfOpenDay, time.Now())
 	if err != nil {
 		return nil, err
 	}

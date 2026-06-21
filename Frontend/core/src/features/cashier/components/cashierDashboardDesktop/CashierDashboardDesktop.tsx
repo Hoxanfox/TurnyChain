@@ -127,8 +127,8 @@ export const CashierDashboardDesktop: React.FC<CashierDashboardDesktopProps> = (
   // Datos para CashierFilters
   const allOrders = Object.values(ordersByTable).flat();
   const totalOrders = allOrders.length;
-  const cashPayments = allOrders.filter((o) => o.payments?.some(p => p.method === 'efectivo') || o.payment_method === 'efectivo').length;
-  const transferPayments = allOrders.filter((o) => o.payments?.some(p => p.method === 'transferencia') || o.payment_method === 'transferencia').length;
+  const cashPayments = allOrders.filter((o) => o.status === 'pagado' && (o.payments?.some(p => p.method === 'efectivo') || o.payment_method === 'efectivo')).length;
+  const transferPayments = allOrders.filter((o) => o.status === 'pagado' && (o.payments?.some(p => p.method === 'transferencia') || o.payment_method === 'transferencia')).length;
   const urgentOrders = allOrders.filter((o) => o.status === 'por_verificar');
   const deliveredOrders = allOrders.filter((o) => isPorCobrarStatus(o.status));
   const paidOrders = allOrders.filter((o) => o.status === 'pagado');

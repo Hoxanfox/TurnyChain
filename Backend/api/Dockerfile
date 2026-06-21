@@ -25,6 +25,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o /app/main ./cmd/api
 # --- Etapa 2: Run ---
 # Usamos una imagen mínima de Alpine para la ejecución, lo que hace la imagen final muy pequeña
 FROM alpine:latest
+RUN apk add --no-cache tzdata
 
 WORKDIR /app
 
