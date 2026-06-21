@@ -102,6 +102,35 @@ export const CashRegisterClosing: React.FC<CashRegisterClosingProps> = ({ detail
         </div>
       </div>
 
+      {/* Detalle de Cuentas Verificable */}
+      <div className="bg-gray-50 rounded-xl p-3 border border-gray-200 text-xs space-y-2">
+        <p className="font-bold text-gray-700 border-b border-gray-200 pb-1">🧮 Detalle de Cuentas para Verificación</p>
+        <div className="flex justify-between">
+          <span className="text-gray-500">Bases de Apertura:</span>
+          <span className="font-semibold text-gray-800">
+            Efe: ${details.session?.initial_cash.toLocaleString('es-CO')} | Tra: ${details.session?.initial_transfer.toLocaleString('es-CO')}
+          </span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-gray-500">Ventas Efectivo (+):</span>
+          <span className="font-bold text-emerald-600">+${details.total_cash_sales.toLocaleString('es-CO')}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-gray-500">Ventas Transferencia (+):</span>
+          <span className="font-bold text-blue-600">+${(details.total_transfer - (details.session?.initial_transfer || 0)).toLocaleString('es-CO')}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-gray-500">Gastos de Caja (-):</span>
+          <span className="font-bold text-red-600">-${details.total_expenses.toLocaleString('es-CO')}</span>
+        </div>
+        <div className="flex justify-between border-t border-gray-200 pt-1 font-bold">
+          <span className="text-purple-700">Órdenes con Pago Mixto:</span>
+          <span className="text-purple-800 bg-purple-100 px-1.5 py-0.2 rounded text-[10px]">
+            {details.mixed_orders_count || 0} órdenes
+          </span>
+        </div>
+      </div>
+
       <form onSubmit={handleClose} className="space-y-4 mt-4">
         {/* Input Efectivo */}
         <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm">

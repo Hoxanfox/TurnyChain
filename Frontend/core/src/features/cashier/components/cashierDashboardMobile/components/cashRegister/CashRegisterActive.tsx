@@ -43,26 +43,79 @@ export const CashRegisterActive: React.FC<CashRegisterActiveProps> = ({ details,
         <div className="bg-indigo-50 border-b border-indigo-100 px-4 py-3">
           <p className="text-xs font-bold text-indigo-800 uppercase tracking-wide">Resumen del Turno</p>
         </div>
-        <div className="p-4 grid grid-cols-2 gap-3 text-sm">
-          <div className="bg-gray-50 rounded-lg p-2 text-center border border-gray-100">
-            <p className="text-xs text-gray-500 mb-1">Base Inicial</p>
-            <p className="font-bold text-gray-800">${details.session?.initial_cash.toLocaleString('es-CO')}</p>
+        <div className="p-4 space-y-4 text-sm">
+          {/* Bases Iniciales */}
+          <div className="bg-gray-50 rounded-xl p-3 border border-gray-100 grid grid-cols-2 gap-2">
+            <div className="text-center border-r border-gray-200">
+              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wide">Base Efectivo</p>
+              <p className="font-extrabold text-gray-800">${details.session?.initial_cash.toLocaleString('es-CO')}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wide">Base Transferencia</p>
+              <p className="font-extrabold text-gray-800">${details.session?.initial_transfer.toLocaleString('es-CO')}</p>
+            </div>
           </div>
-          <div className="bg-blue-50 rounded-lg p-2 text-center border border-blue-100">
-            <p className="text-xs text-blue-600 mb-1">Ventas Transferencia</p>
-            <p className="font-bold text-blue-800">${details.total_transfer.toLocaleString('es-CO')}</p>
+
+          {/* Ventas Netas y Órdenes */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-green-50 rounded-xl p-3 border border-green-100 flex flex-col justify-between">
+              <div>
+                <p className="text-[10px] font-bold text-green-700 uppercase tracking-wide">Ventas Efectivo</p>
+                <p className="text-lg font-black text-green-900">+${details.total_cash_sales.toLocaleString('es-CO')}</p>
+              </div>
+              {details.cash_orders_count !== undefined && (
+                <span className="mt-2 text-[10px] bg-green-200 text-green-800 px-1.5 py-0.5 rounded font-bold self-start">
+                  {details.cash_orders_count} ord. pagadas
+                </span>
+              )}
+            </div>
+
+            <div className="bg-blue-50 rounded-xl p-3 border border-blue-100 flex flex-col justify-between">
+              <div>
+                <p className="text-[10px] font-bold text-blue-700 uppercase tracking-wide">Ventas Transferencia</p>
+                <p className="text-lg font-black text-blue-900">+${(details.total_transfer - (details.session?.initial_transfer || 0)).toLocaleString('es-CO')}</p>
+              </div>
+              {details.transfer_orders_count !== undefined && (
+                <span className="mt-2 text-[10px] bg-blue-200 text-blue-800 px-1.5 py-0.5 rounded font-bold self-start">
+                  {details.transfer_orders_count} ord. pagadas
+                </span>
+              )}
+            </div>
           </div>
-          <div className="bg-green-50 rounded-lg p-2 text-center border border-green-100">
-            <p className="text-xs text-green-600 mb-1">Ventas Efectivo</p>
-            <p className="font-bold text-green-800">+ ${details.total_cash_sales.toLocaleString('es-CO')}</p>
+
+          {/* Resumen de gastos y mixtos */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-red-50 rounded-xl p-3 border border-red-100">
+              <p className="text-[10px] font-bold text-red-700 uppercase tracking-wide">Gastos Realizados</p>
+              <p className="text-base font-extrabold text-red-900">-${details.total_expenses.toLocaleString('es-CO')}</p>
+              <span className="mt-1.5 text-[10px] bg-red-200 text-red-800 px-1.5 py-0.5 rounded font-bold inline-block">
+                {details.expenses?.length || 0} gastos
+              </span>
+            </div>
+
+            <div className="bg-purple-50 rounded-xl p-3 border border-purple-100 flex flex-col justify-between">
+              <div>
+                <p className="text-[10px] font-bold text-purple-700 uppercase tracking-wide">Órdenes Mixtas</p>
+                <p className="text-base font-extrabold text-purple-900">
+                  {details.mixed_orders_count || 0}
+                </p>
+              </div>
+              <span className="text-[10px] text-purple-600 font-semibold mt-1">
+                Efectivo + Transferencia
+              </span>
+            </div>
           </div>
-          <div className="bg-red-50 rounded-lg p-2 text-center border border-red-100">
-            <p className="text-xs text-red-600 mb-1">Gastos Realizados</p>
-            <p className="font-bold text-red-800">- ${details.total_expenses.toLocaleString('es-CO')}</p>
-          </div>
-          <div className="col-span-2 bg-emerald-100 rounded-lg p-3 text-center border border-emerald-200 mt-1">
-            <p className="text-sm font-bold text-emerald-800 mb-1">Efectivo Esperado en Caja</p>
-            <p className="text-3xl font-extrabold text-emerald-900">${details.expected_cash.toLocaleString('es-CO')}</p>
+
+          {/* Totales en Caja y Banco */}
+          <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-gray-200">
+            <div className="bg-emerald-100 rounded-xl p-3 text-center border border-emerald-200 shadow-sm">
+              <p className="text-[10px] font-bold text-emerald-800 uppercase tracking-wide">Efectivo Esperado</p>
+              <p className="text-xl font-black text-emerald-900">${details.expected_cash.toLocaleString('es-CO')}</p>
+            </div>
+            <div className="bg-sky-100 rounded-xl p-3 text-center border border-sky-200 shadow-sm">
+              <p className="text-[10px] font-bold text-sky-800 uppercase tracking-wide">Transferencias en Banco</p>
+              <p className="text-xl font-black text-sky-900">${details.total_transfer.toLocaleString('es-CO')}</p>
+            </div>
           </div>
         </div>
       </div>

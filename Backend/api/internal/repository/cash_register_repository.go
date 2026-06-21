@@ -12,6 +12,7 @@ import (
 type CashRegisterRepository interface {
 	CreateSession(session *domain.CashRegisterSession) error
 	GetOpenSession() (*domain.CashRegisterSession, error)
+	GetLastClosedSession() (*domain.CashRegisterSession, error)
 	GetSessionByID(id uuid.UUID) (*domain.CashRegisterSession, error)
 	CloseSession(session *domain.CashRegisterSession) error
 	AddExpense(expense *domain.CashRegisterExpense) error
@@ -50,6 +51,25 @@ func (r *postgresCashRegisterRepository) GetOpenSession() (*domain.CashRegisterS
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil // No open session
+		}
+		return nil, err
+	}
+	return &s, nil
+}
+
+func (r *postgresCashRegisterRepository) GetLastClosedSession() (*domain.CashRegisterSession, error) {
+	query := `
+		SELECT id, status, open_time, close_time, initial_cash, initial_transfer, final_cash_expected, final_cash_actual, discrepancy, final_transfer_expected, final_transfer_actual, transfer_discrepancy, created_at, updated_at
+		FROM cash_register_sessions
+		WHERE status = 'closed'
+		ORDER BY close_time DESC LIMIT 1
+	`
+	row := r.db.QueryRow(query)
+	var s domain.CashRegisterSession
+	err := row.Scan(&s.ID, &s.Status, &s.OpenTime, &s.CloseTime, &s.InitialCash, &s.InitialTransfer, &s.FinalCashExpected, &s.FinalCashActual, &s.Discrepancy, &s.FinalTransferExpected, &s.FinalTransferActual, &s.TransferDiscrepancy, &s.CreatedAt, &s.UpdatedAt)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil // No closed session
 		}
 		return nil, err
 	}

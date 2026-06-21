@@ -81,10 +81,25 @@ func (s *cashRegisterService) GetCurrentSessionDetails() (*domain.CashRegisterSe
 	openTimeInLoc := session.OpenTime.In(loc)
 	startOfOpenDay := time.Date(openTimeInLoc.Year(), openTimeInLoc.Month(), openTimeInLoc.Day(), 0, 0, 0, 0, loc)
 
-	log.Printf("📊 [GetCurrentSessionDetails] Calculating daily sales from start of day: %s (Session OpenTime: %s) to Now", startOfOpenDay.Format(time.RFC3339), session.OpenTime.Format(time.RFC3339))
+	// Determinar el tiempo de inicio basado en el cierre de la última sesión
+	lastClosedSession, err := s.repo.GetLastClosedSession()
+	var startTime time.Time
+	if err != nil || lastClosedSession == nil || lastClosedSession.CloseTime == nil {
+		startTime = startOfOpenDay
+		log.Printf("📊 [GetCurrentSessionDetails] Calculating daily sales from start of day: %s (No previous session)", startTime.Format(time.RFC3339))
+	} else {
+		startTime = *lastClosedSession.CloseTime
+		log.Printf("📊 [GetCurrentSessionDetails] Calculating daily sales from last closed session: %s (Session OpenTime: %s) to Now", startTime.Format(time.RFC3339), session.OpenTime.Format(time.RFC3339))
+	}
 
-	// Sumar las ventas del día completo (desde las 00:00:00 del día de apertura de la caja hasta AHORA)
-	totalCashSales, totalTransferSales, cashCount, transferCount, err := s.repo.GetSalesByTimeRange(startOfOpenDay, time.Now())
+	// Sumar las ventas del rango de tiempo
+	totalCashSales, totalTransferSales, cashCount, transferCount, err := s.repo.GetSalesByTimeRange(startTime, time.Now())
+	if err != nil {
+		return nil, err
+	}
+
+	// Calcular los conteos exactos de órdenes únicas
+	cashOrders, transferOrders, mixedOrders, err := s.repo.GetClosingOrderCounts(startTime, time.Now())
 	if err != nil {
 		return nil, err
 	}
@@ -100,6 +115,9 @@ func (s *cashRegisterService) GetCurrentSessionDetails() (*domain.CashRegisterSe
 		ExpectedCash:              expectedCash,
 		CashTransactionsCount:     cashCount,
 		TransferTransactionsCount: transferCount,
+		CashOrdersCount:           cashOrders,
+		TransferOrdersCount:       transferOrders,
+		MixedOrdersCount:          mixedOrders,
 	}, nil
 }
 
@@ -187,16 +205,25 @@ func (s *cashRegisterService) GetClosingSessionDetails() (*domain.CashRegisterCl
 	openTimeInLoc := session.OpenTime.In(loc)
 	startOfOpenDay := time.Date(openTimeInLoc.Year(), openTimeInLoc.Month(), openTimeInLoc.Day(), 0, 0, 0, 0, loc)
 
-	log.Printf("📊 [GetClosingSessionDetails] Calculating daily sales from start of day: %s to Now", startOfOpenDay.Format(time.RFC3339))
+	// Determinar el tiempo de inicio basado en el cierre de la última sesión
+	lastClosedSession, err := s.repo.GetLastClosedSession()
+	var startTime time.Time
+	if err != nil || lastClosedSession == nil || lastClosedSession.CloseTime == nil {
+		startTime = startOfOpenDay
+		log.Printf("📊 [GetClosingSessionDetails] Calculating sales from start of day: %s (No previous session)", startTime.Format(time.RFC3339))
+	} else {
+		startTime = *lastClosedSession.CloseTime
+		log.Printf("📊 [GetClosingSessionDetails] Calculating sales from last closed session: %s to Now", startTime.Format(time.RFC3339))
+	}
 
-	// 1. Sumar los montos monetarios de las ventas del día completo
-	totalCashSales, totalTransferSales, _, _, err := s.repo.GetSalesByTimeRange(startOfOpenDay, time.Now())
+	// 1. Sumar los montos monetarios de las ventas del rango de tiempo
+	totalCashSales, totalTransferSales, _, _, err := s.repo.GetSalesByTimeRange(startTime, time.Now())
 	if err != nil {
 		return nil, err
 	}
 
 	// 2. Calcular los conteos exactos de órdenes únicas para el cierre
-	cashOrders, transferOrders, mixedOrders, err := s.repo.GetClosingOrderCounts(startOfOpenDay, time.Now())
+	cashOrders, transferOrders, mixedOrders, err := s.repo.GetClosingOrderCounts(startTime, time.Now())
 	if err != nil {
 		return nil, err
 	}

@@ -37,6 +37,9 @@ export interface CashRegisterSessionDetails {
   expected_cash: number;
   cash_transactions_count: number;
   transfer_transactions_count: number;
+  cash_orders_count?: number;
+  transfer_orders_count?: number;
+  mixed_orders_count?: number;
 }
 
 export interface CashRegisterClosingDetails {
