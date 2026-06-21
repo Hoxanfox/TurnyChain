@@ -136,6 +136,7 @@ func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *
 	cashRegister := protected.Group("/cash-register")
 	cashRegister.Post("/open", cashRegisterHandler.OpenSession)
 	cashRegister.Get("/current", cashRegisterHandler.GetCurrentSession)
+	cashRegister.Get("/closing-details", cashRegisterHandler.GetClosingDetails)
 	cashRegister.Post("/expenses", cashRegisterHandler.AddExpense)
 	cashRegister.Post("/close", cashRegisterHandler.CloseSession)
 }

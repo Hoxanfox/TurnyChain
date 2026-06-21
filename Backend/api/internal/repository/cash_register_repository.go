@@ -17,6 +17,7 @@ type CashRegisterRepository interface {
 	AddExpense(expense *domain.CashRegisterExpense) error
 	GetExpensesBySession(sessionID uuid.UUID) ([]domain.CashRegisterExpense, error)
 	GetSalesByTimeRange(openTime time.Time, closeTime time.Time) (cashSales float64, transferSales float64, cashCount int, transferCount int, err error)
+	GetClosingOrderCounts(openTime time.Time, closeTime time.Time) (cashOrders int, transferOrders int, mixedOrders int, err error)
 }
 
 type postgresCashRegisterRepository struct {
@@ -155,4 +156,63 @@ func (r *postgresCashRegisterRepository) GetSalesByTimeRange(openTime time.Time,
 	}
 
 	return splitCash + singleCash, splitTransfer + singleTransfer, splitCashCount + singleCashCount, splitTransferCount + singleTransferCount, nil
+}
+
+func (r *postgresCashRegisterRepository) GetClosingOrderCounts(openTime time.Time, closeTime time.Time) (int, int, int, error) {
+	var cashOrders, transferOrders, mixedOrders int
+
+	// 1. Cash orders count: distinct pagado orders where payment_method = 'efectivo' OR has a cash payment in order_payments
+	cashQuery := `
+		SELECT COUNT(DISTINCT o.id)
+		FROM orders o
+		LEFT JOIN order_payments op ON op.order_id = o.id
+		WHERE o.status = 'pagado'
+		AND o.updated_at >= $1 AND o.updated_at <= $2
+		AND (
+			(o.payment_method = 'efectivo' AND NOT EXISTS (SELECT 1 FROM order_payments op2 WHERE op2.order_id = o.id))
+			OR op.payment_method = 'efectivo'
+		)
+	`
+	err := r.db.QueryRow(cashQuery, openTime, closeTime).Scan(&cashOrders)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+
+	// 2. Transfer orders count: distinct pagado orders where payment_method = 'transferencia' OR has a transfer payment in order_payments
+	transferQuery := `
+		SELECT COUNT(DISTINCT o.id)
+		FROM orders o
+		LEFT JOIN order_payments op ON op.order_id = o.id
+		WHERE o.status = 'pagado'
+		AND o.updated_at >= $1 AND o.updated_at <= $2
+		AND (
+			(o.payment_method = 'transferencia' AND NOT EXISTS (SELECT 1 FROM order_payments op2 WHERE op2.order_id = o.id))
+			OR op.payment_method = 'transferencia'
+		)
+	`
+	err = r.db.QueryRow(transferQuery, openTime, closeTime).Scan(&transferOrders)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+
+	// 3. Mixed orders count: distinct pagado orders where payment_method = 'mixto' or has both cash and transfer payments in order_payments
+	mixedQuery := `
+		SELECT COUNT(DISTINCT o.id)
+		FROM orders o
+		WHERE o.status = 'pagado'
+		AND o.updated_at >= $1 AND o.updated_at <= $2
+		AND (
+			o.payment_method = 'mixto'
+			OR (
+				EXISTS (SELECT 1 FROM order_payments op1 WHERE op1.order_id = o.id AND op1.payment_method = 'efectivo')
+				AND EXISTS (SELECT 1 FROM order_payments op2 WHERE op2.order_id = o.id AND op2.payment_method = 'transferencia')
+			)
+		)
+	`
+	err = r.db.QueryRow(mixedQuery, openTime, closeTime).Scan(&mixedOrders)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+
+	return cashOrders, transferOrders, mixedOrders, nil
 }

@@ -48,6 +48,14 @@ func (h *CashRegisterHandler) GetCurrentSession(c *fiber.Ctx) error {
 	return c.JSON(details)
 }
 
+func (h *CashRegisterHandler) GetClosingDetails(c *fiber.Ctx) error {
+	details, err := h.Service.GetClosingSessionDetails()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	return c.JSON(details)
+}
+
 func (h *CashRegisterHandler) AddExpense(c *fiber.Ctx) error {
 	amountStr := c.FormValue("amount")
 	description := c.FormValue("description")

@@ -13,6 +13,7 @@ import (
 type CashRegisterService interface {
 	OpenSession(initialCash float64, initialTransfer float64) (*domain.CashRegisterSession, error)
 	GetCurrentSessionDetails() (*domain.CashRegisterSessionDetails, error)
+	GetClosingSessionDetails() (*domain.CashRegisterClosingDetails, error)
 	AddExpense(amount float64, description string, imagePath *string) (*domain.CashRegisterExpense, error)
 	CloseSession(finalCashActual float64, finalTransferActual float64) (*domain.CashRegisterSession, error)
 }
@@ -156,4 +157,61 @@ func (s *cashRegisterService) CloseSession(finalCashActual float64, finalTransfe
 		return nil, err
 	}
 	return session, nil
+}
+
+func (s *cashRegisterService) GetClosingSessionDetails() (*domain.CashRegisterClosingDetails, error) {
+	session, err := s.repo.GetOpenSession()
+	if err != nil {
+		return nil, err
+	}
+	if session == nil {
+		return &domain.CashRegisterClosingDetails{
+			Session: nil,
+		}, nil
+	}
+
+	expenses, err := s.repo.GetExpensesBySession(session.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	var totalExpenses float64
+	for _, e := range expenses {
+		totalExpenses += e.Amount
+	}
+
+	loc := time.Local
+	if bogota, err := time.LoadLocation("America/Bogota"); err == nil {
+		loc = bogota
+	}
+	openTimeInLoc := session.OpenTime.In(loc)
+	startOfOpenDay := time.Date(openTimeInLoc.Year(), openTimeInLoc.Month(), openTimeInLoc.Day(), 0, 0, 0, 0, loc)
+
+	log.Printf("📊 [GetClosingSessionDetails] Calculating daily sales from start of day: %s to Now", startOfOpenDay.Format(time.RFC3339))
+
+	// 1. Sumar los montos monetarios de las ventas del día completo
+	totalCashSales, totalTransferSales, _, _, err := s.repo.GetSalesByTimeRange(startOfOpenDay, time.Now())
+	if err != nil {
+		return nil, err
+	}
+
+	// 2. Calcular los conteos exactos de órdenes únicas para el cierre
+	cashOrders, transferOrders, mixedOrders, err := s.repo.GetClosingOrderCounts(startOfOpenDay, time.Now())
+	if err != nil {
+		return nil, err
+	}
+
+	expectedCash := session.InitialCash + totalCashSales - totalExpenses
+
+	return &domain.CashRegisterClosingDetails{
+		Session:             session,
+		Expenses:            expenses,
+		TotalCashSales:      totalCashSales,
+		TotalTransfer:       totalTransferSales + session.InitialTransfer,
+		TotalExpenses:       totalExpenses,
+		ExpectedCash:        expectedCash,
+		CashOrdersCount:     cashOrders,
+		TransferOrdersCount: transferOrders,
+		MixedOrdersCount:    mixedOrders,
+	}, nil
 }

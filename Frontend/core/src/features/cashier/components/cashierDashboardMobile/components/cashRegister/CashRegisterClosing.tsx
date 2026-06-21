@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import type { CashRegisterSessionDetails } from '../../api/cashRegisterApi';
+import type { CashRegisterClosingDetails } from '../../api/cashRegisterApi';
 import { closeSession } from '../../api/cashRegisterApi';
 import { CashDenominationsModal } from './CashDenominationsModal';
 
 interface CashRegisterClosingProps {
-  details: CashRegisterSessionDetails;
+  details: CashRegisterClosingDetails;
   onClosed: () => void;
   onCancel: () => void;
 }
@@ -84,7 +84,7 @@ export const CashRegisterClosing: React.FC<CashRegisterClosingProps> = ({ detail
           <div className="flex justify-between items-start mb-2">
             <span className="text-xs font-bold text-emerald-800">EFECTIVO<br/>ESPERADO</span>
             <span className="bg-emerald-200 text-emerald-800 text-[10px] px-1.5 py-0.5 rounded font-bold">
-              {details.cash_transactions_count} trans.
+              {details.cash_orders_count} ord.
             </span>
           </div>
           <p className="text-xl font-black text-emerald-900">${details.expected_cash.toLocaleString('es-CO')}</p>
@@ -95,7 +95,7 @@ export const CashRegisterClosing: React.FC<CashRegisterClosingProps> = ({ detail
           <div className="flex justify-between items-start mb-2">
             <span className="text-xs font-bold text-blue-800">TRANSFERENCIAS<br/>ESPERADAS</span>
             <span className="bg-blue-200 text-blue-800 text-[10px] px-1.5 py-0.5 rounded font-bold">
-              {details.transfer_transactions_count} comprob.
+              {details.transfer_orders_count} ord.
             </span>
           </div>
           <p className="text-xl font-black text-blue-900">${details.total_transfer.toLocaleString('es-CO')}</p>
