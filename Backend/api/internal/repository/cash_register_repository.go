@@ -181,7 +181,7 @@ func (r *postgresCashRegisterRepository) GetSalesByTimeRange(openTime time.Time,
 func (r *postgresCashRegisterRepository) GetClosingOrderCounts(openTime time.Time, closeTime time.Time) (int, int, int, error) {
 	var cashOrders, transferOrders, mixedOrders int
 
-	// 1. Cash orders count: distinct pagado orders where payment_method = 'efectivo' OR has a cash payment in order_payments
+	// 1. Cash orders count: distinct pagado orders that are paid ENTIRELY in cash (no transfers)
 	cashQuery := `
 		SELECT COUNT(DISTINCT o.id)
 		FROM orders o
@@ -189,8 +189,16 @@ func (r *postgresCashRegisterRepository) GetClosingOrderCounts(openTime time.Tim
 		WHERE o.status = 'pagado'
 		AND o.updated_at >= $1 AND o.updated_at <= $2
 		AND (
+			-- Caso 1: Pago único en efectivo
 			(o.payment_method = 'efectivo' AND NOT EXISTS (SELECT 1 FROM order_payments op2 WHERE op2.order_id = o.id))
-			OR op.payment_method = 'efectivo'
+			-- Caso 2: Múltiples pagos, pero TODOS son efectivo (ninguno es transferencia)
+			OR (
+				op.payment_method = 'efectivo'
+				AND NOT EXISTS (
+					SELECT 1 FROM order_payments op3
+					WHERE op3.order_id = o.id AND op3.payment_method = 'transferencia'
+				)
+			)
 		)
 	`
 	err := r.db.QueryRow(cashQuery, openTime, closeTime).Scan(&cashOrders)
@@ -198,7 +206,7 @@ func (r *postgresCashRegisterRepository) GetClosingOrderCounts(openTime time.Tim
 		return 0, 0, 0, err
 	}
 
-	// 2. Transfer orders count: distinct pagado orders where payment_method = 'transferencia' OR has a transfer payment in order_payments
+	// 2. Transfer orders count: distinct pagado orders that are paid ENTIRELY by transfer (no cash)
 	transferQuery := `
 		SELECT COUNT(DISTINCT o.id)
 		FROM orders o
@@ -206,8 +214,16 @@ func (r *postgresCashRegisterRepository) GetClosingOrderCounts(openTime time.Tim
 		WHERE o.status = 'pagado'
 		AND o.updated_at >= $1 AND o.updated_at <= $2
 		AND (
+			-- Caso 1: Pago único en transferencia
 			(o.payment_method = 'transferencia' AND NOT EXISTS (SELECT 1 FROM order_payments op2 WHERE op2.order_id = o.id))
-			OR op.payment_method = 'transferencia'
+			-- Caso 2: Múltiples pagos, pero TODOS son transferencia (ninguno es efectivo)
+			OR (
+				op.payment_method = 'transferencia'
+				AND NOT EXISTS (
+					SELECT 1 FROM order_payments op3
+					WHERE op3.order_id = o.id AND op3.payment_method = 'efectivo'
+				)
+			)
 		)
 	`
 	err = r.db.QueryRow(transferQuery, openTime, closeTime).Scan(&transferOrders)
@@ -215,7 +231,7 @@ func (r *postgresCashRegisterRepository) GetClosingOrderCounts(openTime time.Tim
 		return 0, 0, 0, err
 	}
 
-	// 3. Mixed orders count: distinct pagado orders where payment_method = 'mixto' or has both cash and transfer payments in order_payments
+	// 3. Mixed orders count: distinct pagado orders that contain BOTH cash and transfer payments
 	mixedQuery := `
 		SELECT COUNT(DISTINCT o.id)
 		FROM orders o
