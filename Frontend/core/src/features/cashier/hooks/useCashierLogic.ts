@@ -6,6 +6,28 @@ import type { Order } from '../../../types/orders';
 import type { FilterStatus, PaymentMethodFilter, SortBy } from '../components/cashierDashboardShared/CashierFilters';
 import type { CashierStatistics } from '../types/cashierDashboardTypes';
 
+export const getOrderPaymentCategory = (order: Order): 'efectivo' | 'transferencia' | 'mixto' => {
+  if (order.payment_method === 'mixto') {
+    const hasCash = order.payments?.some(p => p.method === 'efectivo');
+    const hasTransfer = order.payments?.some(p => p.method === 'transferencia');
+    if (hasCash && hasTransfer) {
+      return 'mixto';
+    }
+    if (hasCash) return 'efectivo';
+    if (hasTransfer) return 'transferencia';
+    return 'mixto'; // fallback
+  }
+  if (order.payment_method === 'transferencia') return 'transferencia';
+  if (order.payment_method === 'efectivo') return 'efectivo';
+
+  // Fallback check based on payments array
+  const hasCash = order.payments?.some(p => p.method === 'efectivo');
+  const hasTransfer = order.payments?.some(p => p.method === 'transferencia');
+  if (hasCash && hasTransfer) return 'mixto';
+  if (hasTransfer) return 'transferencia';
+  return 'efectivo'; // default fallback
+};
+
 export const useCashierLogic = (activeOrders: Order[]) => {
   const getDayKey = (value: Date) =>
     new Intl.DateTimeFormat('en-CA', {
@@ -160,13 +182,11 @@ export const useCashierLogic = (activeOrders: Order[]) => {
         return false;
       }
 
-      // Filtro por método de pago
+      // Filtro por método de pago (mixto, efectivo, transferencia)
       if (!isPorCobrarStatus(order.status) && paymentMethodFilter !== 'all') {
-        if (order.payments && order.payments.length > 0) {
-          const hasMethod = order.payments.some(p => p.method === paymentMethodFilter);
-          if (!hasMethod) return false;
-        } else {
-          if (order.payment_method !== paymentMethodFilter) return false;
+        const category = getOrderPaymentCategory(order);
+        if (category !== paymentMethodFilter) {
+          return false;
         }
       }
 

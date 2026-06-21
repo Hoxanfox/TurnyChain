@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import type { Order } from '../../../../../types/orders';
 import type { CashierStatistics } from '../../../types/cashierDashboardTypes';
+import { getOrderPaymentCategory } from '../../../hooks/useCashierLogic';
 
 interface CashierMobileDerivedDataParams {
   ordersByTable: Record<number, Order[]>;
@@ -57,8 +58,9 @@ export const useCashierMobileDerivedData = ({
     totalRevenue: statistics.totalPaid,
     pendingPayments: pendingVerificationCount,
     verifiedPayments: paidOrders.length,
-    cashPayments: allOrders.filter((order) => order.status === 'pagado' && (order.payments?.some(p => p.method === 'efectivo') || order.payment_method === 'efectivo')).length,
-    transferPayments: allOrders.filter((order) => order.status === 'pagado' && (order.payments?.some(p => p.method === 'transferencia') || order.payment_method === 'transferencia')).length,
+    cashPayments: allOrders.filter((order) => order.status === 'pagado' && getOrderPaymentCategory(order) === 'efectivo').length,
+    transferPayments: allOrders.filter((order) => order.status === 'pagado' && getOrderPaymentCategory(order) === 'transferencia').length,
+    mixedPayments: allOrders.filter((order) => order.status === 'pagado' && getOrderPaymentCategory(order) === 'mixto').length,
     averageOrderValue: statistics.averageOrderValue,
     dailyRevenue: statistics.dailyRevenue,
     dailyCash: statistics.dailyCash,
