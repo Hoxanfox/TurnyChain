@@ -66,13 +66,9 @@ func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *
 	orders.Put("/:id/status", orderHandler.UpdateOrderStatus)
 	orders.Put("/:id/manage", orderHandler.ManageOrder)
 	orders.Put("/:id/items", orderHandler.UpdateOrderItems)
-<<<<<<< HEAD
 	orders.Put("/:id/edit", orderHandler.EditOrder) // Nueva ruta para edición granular
 	orders.Post("/:id/notarize-now", orderHandler.NotarizeOrderNow) // Ruta para notarización inmediata
-=======
-	orders.Patch("/:id/edit", orderHandler.EditOrder) // Nueva ruta para edición granular de orden
 	orders.Post("/:id/link", orderHandler.LinkOrder) // Nueva ruta para vincular órdenes
->>>>>>> 9c9d73c724d561abeb7cf997173a780843ff3e20
 	orders.Post("/:id/proof", orderHandler.UploadPaymentProof) // Ruta existente para 1 solo pago
 	orders.Post("/:id/split-payments", orderHandler.UploadSplitPayments) // Nueva ruta para multiples pagos
 
