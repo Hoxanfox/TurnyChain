@@ -9,6 +9,7 @@ import { CashierFilters } from '../cashierDashboardShared/CashierFilters';
 import type { FilterStatus, PaymentMethodFilter, SortBy } from '../cashierDashboardShared/CashierFilters';
 import { StatisticsCard } from '../cashierDashboardShared/StatisticsCard';
 import { CinemaTablesSelector } from '../cashierDashboardShared/CinemaTablesSelector';
+import { getOrderPaymentCategory } from '../../hooks/useCashierLogic';
 import { OrderIdSearchModal } from '../cashierDashboardShared/OrderIdSearchModal';
 import { WaiterPickerModal } from '../cashierDashboardShared/WaiterPickerModal';
 import { QuickTablePickerModal } from '../cashierDashboardShared/QuickTablePickerModal';
@@ -127,8 +128,9 @@ export const CashierDashboardDesktop: React.FC<CashierDashboardDesktopProps> = (
   // Datos para CashierFilters
   const allOrders = Object.values(ordersByTable).flat();
   const totalOrders = allOrders.length;
-  const cashPayments = allOrders.filter((o) => o.payments?.some(p => p.method === 'efectivo') || o.payment_method === 'efectivo').length;
-  const transferPayments = allOrders.filter((o) => o.payments?.some(p => p.method === 'transferencia') || o.payment_method === 'transferencia').length;
+  const cashPayments = allOrders.filter((o) => o.status === 'pagado' && getOrderPaymentCategory(o) === 'efectivo').length;
+  const transferPayments = allOrders.filter((o) => o.status === 'pagado' && getOrderPaymentCategory(o) === 'transferencia').length;
+  const mixedPayments = allOrders.filter((o) => o.status === 'pagado' && getOrderPaymentCategory(o) === 'mixto').length;
   const urgentOrders = allOrders.filter((o) => o.status === 'por_verificar');
   const deliveredOrders = allOrders.filter((o) => isPorCobrarStatus(o.status));
   const paidOrders = allOrders.filter((o) => o.status === 'pagado');
@@ -207,6 +209,7 @@ export const CashierDashboardDesktop: React.FC<CashierDashboardDesktopProps> = (
     verifiedPayments: paidOrders.length,
     cashPayments,
     transferPayments,
+    mixedPayments,
     averageOrderValue: statistics.averageOrderValue,
     // Analíticas diarias
     dailyRevenue: statistics.dailyRevenue,
@@ -293,6 +296,7 @@ export const CashierDashboardDesktop: React.FC<CashierDashboardDesktopProps> = (
           pendingVerificationCount={pendingVerificationCount}
           cashPayments={cashPayments}
           transferPayments={transferPayments}
+          mixedPayments={mixedPayments}
         />
 
         {/* Acciones rápidas equivalentes a móvil */}

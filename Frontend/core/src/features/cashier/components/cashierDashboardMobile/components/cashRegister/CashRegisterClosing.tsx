@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import type { CashRegisterSessionDetails } from '../../../../api/cashRegisterAPI';
-import { closeSession } from '../../../../api/cashRegisterAPI';
+import type { CashRegisterClosingDetails } from '../../api/cashRegisterApi';
+import { closeSession } from '../../api/cashRegisterApi';
 import { CashDenominationsModal } from './CashDenominationsModal';
 
 interface CashRegisterClosingProps {
-  details: CashRegisterSessionDetails;
+  details: CashRegisterClosingDetails;
   onClosed: () => void;
   onCancel: () => void;
 }
@@ -84,7 +84,7 @@ export const CashRegisterClosing: React.FC<CashRegisterClosingProps> = ({ detail
           <div className="flex justify-between items-start mb-2">
             <span className="text-xs font-bold text-emerald-800">EFECTIVO<br/>ESPERADO</span>
             <span className="bg-emerald-200 text-emerald-800 text-[10px] px-1.5 py-0.5 rounded font-bold">
-              {details.cash_transactions_count} trans.
+              {details.cash_orders_count} ord.
             </span>
           </div>
           <p className="text-xl font-black text-emerald-900">${details.expected_cash.toLocaleString('es-CO')}</p>
@@ -95,10 +95,39 @@ export const CashRegisterClosing: React.FC<CashRegisterClosingProps> = ({ detail
           <div className="flex justify-between items-start mb-2">
             <span className="text-xs font-bold text-blue-800">TRANSFERENCIAS<br/>ESPERADAS</span>
             <span className="bg-blue-200 text-blue-800 text-[10px] px-1.5 py-0.5 rounded font-bold">
-              {details.transfer_transactions_count} comprob.
+              {details.transfer_orders_count} ord.
             </span>
           </div>
           <p className="text-xl font-black text-blue-900">${details.total_transfer.toLocaleString('es-CO')}</p>
+        </div>
+      </div>
+
+      {/* Detalle de Cuentas Verificable */}
+      <div className="bg-gray-50 rounded-xl p-3 border border-gray-200 text-xs space-y-2">
+        <p className="font-bold text-gray-700 border-b border-gray-200 pb-1">🧮 Detalle de Cuentas para Verificación</p>
+        <div className="flex justify-between">
+          <span className="text-gray-500">Bases de Apertura:</span>
+          <span className="font-semibold text-gray-800">
+            Efe: ${details.session?.initial_cash.toLocaleString('es-CO')} | Tra: ${details.session?.initial_transfer.toLocaleString('es-CO')}
+          </span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-gray-500">Ventas Efectivo (+):</span>
+          <span className="font-bold text-emerald-600">+${details.total_cash_sales.toLocaleString('es-CO')}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-gray-500">Ventas Transferencia (+):</span>
+          <span className="font-bold text-blue-600">+${(details.total_transfer - (details.session?.initial_transfer || 0)).toLocaleString('es-CO')}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-gray-500">Gastos de Caja (-):</span>
+          <span className="font-bold text-red-600">-${details.total_expenses.toLocaleString('es-CO')}</span>
+        </div>
+        <div className="flex justify-between border-t border-gray-200 pt-1 font-bold">
+          <span className="text-purple-700">Órdenes con Pago Mixto:</span>
+          <span className="text-purple-800 bg-purple-100 px-1.5 py-0.2 rounded text-[10px]">
+            {details.mixed_orders_count || 0} órdenes
+          </span>
         </div>
       </div>
 

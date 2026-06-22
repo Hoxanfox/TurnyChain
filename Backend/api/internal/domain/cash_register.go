@@ -41,4 +41,19 @@ type CashRegisterSessionDetails struct {
 	ExpectedCash              float64               `json:"expected_cash"`
 	CashTransactionsCount     int                   `json:"cash_transactions_count"`
 	TransferTransactionsCount int                   `json:"transfer_transactions_count"`
+	CashOrdersCount           int                   `json:"cash_orders_count"`
+	TransferOrdersCount       int                   `json:"transfer_orders_count"`
+	MixedOrdersCount          int                   `json:"mixed_orders_count"`
+}
+
+type CashRegisterClosingDetails struct {
+	Session                   *CashRegisterSession  `json:"session"`
+	Expenses                  []CashRegisterExpense `json:"expenses"`
+	TotalCashSales            float64               `json:"total_cash_sales"`
+	TotalTransfer             float64               `json:"total_transfer"`
+	TotalExpenses             float64               `json:"total_expenses"`
+	ExpectedCash              float64               `json:"expected_cash"`
+	CashOrdersCount           int                   `json:"cash_orders_count"`
+	TransferOrdersCount       int                   `json:"transfer_orders_count"`
+	MixedOrdersCount          int                   `json:"mixed_orders_count"`
 }

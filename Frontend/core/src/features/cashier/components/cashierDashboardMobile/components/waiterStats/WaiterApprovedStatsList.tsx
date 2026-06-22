@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import type { WaiterApprovedStat } from '../../types/waiterStatsTypes';
+import { formatMoney } from '../../utils/invoiceHistoryFormatters';
 
 interface WaiterApprovedStatsListProps {
   items: WaiterApprovedStat[];
@@ -42,7 +43,10 @@ export const WaiterApprovedStatsList: React.FC<WaiterApprovedStatsListProps> = (
                   <p className="text-sm font-semibold text-slate-800">{stat.waiter_name || 'Mesero sin nombre'}</p>
                   <p className="text-xs text-slate-500">ID: {stat.waiter_id.substring(0, 8).toUpperCase()}...</p>
                 </div>
-                <span className="text-lg font-bold text-indigo-600">{stat.approved_count}</span>
+                <div className="text-right">
+                  <p className="text-sm font-bold text-indigo-600">{formatMoney(stat.total_amount || 0)}</p>
+                  <p className="text-xs text-slate-500">{stat.approved_count} orden{stat.approved_count !== 1 ? 'es' : ''}</p>
+                </div>
               </div>
             ))}
           </div>

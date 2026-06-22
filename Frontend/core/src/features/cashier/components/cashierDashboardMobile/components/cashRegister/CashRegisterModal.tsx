@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import type { CashRegisterSessionDetails } from '../../../../api/cashRegisterAPI';
-import { getCurrentSessionDetails } from '../../../../api/cashRegisterAPI';
+import type { CashRegisterSessionDetails, CashRegisterClosingDetails } from '../../api/cashRegisterApi';
+import { getCurrentSessionDetails, getClosingSessionDetails } from '../../api/cashRegisterApi';
 import { CashRegisterOpening } from './CashRegisterOpening';
 import { CashRegisterActive } from './CashRegisterActive';
 import { CashRegisterClosing } from './CashRegisterClosing';
@@ -12,7 +12,9 @@ interface CashRegisterModalProps {
 
 export const CashRegisterModal: React.FC<CashRegisterModalProps> = ({ isOpen, onClose }) => {
   const [sessionDetails, setSessionDetails] = useState<CashRegisterSessionDetails | null>(null);
+  const [closingDetails, setClosingDetails] = useState<CashRegisterClosingDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isClosingLoading, setIsClosingLoading] = useState(false);
   const [currentTab, setCurrentTab] = useState<'active' | 'closing'>('active');
 
   const fetchSession = async () => {
@@ -24,6 +26,19 @@ export const CashRegisterModal: React.FC<CashRegisterModalProps> = ({ isOpen, on
       console.error('Error fetching cash register session', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleGoToClosing = async () => {
+    setCurrentTab('closing');
+    setIsClosingLoading(true);
+    try {
+      const data = await getClosingSessionDetails();
+      setClosingDetails(data);
+    } catch (error) {
+      console.error('Error fetching closing session details', error);
+    } finally {
+      setIsClosingLoading(false);
     }
   };
 
@@ -72,17 +87,24 @@ export const CashRegisterModal: React.FC<CashRegisterModalProps> = ({ isOpen, on
             <CashRegisterActive 
               details={sessionDetails} 
               onExpenseAdded={fetchSession} 
-              onGoToClosing={() => setCurrentTab('closing')} 
+              onGoToClosing={handleGoToClosing} 
             />
           ) : (
-            <CashRegisterClosing 
-              details={sessionDetails} 
-              onClosed={() => {
-                fetchSession();
-                setTimeout(onClose, 2000); // Close modal after 2 seconds showing success
-              }}
-              onCancel={() => setCurrentTab('active')} 
-            />
+            isClosingLoading ? (
+              <div className="flex flex-col items-center justify-center h-40">
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-teal-600"></div>
+                <p className="mt-4 text-gray-500 font-semibold">Cargando datos de cierre...</p>
+              </div>
+            ) : closingDetails ? (
+              <CashRegisterClosing 
+                details={closingDetails} 
+                onClosed={() => {
+                  fetchSession();
+                  setTimeout(onClose, 2000); // Close modal after 2 seconds showing success
+                }}
+                onCancel={() => setCurrentTab('active')} 
+              />
+            ) : null
           )}
         </div>
       </div>

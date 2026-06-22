@@ -51,14 +51,14 @@ const CashierMetricsPage: React.FC = () => {
             </div>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => loadData(false)}
+                onClick={() => loadData()}
                 className="px-4 py-2 rounded-lg bg-amber-600 text-white font-semibold hover:bg-amber-700 transition"
               >
                 Actualizar
               </button>
               {hasMore && (
                 <button
-                  onClick={() => loadData(true)}
+                  onClick={() => loadData()}
                   className="px-4 py-2 rounded-lg bg-white border border-amber-200 text-amber-700 font-semibold hover:bg-amber-50 transition"
                 >
                   Cargar mas

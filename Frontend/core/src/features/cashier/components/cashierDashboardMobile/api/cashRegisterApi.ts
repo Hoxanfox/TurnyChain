@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || '/api';
+const API_URL = '/api';
 
 export interface CashRegisterSession {
   id: string;
@@ -37,6 +37,21 @@ export interface CashRegisterSessionDetails {
   expected_cash: number;
   cash_transactions_count: number;
   transfer_transactions_count: number;
+  cash_orders_count?: number;
+  transfer_orders_count?: number;
+  mixed_orders_count?: number;
+}
+
+export interface CashRegisterClosingDetails {
+  session: CashRegisterSession | null;
+  expenses: CashRegisterExpense[];
+  total_cash_sales: number;
+  total_transfer: number;
+  total_expenses: number;
+  expected_cash: number;
+  cash_orders_count: number;
+  transfer_orders_count: number;
+  mixed_orders_count: number;
 }
 
 const getAuthHeaders = () => {
@@ -56,6 +71,11 @@ export const openSession = async (initialCash: number, initialTransfer: number):
 
 export const getCurrentSessionDetails = async (): Promise<CashRegisterSessionDetails> => {
   const response = await axios.get(`${API_URL}/cash-register/current`, getAuthHeaders());
+  return response.data;
+};
+
+export const getClosingSessionDetails = async (): Promise<CashRegisterClosingDetails> => {
+  const response = await axios.get(`${API_URL}/cash-register/closing-details`, getAuthHeaders());
   return response.data;
 };
 

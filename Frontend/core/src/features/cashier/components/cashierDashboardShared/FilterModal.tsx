@@ -121,7 +121,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
             <label className="block text-sm font-semibold text-gray-700 mb-2">
               💳 Método de Pago
             </label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => onPaymentMethodFilterChange('all')}
                 className={`px-4 py-3 rounded-xl font-semibold transition-all ${
@@ -151,6 +151,16 @@ export const FilterModal: React.FC<FilterModalProps> = ({
                 }`}
               >
                 🏦 Transfer.
+              </button>
+              <button
+                onClick={() => onPaymentMethodFilterChange('mixto')}
+                className={`px-4 py-3 rounded-xl font-semibold transition-all ${
+                  paymentMethodFilter === 'mixto'
+                    ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                🔀 Mixto
               </button>
             </div>
           </div>

@@ -270,6 +270,9 @@ func (s *orderService) GetOrders(userRole string, userID uuid.UUID, status strin
 	if createdBefore != nil {
 		filters["created_before"] = *createdBefore
 	}
+	if createdAfter != nil && createdBefore != nil {
+		filters["today_only"] = true
+	}
 
 	// Si my_orders=true, filtrar por waiter_id independientemente del rol
 	if myOrders == "true" {

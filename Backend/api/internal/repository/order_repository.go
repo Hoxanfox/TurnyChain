@@ -104,11 +104,47 @@ func (r *orderRepository) GetOrders(filters map[string]interface{}) ([]domain.Or
 		args = append(args, waiterID)
 		argId++
 	}
-	if createdAfter, ok := filters["created_after"]; ok {
-		query += " AND o.created_at >= $" + strconv.Itoa(argId)
-		args = append(args, createdAfter)
+	if todayOnly, ok := filters["today_only"]; ok && todayOnly.(bool) {
+		createdAfterVal, hasCreatedAfter := filters["created_after"]
+		var createdAfter time.Time
+		if hasCreatedAfter {
+			createdAfter = createdAfterVal.(time.Time)
+		} else {
+			createdAfter = time.Now().Add(-24 * time.Hour)
+		}
+
+		// Consultar el startTime correcto de la sesión de caja abierta
+		var startTime time.Time
+		sessionStartQuery := `
+			SELECT COALESCE(
+				(SELECT 
+					COALESCE(
+						(SELECT close_time FROM cash_register_sessions WHERE status = 'closed' AND close_time < s.open_time ORDER BY close_time DESC LIMIT 1),
+						date_trunc('day', s.open_time AT TIME ZONE 'America/Bogota') AT TIME ZONE 'America/Bogota'
+					)
+				 FROM cash_register_sessions s 
+				 WHERE s.status = 'open' 
+				 ORDER BY s.open_time DESC LIMIT 1
+				),
+				$1::timestamptz
+			)
+		`
+		err := r.db.QueryRow(sessionStartQuery, createdAfter).Scan(&startTime)
+		if err != nil {
+			startTime = createdAfter // Fallback al inicio del día
+		}
+
+		query += " AND (o.created_at >= $" + strconv.Itoa(argId) + " OR (o.status = 'pagado' AND o.updated_at >= $" + strconv.Itoa(argId) + "))"
+		args = append(args, startTime)
 		argId++
+	} else {
+		if createdAfter, ok := filters["created_after"]; ok {
+			query += " AND o.created_at >= $" + strconv.Itoa(argId)
+			args = append(args, createdAfter)
+			argId++
+		}
 	}
+
 	if createdBefore, ok := filters["created_before"]; ok {
 		query += " AND o.created_at < $" + strconv.Itoa(argId)
 		args = append(args, createdBefore)
@@ -307,7 +343,8 @@ func (r *orderRepository) GetWaiterApprovedStats(start time.Time, end time.Time,
 			to_char(date_trunc($1, o.updated_at), $2) as period,
 			o.waiter_id,
 			COALESCE(u.username, '') as waiter_name,
-			COUNT(*) as approved_count
+			COUNT(*) as approved_count,
+			COALESCE(SUM(o.total), 0) as total_amount
 		FROM orders o
 		LEFT JOIN users u ON o.waiter_id = u.id
 		WHERE o.status = 'pagado'
@@ -326,7 +363,7 @@ func (r *orderRepository) GetWaiterApprovedStats(start time.Time, end time.Time,
 	stats := make([]domain.WaiterApprovedStat, 0)
 	for rows.Next() {
 		var stat domain.WaiterApprovedStat
-		if err := rows.Scan(&stat.Period, &stat.WaiterID, &stat.WaiterName, &stat.ApprovedCount); err != nil {
+		if err := rows.Scan(&stat.Period, &stat.WaiterID, &stat.WaiterName, &stat.ApprovedCount, &stat.TotalAmount); err != nil {
 			return nil, err
 		}
 		stats = append(stats, stat)

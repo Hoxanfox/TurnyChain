@@ -30,8 +30,9 @@ const QRModal: React.FC<QRModalProps> = ({ onClose }) => {
   const getFullUrl = (path: string) => {
     if (path.startsWith('http')) return path;
     const normalizedPath = path.startsWith('/uploads/') ? path.replace('/uploads/', '/api/static/') : path;
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
-    return `${API_URL.replace('/api', '')}${normalizedPath}`;
+    const API_URL = import.meta.env.VITE_API_URL || '/api';
+    const base = API_URL.startsWith('http') ? API_URL : `${window.location.origin}${API_URL}`;
+    return `${base.replace('/api', '')}${normalizedPath}`;
   };
 
   return (

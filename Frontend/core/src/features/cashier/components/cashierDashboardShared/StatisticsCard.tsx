@@ -7,6 +7,7 @@ interface Statistics {
   verifiedPayments: number;
   cashPayments: number;
   transferPayments: number;
+  mixedPayments: number;
   averageOrderValue: number;
   // Analíticas diarias
   dailyRevenue: number;
@@ -145,7 +146,7 @@ export const StatisticsCard: React.FC<StatisticsCardProps> = ({ stats }) => {
         </div>
 
         {/* Métodos de pago (contadores de órdenes) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-4 rounded-xl border-2 border-orange-200 shadow-sm">
             <div className="flex items-center gap-3">
               <span className="text-3xl">💵</span>
@@ -164,6 +165,17 @@ export const StatisticsCard: React.FC<StatisticsCardProps> = ({ stats }) => {
                 <p className="text-xs text-cyan-600 font-semibold">Órdenes por Transferencia</p>
                 <p className="text-2xl font-bold text-cyan-900">{stats.transferPayments}</p>
                 <p className="text-xs text-cyan-500">Total de órdenes activas</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-xl border-2 border-purple-200 shadow-sm">
+            <div className="flex items-center gap-3">
+              <span className="text-3xl">🔀</span>
+              <div className="flex-1">
+                <p className="text-xs text-purple-600 font-semibold">Órdenes Mixtas</p>
+                <p className="text-2xl font-bold text-purple-900">{stats.mixedPayments}</p>
+                <p className="text-xs text-purple-500">Total de órdenes activas</p>
               </div>
             </div>
           </div>

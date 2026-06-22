@@ -7,4 +7,5 @@ type WaiterApprovedStat struct {
 	WaiterID      uuid.UUID `json:"waiter_id"`
 	WaiterName    string    `json:"waiter_name"`
 	ApprovedCount int       `json:"approved_count"`
+	TotalAmount   float64   `json:"total_amount"`
 }

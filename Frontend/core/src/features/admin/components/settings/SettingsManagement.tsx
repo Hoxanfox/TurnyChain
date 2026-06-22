@@ -94,8 +94,9 @@ const SettingsManagement: React.FC = () => {
     if (path.startsWith('http')) return path;
     // Replace old /uploads paths to /api/static if necessary
     const normalizedPath = path.startsWith('/uploads/') ? path.replace('/uploads/', '/api/static/') : path;
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
-    return `${API_URL.replace('/api', '')}${normalizedPath}?v=${new Date().getTime()}`; // cache buster
+    const API_URL = import.meta.env.VITE_API_URL || '/api';
+    const base = API_URL.startsWith('http') ? API_URL : `${window.location.origin}${API_URL}`;
+    return `${base.replace('/api', '')}${normalizedPath}?v=${new Date().getTime()}`; // cache buster
   };
 
   if (!isUnlocked) {

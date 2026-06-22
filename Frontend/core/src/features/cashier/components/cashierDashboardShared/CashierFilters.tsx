@@ -1,7 +1,7 @@
 import React from 'react';
 
 export type FilterStatus = 'all' | 'por_verificar' | 'entregado' | 'pagado';
-export type PaymentMethodFilter = 'all' | 'efectivo' | 'transferencia';
+export type PaymentMethodFilter = 'all' | 'efectivo' | 'transferencia' | 'mixto';
 export type SortBy = 'time' | 'total' | 'table';
 
 interface CashierFiltersProps {
@@ -23,6 +23,7 @@ interface CashierFiltersProps {
   pendingVerificationCount: number;
   cashPayments: number;
   transferPayments: number;
+  mixedPayments: number;
 }
 
 export const CashierFilters: React.FC<CashierFiltersProps> = ({
@@ -39,6 +40,7 @@ export const CashierFilters: React.FC<CashierFiltersProps> = ({
   pendingVerificationCount,
   cashPayments,
   transferPayments,
+  mixedPayments,
 }) => {
   const hasActiveFilters = filterStatus !== 'all' || paymentMethodFilter !== 'all' || searchQuery !== '';
 
@@ -182,6 +184,16 @@ export const CashierFilters: React.FC<CashierFiltersProps> = ({
             }`}
           >
             📱 Transferencia <span className={`ml-1 px-2 py-0.5 rounded-full text-sm ${paymentMethodFilter === 'transferencia' ? 'bg-white/20' : 'bg-pink-100 text-pink-800'}`}>({transferPayments})</span>
+          </button>
+          <button
+            onClick={() => onPaymentMethodFilterChange('mixto')}
+            className={`px-4 py-2.5 rounded-lg transition-all font-semibold ${
+              paymentMethodFilter === 'mixto' 
+                ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg scale-105' 
+                : 'bg-gray-100 hover:bg-gray-200 text-gray-700 hover:shadow-md'
+            }`}
+          >
+            🔀 Mixto <span className={`ml-1 px-2 py-0.5 rounded-full text-sm ${paymentMethodFilter === 'mixto' ? 'bg-white/20' : 'bg-purple-100 text-purple-800'}`}>({mixedPayments})</span>
           </button>
         </div>
       </div>

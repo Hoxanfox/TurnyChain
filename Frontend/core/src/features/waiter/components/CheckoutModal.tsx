@@ -4,6 +4,7 @@ import { useSelector } from 'react-redux';
 import type { RootState } from '../../../app/store';
 import { uploadSplitPayments, updateOrderStatus } from '../../shared/orders/api/ordersAPI.ts';
 import type { PaymentInput } from '../../shared/orders/api/ordersAPI.ts';
+import { compressImage, validateImageFile } from '../../../utils/imageUtils';
 
 interface CheckoutModalProps {
   orderId: string;
@@ -33,6 +34,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [currentPreviewUrl, setCurrentPreviewUrl] = useState<string | null>(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCompressing, setIsCompressing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -58,21 +60,38 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
     if (currentPreviewUrl) URL.revokeObjectURL(currentPreviewUrl);
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      if (!file.type.startsWith('image/')) {
-        setError('Por favor seleccione un archivo de imagen válido');
-        return;
-      }
-      if (file.size > 20 * 1024 * 1024) { // 20MB max
-        setError('El archivo es muy grande. Máximo 20MB');
-        return;
-      }
-      setCurrentProofImage(file);
-      const url = URL.createObjectURL(file);
+    if (!file) return;
+
+    const validation = validateImageFile(file);
+    if (!validation.valid) {
+      setError(validation.error || 'Archivo inválido');
+      return;
+    }
+
+    try {
+      setIsCompressing(true);
+      setError(null);
+
+      console.log('📸 Imagen capturada (modal cajero):', {
+        nombre: file.name,
+        tamaño: `${(file.size / 1024).toFixed(2)} KB`,
+        tipo: file.type
+      });
+
+      const compressedFile = await compressImage(file, 1200, 0.8);
+      setCurrentProofImage(compressedFile);
+
+      const url = URL.createObjectURL(compressedFile);
       setCurrentPreviewUrl(url);
       setError(null);
+      console.log('✅ Imagen procesada y lista');
+    } catch (err) {
+      console.error('❌ Error al procesar imagen:', err);
+      setError('Error al procesar la imagen. Intenta nuevamente.');
+    } finally {
+      setIsCompressing(false);
     }
   };
 
@@ -362,21 +381,43 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     <div className="flex gap-2 w-full mt-2">
                       <button
                         onClick={() => cameraInputRef.current?.click()}
-                        className="flex-1 h-28 border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center gap-2 text-gray-500 hover:bg-blue-50 hover:border-blue-400 hover:text-blue-600 transition-all active:scale-95"
+                        disabled={isCompressing || isSubmitting}
+                        className={`flex-1 h-28 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center gap-2 transition-all ${
+                          isCompressing
+                            ? 'border-blue-400 bg-blue-50 cursor-wait text-blue-600'
+                            : 'border-gray-300 text-gray-500 hover:bg-blue-50 hover:border-blue-400 hover:text-blue-600 active:scale-95'
+                        }`}
                       >
-                        <MdCameraAlt size={32} />
-                        <div className="text-center">
-                          <span className="font-bold text-sm block">Tomar Foto</span>
-                        </div>
+                        {isCompressing ? (
+                          <div className="animate-spin rounded-full h-7 w-7 border-4 border-blue-600 border-t-transparent"></div>
+                        ) : (
+                          <>
+                            <MdCameraAlt size={32} />
+                            <div className="text-center">
+                              <span className="font-bold text-sm block">Tomar Foto</span>
+                            </div>
+                          </>
+                        )}
                       </button>
                       <button
                         onClick={() => fileInputRef.current?.click()}
-                        className="flex-1 h-28 border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center gap-2 text-gray-500 hover:bg-blue-50 hover:border-blue-400 hover:text-blue-600 transition-all active:scale-95"
+                        disabled={isCompressing || isSubmitting}
+                        className={`flex-1 h-28 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center gap-2 transition-all ${
+                          isCompressing
+                            ? 'border-blue-400 bg-blue-50 cursor-wait text-blue-600'
+                            : 'border-gray-300 text-gray-500 hover:bg-blue-50 hover:border-blue-400 hover:text-blue-600 active:scale-95'
+                        }`}
                       >
-                        <MdImage size={32} />
-                        <div className="text-center">
-                          <span className="font-bold text-sm block">Adjuntar Archivo</span>
-                        </div>
+                        {isCompressing ? (
+                          <div className="animate-spin rounded-full h-7 w-7 border-4 border-blue-600 border-t-transparent"></div>
+                        ) : (
+                          <>
+                            <MdImage size={32} />
+                            <div className="text-center">
+                              <span className="font-bold text-sm block">Adjuntar Archivo</span>
+                            </div>
+                          </>
+                        )}
                       </button>
                     </div>
                   ) : (
@@ -384,6 +425,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       <img src={currentPreviewUrl} alt="Comprobante" className="w-full h-40 object-cover" />
                       <button
                         onClick={handleRemovePhoto}
+                        disabled={isSubmitting}
                         className="absolute top-2 right-2 bg-red-600 text-white p-1.5 rounded-full shadow-lg hover:bg-red-700 transition-all active:scale-90"
                       >
                         <MdDelete size={18} />
@@ -401,9 +443,14 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
               <button
                 onClick={handleAddPaymentToArray}
-                className="w-full mt-4 py-3 bg-gray-900 text-white font-bold rounded-xl shadow hover:bg-gray-800 transition-colors"
+                disabled={isCompressing || isSubmitting}
+                className={`w-full mt-4 py-3 font-bold rounded-xl shadow transition-colors ${
+                  isCompressing || isSubmitting
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : 'bg-gray-900 text-white hover:bg-gray-800'
+                }`}
               >
-                Añadir a la cuenta
+                {isCompressing ? 'Procesando imagen...' : 'Añadir a la cuenta'}
               </button>
             </div>
           </div>
