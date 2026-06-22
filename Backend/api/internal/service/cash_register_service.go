@@ -78,17 +78,17 @@ func (s *cashRegisterService) GetCurrentSessionDetails() (*domain.CashRegisterSe
 	if bogota, err := time.LoadLocation("America/Bogota"); err == nil {
 		loc = bogota
 	}
-	openTimeInLoc := session.OpenTime.In(loc)
-	startOfOpenDay := time.Date(openTimeInLoc.Year(), openTimeInLoc.Month(), openTimeInLoc.Day(), 0, 0, 0, 0, loc)
+	now := time.Now().In(loc)
+	startOfToday := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
 
 	// Determinar el tiempo de inicio basado en el cierre de la última sesión
 	lastClosedSession, err := s.repo.GetLastClosedSession()
 	var startTime time.Time
 	if err != nil || lastClosedSession == nil || lastClosedSession.CloseTime == nil {
-		startTime = startOfOpenDay
+		startTime = startOfToday
 		log.Printf("📊 [GetCurrentSessionDetails] Calculating daily sales from start of day: %s (No previous session)", startTime.Format(time.RFC3339))
-	} else if lastClosedSession.CloseTime.Before(startOfOpenDay) {
-		startTime = startOfOpenDay
+	} else if lastClosedSession.CloseTime.Before(startOfToday) {
+		startTime = startOfToday
 		log.Printf("📊 [GetCurrentSessionDetails] Calculating daily sales from start of day: %s (Previous session was from a previous day)", startTime.Format(time.RFC3339))
 	} else {
 		startTime = *lastClosedSession.CloseTime
@@ -205,17 +205,17 @@ func (s *cashRegisterService) GetClosingSessionDetails() (*domain.CashRegisterCl
 	if bogota, err := time.LoadLocation("America/Bogota"); err == nil {
 		loc = bogota
 	}
-	openTimeInLoc := session.OpenTime.In(loc)
-	startOfOpenDay := time.Date(openTimeInLoc.Year(), openTimeInLoc.Month(), openTimeInLoc.Day(), 0, 0, 0, 0, loc)
+	now := time.Now().In(loc)
+	startOfToday := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
 
 	// Determinar el tiempo de inicio basado en el cierre de la última sesión
 	lastClosedSession, err := s.repo.GetLastClosedSession()
 	var startTime time.Time
 	if err != nil || lastClosedSession == nil || lastClosedSession.CloseTime == nil {
-		startTime = startOfOpenDay
+		startTime = startOfToday
 		log.Printf("📊 [GetClosingSessionDetails] Calculating sales from start of day: %s (No previous session)", startTime.Format(time.RFC3339))
-	} else if lastClosedSession.CloseTime.Before(startOfOpenDay) {
-		startTime = startOfOpenDay
+	} else if lastClosedSession.CloseTime.Before(startOfToday) {
+		startTime = startOfToday
 		log.Printf("📊 [GetClosingSessionDetails] Calculating sales from start of day: %s (Previous session was from a previous day)", startTime.Format(time.RFC3339))
 	} else {
 		startTime = *lastClosedSession.CloseTime
