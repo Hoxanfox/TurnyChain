@@ -50,6 +50,7 @@ interface CashierDashboardMobileProps {
   statistics: CashierStatistics;
   ordersByTable: Record<number, Order[]>;
   pendingVerificationCount: number;
+  pendingBlockchainCount: number;
   isLoading: boolean;
   hasFailed?: boolean;
 
@@ -67,6 +68,7 @@ interface CashierDashboardMobileProps {
   onClearFilters: () => void;
   onExportReport: () => void;
   onOpenPrintSettings: () => void;
+  onOpenBlockchainModal: () => void;
   onCloseNotification: () => void;
   onStatusChange: (orderId: string, status: string) => void;
   onConfirmPayment: (orderId: string) => void;
@@ -93,8 +95,9 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
   statistics,
   ordersByTable,
   pendingVerificationCount,
+  pendingBlockchainCount,
   isLoading,
-  hasFailed,
+  hasFailed = false,
   notification,
   onToggleStats,
   onFilterStatusChange,
@@ -106,6 +109,7 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
   onClearFilters,
   onExportReport,
   onOpenPrintSettings,
+  onOpenBlockchainModal,
   onCloseNotification,
   onStatusChange,
   onConfirmPayment,
@@ -190,11 +194,13 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
         orderIdQuery={orderIdQuery}
         waiterQuery={waiterQuery}
         pendingVerificationCount={pendingVerificationCount}
+        pendingBlockchainCount={pendingBlockchainCount}
         onOpenQuickTablePicker={() => setShowQuickTablePicker(true)}
         onOpenOrderIdSearch={() => setShowOrderIdModal(true)}
         onOpenWaiterPicker={() => setShowWaiterPicker(true)}
         onToggleStats={onToggleStats}
         onOpenPrintSettings={onOpenPrintSettings}
+        onOpenBlockchainModal={onOpenBlockchainModal}
         onOpenFilters={() => setShowFilterModal(true)}
         onOpenHistory={() => navigate('/cashier/history')}
         onOpenMetrics={() => navigate('/cashier/metrics')}

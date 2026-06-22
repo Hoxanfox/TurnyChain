@@ -29,6 +29,7 @@ type OrderService interface {
 	AddSplitPayments(orderID uuid.UUID, payments []domain.Payment) (*domain.Order, error)
 	GetWaiterApprovedStats(userRole string, start time.Time, end time.Time, groupBy string) ([]domain.WaiterApprovedStat, error)
 	NotarizeOrderNow(orderID uuid.UUID) (*domain.Order, error)
+	GetPendingBlockchainOrderCount(cooldown time.Duration) (int, error)
 }
 
 type orderService struct {
@@ -654,4 +655,8 @@ func (s *orderService) NotarizeOrderNow(orderID uuid.UUID) (*domain.Order, error
 	updatedOrder, _ := s.orderRepo.GetOrderByID(orderID)
 	s.wsHub.BroadcastMessage("ORDER_UPDATED", updatedOrder)
 	return updatedOrder, nil
+}
+
+func (s *orderService) GetPendingBlockchainOrderCount(cooldown time.Duration) (int, error) {
+	return s.orderRepo.GetPendingBlockchainOrderCount(cooldown)
 }

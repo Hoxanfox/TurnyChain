@@ -36,6 +36,7 @@ interface CashierDashboardDesktopProps {
   ordersByTable: Record<number, Order[]>;
   sortedSelectedOrders: Order[];
   pendingVerificationCount: number;
+  pendingBlockchainCount: number;
   isLoading: boolean;
   hasFailed: boolean;
 
@@ -53,6 +54,7 @@ interface CashierDashboardDesktopProps {
   onClearFilters: () => void;
   onExportReport: () => void;
   onOpenPrintSettings: () => void;
+  onOpenBlockchainModal: () => void;
   onCloseNotification: () => void;
   onSelectTable: (tableNumber: number) => void;
   onStatusChange: (orderId: string, status: string) => void;
@@ -83,6 +85,7 @@ export const CashierDashboardDesktop: React.FC<CashierDashboardDesktopProps> = (
   ordersByTable,
   sortedSelectedOrders,
   pendingVerificationCount,
+  pendingBlockchainCount,
   isLoading,
   hasFailed,
   notification,
@@ -96,6 +99,7 @@ export const CashierDashboardDesktop: React.FC<CashierDashboardDesktopProps> = (
   onClearFilters,
   onExportReport,
   onOpenPrintSettings,
+  onOpenBlockchainModal,
   onCloseNotification,
   onSelectTable,
   onStatusChange,
@@ -263,10 +267,12 @@ export const CashierDashboardDesktop: React.FC<CashierDashboardDesktopProps> = (
         {/* Header */}
         <CashierHeader
           pendingVerificationCount={pendingVerificationCount}
+          pendingBlockchainCount={pendingBlockchainCount}
           showStats={showStats}
           onToggleStats={onToggleStats}
           onExportReport={onExportReport}
           onOpenPrintSettings={onOpenPrintSettings}
+          onOpenBlockchainModal={onOpenBlockchainModal}
           onOpenPrintMonitor={() => setOpenPrintMonitorSignal((prev) => prev + 1)}
           activeFiltersCount={activeFiltersCount}
           orderIdQuery={orderIdQuery}

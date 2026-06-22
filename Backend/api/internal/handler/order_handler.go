@@ -729,3 +729,19 @@ func (h *OrderHandler) NotarizeOrderNow(c *fiber.Ctx) error {
 
 	return c.JSON(updatedOrder)
 }
+
+func (h *OrderHandler) GetPendingBlockchainOrderCount(c *fiber.Ctx) error {
+	userRole := c.Locals("user_role").(string)
+	if userRole != "admin" && userRole != "cajero" {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "No tienes permisos"})
+	}
+
+	// Usamos el mismo cooldown que el worker: 1 hora
+	cooldown := 1 * time.Hour
+	count, err := h.orderService.GetPendingBlockchainOrderCount(cooldown)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not retrieve count"})
+	}
+
+	return c.JSON(fiber.Map{"count": count})
+}

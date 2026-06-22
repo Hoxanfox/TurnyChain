@@ -13,6 +13,7 @@ import { CashierDashboardDesktop } from './components/cashierDashboardDesktop/Ca
 import { CashierDashboardMobile } from './components/cashierDashboardMobile/CashierDashboardMobile';
 import { PrintSettingsModal } from './components/cashierDashboardShared/PrintSettingsModal';
 import { KitchenTicketsPreviewModal } from './components/cashierDashboardShared/KitchenTicketsPreviewModal';
+import { BlockchainStatusModal } from './components/cashierDashboardShared/BlockchainStatusModal';
 import type { CashierNotification } from './types/cashierDashboardTypes';
 import { printKitchenTicketsFrontend, getPrintSettings } from '../../utils/printUtils';
 import { kitchenTicketsAPI } from '../shared/orders/api/kitchenTicketsAPI';
@@ -27,6 +28,7 @@ const CashierDashboard: React.FC = () => {
 
   const [notification, setNotification] = useState<CashierNotification | null>(null);
   const [isPrintSettingsOpen, setIsPrintSettingsOpen] = useState(false);
+  const [isBlockchainModalOpen, setIsBlockchainModalOpen] = useState(false);
   const [isTicketsPreviewOpen, setIsTicketsPreviewOpen] = useState(false);
   const [selectedOrderIdForPreview, setSelectedOrderIdForPreview] = useState<string | null>(null);
 
@@ -250,6 +252,7 @@ const CashierDashboard: React.FC = () => {
     statistics: cashierLogic.statistics,
     ordersByTable: cashierLogic.ordersByTable,
     pendingVerificationCount: cashierLogic.pendingVerificationCount,
+    pendingBlockchainCount: cashierLogic.pendingBlockchainCount,
     isLoading: status === 'loading',
     hasFailed: status === 'failed',
 
@@ -265,6 +268,7 @@ const CashierDashboard: React.FC = () => {
     onClearFilters: cashierLogic.clearFilters,
     onExportReport: cashierLogic.exportReport,
     onOpenPrintSettings: () => setIsPrintSettingsOpen(true),
+    onOpenBlockchainModal: () => setIsBlockchainModalOpen(true),
     onCloseNotification: () => setNotification(null),
     onRetryLoadOrders: () => dispatch(fetchActiveOrders()),
 
@@ -322,6 +326,12 @@ const CashierDashboard: React.FC = () => {
           onSuccess={handleCheckoutSuccess}
         />
       )}
+
+      <BlockchainStatusModal
+        isOpen={isBlockchainModalOpen}
+        onClose={() => setIsBlockchainModalOpen(false)}
+        pendingCount={cashierLogic.pendingBlockchainCount}
+      />
     </>
   );
 };

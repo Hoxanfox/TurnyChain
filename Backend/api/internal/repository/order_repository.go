@@ -35,6 +35,7 @@ type OrderRepository interface {
 	GetRetryableFailedOrderIDs(createdAfter *time.Time, lastAttemptBefore time.Time, maxAttempts int, tableNumber *int) ([]uuid.UUID, error)
 	UpdateOrderWithEditHistory(orderID uuid.UUID, newStatus string, items []domain.OrderItem, newTotal float64, newHistoryEntry domain.EditHistoryEntry, overridePayments []domain.Payment) error
 	GetPendingBlockchainOrders(cooldown time.Duration) ([]domain.Order, error)
+	GetPendingBlockchainOrderCount(cooldown time.Duration) (int, error)
 }
 
 type orderRepository struct{ db *sql.DB }
@@ -1414,6 +1415,14 @@ func (r *orderRepository) UpdateOrderWithEditHistory(orderID uuid.UUID, newStatu
 	}
 
 	return tx.Commit()
+}
+
+func (r *orderRepository) GetPendingBlockchainOrderCount(cooldown time.Duration) (int, error) {
+	query := `SELECT COUNT(*) FROM orders WHERE status = 'pagado' AND blockchain_tx_hash IS NULL AND updated_at <= $1`
+	cutoffTime := time.Now().Add(-cooldown)
+	var count int
+	err := r.db.QueryRow(query, cutoffTime).Scan(&count)
+	return count, err
 }
 
 func (r *orderRepository) GetPendingBlockchainOrders(cooldown time.Duration) ([]domain.Order, error) {

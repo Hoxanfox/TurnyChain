@@ -1,10 +1,13 @@
 // =================================================================
 // ARCHIVO: /src/features/cashier/hooks/useCashierLogic.ts
 // =================================================================
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { Order } from '../../../types/orders';
 import type { FilterStatus, PaymentMethodFilter, SortBy } from '../components/cashierDashboardShared/CashierFilters';
 import type { CashierStatistics } from '../types/cashierDashboardTypes';
+import { useSelector } from 'react-redux';
+import type { RootState } from '../../../app/store';
+import { getPendingBlockchainCount } from '../../shared/orders/api/ordersAPI';
 
 export const getOrderPaymentCategory = (order: Order): 'efectivo' | 'transferencia' | 'mixto' => {
   if (order.payment_method === 'mixto') {
@@ -42,6 +45,27 @@ export const useCashierLogic = (activeOrders: Order[]) => {
   // Estados de UI
   const [showStats, setShowStats] = useState(false); // 🔧 Oculto por defecto
   const [selectedTable, setSelectedTable] = useState<number | null>(null);
+
+  const [pendingBlockchainCount, setPendingBlockchainCount] = useState(0);
+  const token = useSelector((state: RootState) => state.auth.token);
+
+  // Polling para conteo de pendientes en blockchain
+  useEffect(() => {
+    if (!token) return;
+
+    const fetchCount = async () => {
+      try {
+        const res = await getPendingBlockchainCount(token);
+        setPendingBlockchainCount(res.count);
+      } catch (err) {
+        console.error('Error fetching pending blockchain count:', err);
+      }
+    };
+
+    fetchCount();
+    const interval = setInterval(fetchCount, 60000); // Actualiza cada minuto
+    return () => clearInterval(interval);
+  });
 
   // Estados de filtros
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
@@ -351,6 +375,7 @@ export const useCashierLogic = (activeOrders: Order[]) => {
     // Datos calculados
     statistics,
     pendingVerificationCount,
+    pendingBlockchainCount,
     deliveredCount,
     paidCount,
     filteredOrders,

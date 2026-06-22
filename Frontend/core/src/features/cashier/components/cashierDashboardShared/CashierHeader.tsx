@@ -4,10 +4,12 @@ import LogoutButton from '../../../../components/LogoutButton';
 
 interface CashierHeaderProps {
   pendingVerificationCount: number;
+  pendingBlockchainCount: number;
   showStats: boolean;
   onToggleStats: () => void;
   onExportReport: () => void;
   onOpenPrintSettings: () => void;
+  onOpenBlockchainModal: () => void;
   onOpenPrintMonitor?: () => void;
   onOpenMetrics?: () => void;
   activeFiltersCount?: number;
@@ -21,10 +23,12 @@ interface CashierHeaderProps {
 
 export const CashierHeader: React.FC<CashierHeaderProps> = ({
   pendingVerificationCount,
+  pendingBlockchainCount,
   showStats,
   onToggleStats,
   onExportReport,
   onOpenPrintSettings,
+  onOpenBlockchainModal,
   onOpenPrintMonitor,
   onOpenMetrics,
   activeFiltersCount = 0,
@@ -68,7 +72,7 @@ export const CashierHeader: React.FC<CashierHeaderProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 mt-4 md:mt-0">
+        <div className="flex flex-wrap items-center justify-start md:justify-end gap-2 mt-4 md:mt-0 w-full md:w-auto">
           <button
             onClick={() => navigate('/cashier/take-order')}
             className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-lg hover:from-emerald-600 hover:to-teal-600 transition-all font-bold shadow-lg hover:shadow-xl transform hover:scale-105"
@@ -128,14 +132,15 @@ export const CashierHeader: React.FC<CashierHeaderProps> = ({
           <div className="relative">
             <button
               onClick={() => setIsActionsMenuOpen((prev) => !prev)}
-              className="px-4 py-2 bg-white text-indigo-700 rounded-lg hover:bg-indigo-50 transition-all font-semibold shadow-lg hover:shadow-xl"
+              className="px-4 py-2 bg-white text-indigo-700 rounded-lg hover:bg-indigo-50 transition-all font-semibold shadow-lg hover:shadow-xl flex items-center gap-2"
               title="Abrir menú de acciones"
             >
-              ☰ Acciones
+              <span className="text-xl">☰</span>
+              <span className="hidden sm:inline">Acciones</span>
             </button>
 
             {isActionsMenuOpen && (
-              <div className="absolute right-0 mt-2 w-56 rounded-xl bg-white shadow-2xl border border-indigo-100 overflow-hidden z-30">
+              <div className="absolute right-0 mt-2 w-56 rounded-xl bg-white shadow-2xl border border-indigo-100 overflow-hidden z-50">
                 <button
                   onClick={() => {
                     onOpenPrintSettings();
@@ -144,6 +149,20 @@ export const CashierHeader: React.FC<CashierHeaderProps> = ({
                   className="w-full text-left px-4 py-3 text-indigo-700 hover:bg-indigo-50 font-semibold"
                 >
                   🖨️ Configurar impresión
+                </button>
+                <button
+                  onClick={() => {
+                    onOpenBlockchainModal();
+                    setIsActionsMenuOpen(false);
+                  }}
+                  className="w-full text-left px-4 py-3 text-indigo-700 hover:bg-indigo-50 font-semibold border-t border-gray-100 flex justify-between items-center"
+                >
+                  <span>🔗 Estado Blockchain</span>
+                  {pendingBlockchainCount > 0 && (
+                    <span className="bg-indigo-500 text-white text-[10px] px-2 py-0.5 rounded-full animate-pulse">
+                      {pendingBlockchainCount}
+                    </span>
+                  )}
                 </button>
                 {onOpenMetrics && (
                   <button

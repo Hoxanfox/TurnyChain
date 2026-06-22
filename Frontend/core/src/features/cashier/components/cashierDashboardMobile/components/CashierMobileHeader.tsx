@@ -8,11 +8,13 @@ interface CashierMobileHeaderProps {
   orderIdQuery: string;
   waiterQuery: string;
   pendingVerificationCount: number;
+  pendingBlockchainCount: number;
   onOpenQuickTablePicker: () => void;
   onOpenOrderIdSearch: () => void;
   onOpenWaiterPicker: () => void;
   onToggleStats: () => void;
   onOpenPrintSettings: () => void;
+  onOpenBlockchainModal: () => void;
   onOpenFilters: () => void;
   onOpenHistory: () => void;
   onOpenMetrics: () => void;
@@ -27,11 +29,13 @@ export const CashierMobileHeader: React.FC<CashierMobileHeaderProps> = ({
   orderIdQuery,
   waiterQuery,
   pendingVerificationCount,
+  pendingBlockchainCount,
   onOpenQuickTablePicker,
   onOpenOrderIdSearch,
   onOpenWaiterPicker,
   onToggleStats,
   onOpenPrintSettings,
+  onOpenBlockchainModal,
   onOpenFilters,
   onOpenHistory,
   onOpenMetrics,
@@ -57,7 +61,7 @@ export const CashierMobileHeader: React.FC<CashierMobileHeaderProps> = ({
             <div className="relative">
               <button
                 onClick={() => setIsActionsMenuOpen((prev) => !prev)}
-                className="p-2.5 bg-white bg-opacity-20 rounded-xl hover:bg-opacity-30 transition-all flex items-center gap-1"
+                className="p-3 min-w-[48px] min-h-[48px] justify-center bg-white bg-opacity-20 rounded-xl hover:bg-opacity-30 transition-all flex items-center gap-1 active:scale-95"
                 title="Abrir acciones"
               >
                 <span className="text-xl">☰</span>
@@ -144,6 +148,18 @@ export const CashierMobileHeader: React.FC<CashierMobileHeaderProps> = ({
                     className="w-full text-left px-4 py-3 text-indigo-700 hover:bg-indigo-50 font-semibold"
                   >
                     🖨️ Configurar impresion
+                  </button>
+                  <button
+                    onClick={() => {
+                      onOpenBlockchainModal();
+                      setIsActionsMenuOpen(false);
+                    }}
+                    className="w-full text-left px-4 py-3 text-indigo-700 hover:bg-indigo-50 font-semibold border-t border-gray-100 flex justify-between items-center"
+                  >
+                    <span>🔗 Estado Blockchain</span>
+                    {pendingBlockchainCount > 0 && (
+                      <span className="bg-indigo-500 text-white text-[10px] px-2 py-0.5 rounded-full animate-pulse">{pendingBlockchainCount}</span>
+                    )}
                   </button>
                   <button
                     onClick={() => {

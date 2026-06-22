@@ -241,3 +241,9 @@ export const uploadSplitPayments = async (orderId: string, payments: PaymentInpu
   const response = await axios.post(`${API_URL}/${orderId}/split-payments`, formData, config);
   return response.data;
 };
+
+export const getPendingBlockchainCount = async (token: string): Promise<{ count: number }> => {
+	const config = { headers: { Authorization: `Bearer ${token}` } };
+	const response = await axios.get(`${API_URL}/blockchain/pending-count`, config);
+	return response.data;
+};
