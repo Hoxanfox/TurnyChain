@@ -7,7 +7,7 @@ import type { PaymentInput } from '../../shared/orders/api/ordersAPI.ts';
 
 interface CheckoutModalProps {
   orderId: string;
-  groupOrderIds?: string[];
+  groupOrderInfos?: { id: string, total: number }[];
   orderTotal: number;
   tableNumber: number;
   forcePaidAfterCheckout?: boolean;
@@ -18,11 +18,11 @@ interface CheckoutModalProps {
 type PaymentState = 'summary' | 'adding_payment';
 
 const CheckoutModal: React.FC<CheckoutModalProps> = ({
-  orderId, groupOrderIds, orderTotal, tableNumber, forcePaidAfterCheckout = false, onClose, onSuccess
+  orderId, groupOrderInfos, orderTotal, tableNumber, forcePaidAfterCheckout = false, onClose, onSuccess
 }) => {
   const token = useSelector((state: RootState) => state.auth.token);
-  const targetOrderIds = groupOrderIds && groupOrderIds.length > 0 ? groupOrderIds : [orderId];
-  const isGlobalCheckout = targetOrderIds.length > 1;
+  const targetOrderIds = groupOrderInfos && groupOrderInfos.length > 0 ? groupOrderInfos.map(info => info.id) : [orderId];
+  const isGlobalCheckout = groupOrderInfos && groupOrderInfos.length > 1;
 
   // Estados
   const [payments, setPayments] = useState<PaymentInput[]>([]);
@@ -126,10 +126,39 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
     setError(null);
 
     try {
-      for (const targetOrderId of targetOrderIds) {
-        await uploadSplitPayments(targetOrderId, payments, token);
+      if (groupOrderInfos && groupOrderInfos.length > 0) {
+        let paymentPool = payments.map(p => ({ ...p, remaining: p.amount }));
+
+        for (const orderInfo of groupOrderInfos) {
+          let needed = orderInfo.total;
+          let orderPayments: PaymentInput[] = [];
+
+          for (let p of paymentPool) {
+            if (needed <= 0) break;
+            if (p.remaining <= 0) continue;
+
+            let take = Math.min(needed, p.remaining);
+            p.remaining -= take;
+            needed -= take;
+
+            orderPayments.push({
+              method: p.method,
+              amount: take,
+              file: p.file
+            });
+          }
+
+          if (orderPayments.length > 0) {
+            await uploadSplitPayments(orderInfo.id, orderPayments, token);
+            if (forcePaidAfterCheckout) {
+              await updateOrderStatus(orderInfo.id, 'pagado', token);
+            }
+          }
+        }
+      } else {
+        await uploadSplitPayments(orderId, payments, token);
         if (forcePaidAfterCheckout) {
-          await updateOrderStatus(targetOrderId, 'pagado', token);
+          await updateOrderStatus(orderId, 'pagado', token);
         }
       }
       onSuccess();

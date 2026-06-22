@@ -24,7 +24,7 @@ interface TableOrdersModalProps {
   onPrintFullCommand?: (orderId: string) => void;
   onPreviewTickets?: (orderId: string) => void;
   onOpenCheckout: (orderId: string, total: number, tableNumber: number) => void;
-  onOpenCheckoutGroup: (orderIds: string[], total: number, tableNumber: number) => void;
+  onOpenCheckoutGroup: (ordersInfo: { id: string, total: number }[], total: number, tableNumber: number) => void;
   onCancelOrder: (orderId: string) => void;
   onRetryPrint: (orderId: string) => void;
   highlightOrderId?: string | null;
@@ -372,7 +372,7 @@ export const TableOrdersModal: React.FC<TableOrdersModalProps> = ({
                                   <button
                                     onClick={() => {
                                       onOpenCheckoutGroup(
-                                        toCollectGroupMembers.map((member) => member.id),
+                                        toCollectGroupMembers.map((member) => ({ id: member.id, total: member.total })),
                                         toCollectGroupTotal,
                                         group.root.table_number,
                                       );

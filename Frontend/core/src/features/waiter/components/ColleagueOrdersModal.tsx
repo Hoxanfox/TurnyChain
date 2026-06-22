@@ -12,7 +12,7 @@ import type { Order } from '../../../types/orders';
 interface ColleagueOrdersModalProps {
   onClose: () => void;
   onCheckout: (orderId: string, total: number, tableNumber: number) => void;
-  onCheckoutGroup?: (orderIds: string[], total: number, tableNumber: number) => void;
+  onCheckoutGroup?: (ordersInfo: { id: string, total: number }[], total: number, tableNumber: number) => void;
   onViewDetails: (orderId: string) => void;
   onSelectParentOrder?: (order: Order) => void;
 }
@@ -248,7 +248,6 @@ const ColleagueOrdersModal: React.FC<ColleagueOrdersModalProps> = ({
               (current) => current.status === 'entregado' || current.status === 'pendiente_aprobacion'
             );
             const payableGroupTotal = payableOrders.reduce((sum, current) => sum + current.total, 0);
-            const payableOrderIds = payableOrders.map((current) => current.id);
 
             const renderCard = (current: Order, isChild = false) => {
               const isPendingPayment = current.status === 'entregado' || current.status === 'pendiente_aprobacion';
@@ -412,12 +411,12 @@ const ColleagueOrdersModal: React.FC<ColleagueOrdersModalProps> = ({
                   <p className="text-xs font-semibold text-violet-700">Grupo enlazado</p>
                 </div>
 
-                {onCheckoutGroup && payableOrderIds.length > 0 && (
+                {onCheckoutGroup && payableOrders.length > 0 && (
                   <button
-                    onClick={() => onCheckoutGroup(payableOrderIds, payableGroupTotal, order.table_number)}
-                    className="w-full py-2.5 bg-gradient-to-r from-violet-600 to-purple-700 text-white rounded-xl hover:from-violet-700 hover:to-purple-800 transition-all font-bold text-sm shadow-md active:scale-95"
+                    onClick={() => onCheckoutGroup(payableOrders.map(o => ({ id: o.id, total: o.total })), payableGroupTotal, order.table_number)}
+                    className="w-full py-2.5 bg-gradient-to-r from-violet-600 to-violet-700 text-white rounded-lg hover:from-violet-700 hover:to-violet-800 transition-all font-bold text-sm shadow-md"
                   >
-                    {payableOrderIds.length > 1 ? '💳 Cobro Global del Grupo' : '💳 Cobrar Comanda Pendiente del Grupo'}
+                    {payableOrders.length > 1 ? '💳 Cobro Global del Grupo' : '💳 Cobrar Comanda Pendiente del Grupo'}
                   </button>
                 )}
 

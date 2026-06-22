@@ -31,7 +31,7 @@ const CashierDashboard: React.FC = () => {
   const [selectedOrderIdForPreview, setSelectedOrderIdForPreview] = useState<string | null>(null);
 
   const [checkoutOrderId, setCheckoutOrderId] = useState<string | null>(null);
-  const [checkoutGroupOrderIds, setCheckoutGroupOrderIds] = useState<string[]>([]);
+  const [checkoutGroupOrderInfos, setCheckoutGroupOrderInfos] = useState<{ id: string, total: number }[]>([]);
   const [checkoutOrderTotal, setCheckoutOrderTotal] = useState<number>(0);
   const [checkoutTableNumber, setCheckoutTableNumber] = useState<number>(0);
   const [shortcutTarget, setShortcutTarget] = useState<{ tableNumber: number; orderId: string } | null>(null);
@@ -208,22 +208,22 @@ const CashierDashboard: React.FC = () => {
 
   const handleOpenCheckout = (orderId: string, total: number, tableNumber: number) => {
     setCheckoutOrderId(orderId);
-    setCheckoutGroupOrderIds([orderId]);
+    setCheckoutGroupOrderInfos([{ id: orderId, total }]);
     setCheckoutOrderTotal(total);
     setCheckoutTableNumber(tableNumber);
   };
 
-  const handleOpenCheckoutGroup = (orderIds: string[], total: number, tableNumber: number) => {
-    if (orderIds.length === 0) return;
-    setCheckoutOrderId(orderIds[0]);
-    setCheckoutGroupOrderIds(orderIds);
+  const handleOpenCheckoutGroup = (ordersInfo: { id: string, total: number }[], total: number, tableNumber: number) => {
+    if (ordersInfo.length === 0) return;
+    setCheckoutOrderId(ordersInfo[0].id);
+    setCheckoutGroupOrderInfos(ordersInfo);
     setCheckoutOrderTotal(total);
     setCheckoutTableNumber(tableNumber);
   };
 
   const closeCheckout = () => {
     setCheckoutOrderId(null);
-    setCheckoutGroupOrderIds([]);
+    setCheckoutGroupOrderInfos([]);
     setCheckoutOrderTotal(0);
     setCheckoutTableNumber(0);
   };
@@ -314,7 +314,7 @@ const CashierDashboard: React.FC = () => {
       {checkoutOrderId && (
         <CheckoutModal
           orderId={checkoutOrderId}
-          groupOrderIds={checkoutGroupOrderIds}
+          groupOrderInfos={checkoutGroupOrderInfos}
           orderTotal={checkoutOrderTotal}
           tableNumber={checkoutTableNumber}
           forcePaidAfterCheckout={true}

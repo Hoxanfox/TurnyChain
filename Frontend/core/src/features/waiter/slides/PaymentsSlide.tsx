@@ -11,7 +11,7 @@ import { formatMoney } from '../../../utils/formatUtils.ts';
 interface PaymentsSlideProps {
   onViewOrderDetails: (orderId: string) => void;
   onCheckout: (orderId: string, total: number, tableNumber: number) => void;
-  onCheckoutGroup?: (orderIds: string[], total: number, tableNumber: number) => void;
+  onCheckoutGroup?: (ordersInfo: { id: string, total: number }[], total: number, tableNumber: number) => void;
   onSelectParentOrder?: (order: Order) => void;
 }
 
@@ -572,7 +572,6 @@ const PaymentsSlide: React.FC<PaymentsSlideProps> = ({
             (order) => ((order.status === 'entregado' || order.status === 'pendiente_aprobacion') && !order.payment_method) || (order.status === 'entregado' && !!order.payment_method)
           );
           const payableGroupTotal = payableOrders.reduce((sum, current) => sum + current.total, 0);
-          const payableOrderIds = payableOrders.map((order) => order.id);
 
           if (children.length === 0) {
             return renderPaymentCard(parentOrder);
@@ -585,12 +584,12 @@ const PaymentsSlide: React.FC<PaymentsSlideProps> = ({
                 <p className="text-xs font-bold text-slate-900">Total a cobrar: {formatMoney(payableGroupTotal)}</p>
               </div>
 
-              {onCheckoutGroup && payableOrderIds.length > 0 && (
+              {onCheckoutGroup && payableOrders.length > 0 && (
                 <button
-                  onClick={() => onCheckoutGroup(payableOrderIds, payableGroupTotal, parentOrder.table_number)}
+                  onClick={() => onCheckoutGroup(payableOrders.map(o => ({ id: o.id, total: o.total })), payableGroupTotal, parentOrder.table_number)}
                   className="w-full py-2 px-3 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-lg hover:from-indigo-700 hover:to-indigo-800 transition-all font-bold text-sm shadow-md"
                 >
-                  {payableOrderIds.length > 1 ? '💳 Cobro Global del Grupo' : '💳 Cobrar Comanda Pendiente del Grupo'}
+                  {payableOrders.length > 1 ? '💳 Cobro Global del Grupo' : '💳 Cobrar Comanda Pendiente del Grupo'}
                 </button>
               )}
 

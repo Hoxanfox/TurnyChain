@@ -75,7 +75,7 @@ interface CashierDashboardMobileProps {
   onPrintFullCommand: (orderId: string) => void;
   onPreviewTickets: (orderId: string) => void;
   onOpenCheckout: (orderId: string, total: number, tableNumber: number) => void;
-  onOpenCheckoutGroup: (orderIds: string[], total: number, tableNumber: number) => void;
+  onOpenCheckoutGroup: (ordersInfo: { id: string, total: number }[], total: number, tableNumber: number) => void;
   onRetryPrint: (orderId: string) => void;
   onRetryLoadOrders?: () => void;
   shortcutTarget?: { tableNumber: number; orderId: string } | null;
