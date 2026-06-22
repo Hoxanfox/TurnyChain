@@ -87,6 +87,9 @@ func (s *cashRegisterService) GetCurrentSessionDetails() (*domain.CashRegisterSe
 	if err != nil || lastClosedSession == nil || lastClosedSession.CloseTime == nil {
 		startTime = startOfOpenDay
 		log.Printf("📊 [GetCurrentSessionDetails] Calculating daily sales from start of day: %s (No previous session)", startTime.Format(time.RFC3339))
+	} else if lastClosedSession.CloseTime.Before(startOfOpenDay) {
+		startTime = startOfOpenDay
+		log.Printf("📊 [GetCurrentSessionDetails] Calculating daily sales from start of day: %s (Previous session was from a previous day)", startTime.Format(time.RFC3339))
 	} else {
 		startTime = *lastClosedSession.CloseTime
 		log.Printf("📊 [GetCurrentSessionDetails] Calculating daily sales from last closed session: %s (Session OpenTime: %s) to Now", startTime.Format(time.RFC3339), session.OpenTime.Format(time.RFC3339))
@@ -211,6 +214,9 @@ func (s *cashRegisterService) GetClosingSessionDetails() (*domain.CashRegisterCl
 	if err != nil || lastClosedSession == nil || lastClosedSession.CloseTime == nil {
 		startTime = startOfOpenDay
 		log.Printf("📊 [GetClosingSessionDetails] Calculating sales from start of day: %s (No previous session)", startTime.Format(time.RFC3339))
+	} else if lastClosedSession.CloseTime.Before(startOfOpenDay) {
+		startTime = startOfOpenDay
+		log.Printf("📊 [GetClosingSessionDetails] Calculating sales from start of day: %s (Previous session was from a previous day)", startTime.Format(time.RFC3339))
 	} else {
 		startTime = *lastClosedSession.CloseTime
 		log.Printf("📊 [GetClosingSessionDetails] Calculating sales from last closed session: %s to Now", startTime.Format(time.RFC3339))
