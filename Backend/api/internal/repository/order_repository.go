@@ -5,6 +5,7 @@ package repository
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"strconv"
 	"time"
@@ -32,6 +33,8 @@ type OrderRepository interface {
 	GetOrderIDsByPrintStatus(statuses []string) ([]uuid.UUID, error)
 	GetRecoverableOrderIDsByPrintStatus(statuses []string, createdAfter *time.Time, lastAttemptAfter *time.Time) ([]uuid.UUID, error)
 	GetRetryableFailedOrderIDs(createdAfter *time.Time, lastAttemptBefore time.Time, maxAttempts int, tableNumber *int) ([]uuid.UUID, error)
+	UpdateOrderWithEditHistory(orderID uuid.UUID, newStatus string, items []domain.OrderItem, newTotal float64, newHistoryEntry domain.EditHistoryEntry, overridePayments []domain.Payment) error
+	GetPendingBlockchainOrders(cooldown time.Duration) ([]domain.Order, error)
 }
 
 type orderRepository struct{ db *sql.DB }
@@ -1277,4 +1280,141 @@ func (r *orderRepository) GetRetryableFailedOrderIDs(createdAfter *time.Time, la
 	}
 
 	return ids, nil
+}
+
+func (r *orderRepository) UpdateOrderWithEditHistory(orderID uuid.UUID, newStatus string, items []domain.OrderItem, newTotal float64, newHistoryEntry domain.EditHistoryEntry, overridePayments []domain.Payment) error {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+
+	// Actualizar items
+	_, err = tx.Exec("DELETE FROM order_items WHERE order_id = $1", orderID)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	itemQuery := `INSERT INTO order_items (order_id, menu_item_id, quantity, price_at_order, notes, customizations, is_takeout) 
+                  VALUES ($1, $2, $3, $4, $5, $6, $7)`
+	for _, item := range items {
+		_, err := tx.Exec(itemQuery, orderID, item.MenuItemID, item.Quantity, item.PriceAtOrder, item.Notes, item.Customizations, item.IsTakeout)
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+
+	// Obtener historial actual
+	var currentHistoryJSON []byte
+	err = tx.QueryRow("SELECT edit_history FROM orders WHERE id = $1", orderID).Scan(&currentHistoryJSON)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	var editHistory domain.EditHistory
+	if currentHistoryJSON != nil {
+		_ = json.Unmarshal(currentHistoryJSON, &editHistory)
+	}
+
+	editHistory = append(editHistory, newHistoryEntry)
+
+	// Procesar overridePayments si existen
+	finalPaymentMethod := ""
+	if overridePayments != nil && len(overridePayments) > 0 {
+		_, err = tx.Exec("DELETE FROM order_payments WHERE order_id = $1", orderID)
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+
+		methods := make(map[string]bool)
+		for _, p := range overridePayments {
+			_, err = tx.Exec(`INSERT INTO order_payments (order_id, amount, payment_method, payment_proof_path) 
+                              VALUES ($1, $2, $3, $4)`,
+				orderID, p.Amount, p.Method, p.PaymentProofPath)
+			if err != nil {
+				tx.Rollback()
+				return err
+			}
+			methods[p.Method] = true
+		}
+
+		if len(methods) > 1 {
+			finalPaymentMethod = "mixto"
+		} else {
+			for m := range methods {
+				finalPaymentMethod = m
+				break
+			}
+		}
+	} else {
+		// Mantener el payment_method actual si no se sobreescriben pagos
+		var pm sql.NullString
+		err = tx.QueryRow("SELECT payment_method FROM orders WHERE id = $1", orderID).Scan(&pm)
+		if err == nil && pm.Valid {
+			finalPaymentMethod = pm.String
+		}
+	}
+
+	// Actualizar orden
+	if finalPaymentMethod != "" {
+		_, err = tx.Exec(`UPDATE orders 
+						  SET status = $1, total = $2, edit_history = $3, payment_method = $4, updated_at = CURRENT_TIMESTAMP 
+						  WHERE id = $5`,
+			newStatus, newTotal, editHistory, finalPaymentMethod, orderID)
+	} else {
+		_, err = tx.Exec(`UPDATE orders 
+						  SET status = $1, total = $2, edit_history = $3, updated_at = CURRENT_TIMESTAMP 
+						  WHERE id = $4`,
+			newStatus, newTotal, editHistory, orderID)
+	}
+
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return tx.Commit()
+}
+
+func (r *orderRepository) GetPendingBlockchainOrders(cooldown time.Duration) ([]domain.Order, error) {
+	query := `SELECT id, parent_order_id, waiter_id, table_id, table_number, status, total, order_type, customer_name, delivery_address, delivery_phone, delivery_notes, payment_method, payment_proof_path, blockchain_tx_hash, print_status, print_attempts, last_print_error, printed_at, last_print_attempt_at, created_at, updated_at, edit_history
+              FROM orders 
+              WHERE status = 'pagado' AND blockchain_tx_hash IS NULL AND updated_at <= $1`
+
+	cutoffTime := time.Now().Add(-cooldown)
+	rows, err := r.db.Query(query, cutoffTime)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var orders []domain.Order
+	for rows.Next() {
+		var order domain.Order
+		var histJSON []byte
+		err := rows.Scan(&order.ID, &order.ParentOrderID, &order.WaiterID, &order.TableID, &order.TableNumber, &order.Status, &order.Total, &order.OrderType, &order.CustomerName, &order.DeliveryAddress, &order.DeliveryPhone, &order.DeliveryNotes, &order.PaymentMethod, &order.PaymentProofPath, &order.BlockchainTxHash, &order.PrintStatus, &order.PrintAttempts, &order.LastPrintError, &order.PrintedAt, &order.LastPrintAttemptAt, &order.CreatedAt, &order.UpdatedAt, &histJSON)
+		if err != nil {
+			return nil, err
+		}
+		if histJSON != nil {
+			_ = json.Unmarshal(histJSON, &order.EditHistory)
+		}
+		
+		itemQuery := `SELECT menu_item_id, quantity, price_at_order, notes, customizations, is_takeout FROM order_items WHERE order_id = $1`
+		iRows, iErr := r.db.Query(itemQuery, order.ID)
+		if iErr == nil {
+			for iRows.Next() {
+				var item domain.OrderItem
+				iRows.Scan(&item.MenuItemID, &item.Quantity, &item.PriceAtOrder, &item.Notes, &item.Customizations, &item.IsTakeout)
+				order.Items = append(order.Items, item)
+			}
+			iRows.Close()
+		}
+
+		orders = append(orders, order)
+	}
+	return orders, nil
 }

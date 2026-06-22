@@ -673,12 +673,14 @@ func (h *OrderHandler) EditOrder(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid session"})
 	}
 
+	userRole := c.Locals("user_role").(string)
+
 	payload := new(domain.EditOrderRequest)
 	if err := c.BodyParser(payload); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse JSON"})
 	}
 
-	updatedOrder, err := h.orderService.EditOrder(orderID, userID, *payload)
+	updatedOrder, err := h.orderService.EditOrder(orderID, userID, userRole, *payload)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -702,6 +704,25 @@ func (h *OrderHandler) LinkOrder(c *fiber.Ctx) error {
 	}
 
 	updatedOrder, err := h.orderService.LinkOrderToParent(orderID, payload.ParentOrderID)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	return c.JSON(updatedOrder)
+}
+
+func (h *OrderHandler) NotarizeOrderNow(c *fiber.Ctx) error {
+	orderID, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid order ID"})
+	}
+
+	userRole := c.Locals("user_role").(string)
+	if userRole != "admin" && userRole != "cajero" {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "No tienes permisos para esta acción"})
+	}
+
+	updatedOrder, err := h.orderService.NotarizeOrderNow(orderID)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}

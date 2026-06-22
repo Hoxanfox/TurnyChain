@@ -207,7 +207,7 @@ const CashierWaiterSearchPage: React.FC = () => {
         <OrderDetailModal
           orderId={selectedOrderIdForDetail}
           onClose={() => setSelectedOrderIdForDetail(null)}
-          editable={false}
+          editable={true}
         />
       )}
     </div>

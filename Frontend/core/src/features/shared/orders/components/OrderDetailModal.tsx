@@ -3,9 +3,9 @@
 // =================================================================
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchActiveOrders, fetchOrderDetails } from '../api/ordersSlice.ts';
+import { fetchActiveOrders, fetchOrderDetails, updateOrder, forceNotarizeOrder } from '../api/ordersSlice.ts';
 import type { AppDispatch, RootState } from '../../../../app/store.ts';
-import type { OrderItem, Order } from '../../../../types/orders.ts';
+import type { OrderItem, Order, Payment } from '../../../../types/orders.ts';
 import { getPaymentProofUrl } from '../../../../utils/imageUtils.ts';
 
 // ============================================================
@@ -217,8 +217,18 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ orderId, onClose, e
   const { selectedOrderDetails, detailsStatus, activeOrders } = useSelector((state: RootState) => state.orders);
   const [currentOrderId, setCurrentOrderId] = useState(orderId);
   const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null);
-  const [editedPrice, setEditedPrice] = useState<number>(0);
+  const [editedQuantity, setEditedQuantity] = useState<number | ''>(1);
+  const [editedPrice, setEditedPrice] = useState<number | ''>(0);
   const [editedNotes, setEditedNotes] = useState<string>('');
+  const [reasonModal, setReasonModal] = useState<{isOpen: boolean, action: 'edit' | 'delete' | null, index: number | null}>({ isOpen: false, action: null, index: null });
+  const [reasonText, setReasonText] = useState('');
+  
+  const [paymentReconciliation, setPaymentReconciliation] = useState<{
+    isOpen: boolean;
+    newTotal: number;
+    payments: Partial<Payment>[];
+    editPayload: any;
+  }>({ isOpen: false, newTotal: 0, payments: [], editPayload: null });
 
   useEffect(() => {
     setCurrentOrderId(orderId);
@@ -272,25 +282,145 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ orderId, onClose, e
 
   const handleEditItem = (index: number, item: OrderItem) => {
     setEditingItemIndex(index);
+    setEditedQuantity(item.quantity);
     setEditedPrice(item.price_at_order);
     setEditedNotes(item.notes || '');
   };
 
-  const handleSaveEdit = () => {
-    // Aquí deberías implementar la lógica para guardar los cambios
-    // Por ahora solo cerramos el modo de edición
-    alert('Funcionalidad de guardar en desarrollo. Conecta con tu backend.');
-    setEditingItemIndex(null);
+  const handleSaveEditRequest = () => {
+    if (editingItemIndex === null || !selectedOrderDetails) return;
+    setReasonModal({ isOpen: true, action: 'edit', index: editingItemIndex });
   };
 
-  const handleDeleteItem = (index: number) => {
+  const handleDeleteItemRequest = (index: number) => {
+    if (!selectedOrderDetails) return;
     if (confirm('¿Estás seguro de eliminar este item?')) {
-      // Aquí deberías implementar la lógica para eliminar el item
-      console.log('Eliminando item en el índice:', index);
-      alert('Funcionalidad de eliminar en desarrollo. Conecta con tu backend.');
+      setReasonModal({ isOpen: true, action: 'delete', index });
     }
   };
 
+  const handleConfirmReason = async () => {
+    if (!reasonText.trim()) {
+      alert('Debes ingresar una razón.');
+      return;
+    }
+    if (!selectedOrderDetails || reasonModal.index === null) return;
+
+    const { action, index } = reasonModal;
+
+    let newTotal = selectedOrderDetails.total;
+    let editPayload: any = null;
+
+    if (action === 'edit') {
+      const q = editedQuantity === '' ? 1 : editedQuantity;
+      const p = editedPrice === '' ? 0 : editedPrice;
+      // Calculate new total
+      newTotal = 0;
+      selectedOrderDetails.items.forEach((item, i) => {
+        if (i === index) {
+          newTotal += q * p;
+        } else {
+          newTotal += item.quantity * item.price_at_order;
+        }
+      });
+
+      editPayload = {
+        update_items: [{
+          index: index,
+          notes: editedNotes,
+          quantity: q,
+          price_at_order: p
+        }],
+        edit_reason: reasonText.trim()
+      };
+    } else if (action === 'delete') {
+      newTotal = 0;
+      selectedOrderDetails.items.forEach((item, i) => {
+        if (i !== index) {
+          newTotal += item.quantity * item.price_at_order;
+        }
+      });
+
+      editPayload = {
+        remove_items: [index],
+        edit_reason: reasonText.trim()
+      };
+    }
+
+    if ((selectedOrderDetails.status === 'pagado' || selectedOrderDetails.status === 'por_verificar') && newTotal !== selectedOrderDetails.total) {
+      // Necesita reconciliación de pagos
+      setPaymentReconciliation({
+        isOpen: true,
+        newTotal: newTotal,
+        payments: selectedOrderDetails.payments ? selectedOrderDetails.payments.map(p => ({ method: p.method, amount: p.amount })) : [],
+        editPayload: editPayload
+      });
+      setReasonModal({ isOpen: false, action: null, index: null });
+      return;
+    }
+
+    try {
+      await dispatch(updateOrder({
+        orderId: selectedOrderDetails.id,
+        editRequest: editPayload
+      })).unwrap();
+      if (action === 'edit') setEditingItemIndex(null);
+      
+      dispatch(fetchOrderDetails(selectedOrderDetails.id));
+    } catch (error: any) {
+      alert(`Error: ${error}`);
+    }
+
+    setReasonModal({ isOpen: false, action: null, index: null });
+    setReasonText('');
+  };
+
+  const handleCancelReason = () => {
+    setReasonModal({ isOpen: false, action: null, index: null });
+    setReasonText('');
+  };
+
+  const handleConfirmReconciliation = async () => {
+    if (!selectedOrderDetails || !paymentReconciliation.editPayload) return;
+    
+    const sum = paymentReconciliation.payments.reduce((acc, p) => acc + (p.amount || 0), 0);
+    if (Math.abs(sum - paymentReconciliation.newTotal) > 0.01) {
+      alert(`La suma de los pagos ($${sum.toFixed(2)}) debe coincidir con el nuevo total ($${paymentReconciliation.newTotal.toFixed(2)})`);
+      return;
+    }
+
+    const finalPayload = {
+      ...paymentReconciliation.editPayload,
+      override_payments: paymentReconciliation.payments
+    };
+
+    try {
+      await dispatch(updateOrder({
+        orderId: selectedOrderDetails.id,
+        editRequest: finalPayload
+      })).unwrap();
+      
+      setEditingItemIndex(null);
+      dispatch(fetchOrderDetails(selectedOrderDetails.id));
+      setPaymentReconciliation({ isOpen: false, newTotal: 0, payments: [], editPayload: null });
+      setReasonText('');
+    } catch (error: any) {
+      alert(`Error al guardar: ${error}`);
+    }
+  };
+
+  const handleNotarizeNow = async () => {
+    if (!selectedOrderDetails) return;
+    if (confirm('¿Estás seguro de enviar esta orden a la blockchain de forma inmediata?')) {
+      try {
+        await dispatch(forceNotarizeOrder(selectedOrderDetails.id)).unwrap();
+        alert('Orden notarizada exitosamente');
+        dispatch(fetchOrderDetails(selectedOrderDetails.id));
+      } catch (error: any) {
+        alert(`Error al notarizar: ${error}`);
+      }
+    }
+  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
@@ -312,12 +442,23 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ orderId, onClose, e
             {(() => {
               const statusVisual = getStatusVisual(selectedOrderDetails.status);
               return (
-                <div className="mb-4 p-3 bg-white border rounded-lg shadow-sm">
-                  <p className="text-xs font-semibold text-gray-500 mb-1">Estado Actual</p>
-                  <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-bold ${statusVisual.className}`}>
-                    <span>{statusVisual.icon}</span>
-                    <span>{statusVisual.label}</span>
+                <div className="mb-4 p-3 bg-white border rounded-lg shadow-sm flex flex-wrap justify-between items-center gap-2">
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 mb-1">Estado Actual</p>
+                    <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-bold ${statusVisual.className}`}>
+                      <span>{statusVisual.icon}</span>
+                      <span>{statusVisual.label}</span>
+                    </div>
                   </div>
+                  {editable && selectedOrderDetails.status === 'pagado' && !selectedOrderDetails.blockchain_tx_hash && (
+                    <button
+                      onClick={handleNotarizeNow}
+                      className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm font-bold transition-colors shadow-sm flex items-center gap-2"
+                    >
+                      <span>⛓️</span>
+                      Notarizar Ahora
+                    </button>
+                  )}
                 </div>
               );
             })()}
@@ -465,17 +606,40 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ orderId, onClose, e
 
                         <div>
                           <label className="block text-sm font-medium text-gray-700">Cantidad:</label>
-                          <p className="mt-1 text-lg font-semibold">{item.quantity}</p>
+                          <input
+                            type="number"
+                            min="1"
+                            value={editedQuantity}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === '') {
+                                setEditedQuantity('');
+                              } else {
+                                const parsed = parseInt(val, 10);
+                                if (!isNaN(parsed)) setEditedQuantity(parsed);
+                              }
+                            }}
+                            className="mt-1 block w-24 px-3 py-2 border rounded-md font-semibold text-lg"
+                          />
                         </div>
 
                         <div>
                           <label className="block text-sm font-medium text-gray-700">Precio unitario:</label>
                           <input
                             type="number"
+                            min="0"
                             step="0.01"
                             value={editedPrice}
-                            onChange={(e) => setEditedPrice(parseFloat(e.target.value))}
-                            className="mt-1 block w-full px-3 py-2 border rounded-md"
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === '') {
+                                setEditedPrice('');
+                              } else {
+                                const parsed = parseFloat(val);
+                                if (!isNaN(parsed)) setEditedPrice(parsed);
+                              }
+                            }}
+                            className="mt-1 block w-full px-3 py-2 border rounded-md font-semibold text-lg"
                           />
                         </div>
 
@@ -533,7 +697,7 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ orderId, onClose, e
                             Cancelar
                           </button>
                           <button
-                            onClick={handleSaveEdit}
+                            onClick={handleSaveEditRequest}
                             className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
                           >
                             Guardar Cambios
@@ -651,17 +815,17 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ orderId, onClose, e
                               );
                             })()}
                           </div>
-                          {editable && (
+                          {editable && selectedOrderDetails.status !== 'rechazado' && (
                             <div className="flex space-x-2 ml-2">
                               <button
                                 onClick={() => handleEditItem(index, item)}
-                                className="text-blue-500 hover:text-blue-700 text-sm font-medium"
+                                className="px-3 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 text-sm font-semibold"
                               >
                                 Editar
                               </button>
                               <button
-                                onClick={() => handleDeleteItem(index)}
-                                className="text-red-500 hover:text-red-700 text-sm font-medium"
+                                onClick={() => handleDeleteItemRequest(index)}
+                                className="px-3 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 text-sm font-semibold"
                               >
                                 Eliminar
                               </button>
@@ -674,9 +838,157 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ orderId, onClose, e
                 );
               })}
             </ul>
+            
+            {/* HISTORIAL DE EDICIONES */}
+            {selectedOrderDetails.edit_history && selectedOrderDetails.edit_history.length > 0 && (
+              <div className="mt-6 border-t pt-4">
+                <h3 className="font-bold mb-3 flex items-center gap-2 text-gray-800">
+                  <span>📝</span> Historial de Modificaciones
+                </h3>
+                <div className="space-y-3">
+                  {selectedOrderDetails.edit_history.map((entry, idx) => (
+                    <div key={idx} className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                      <div className="flex justify-between items-start mb-1">
+                        <span className="text-xs font-bold text-gray-500">
+                          {new Date(entry.timestamp).toLocaleString('es-CO', {
+                            dateStyle: 'short',
+                            timeStyle: 'short'
+                          })}
+                        </span>
+                        <span className="text-xs font-semibold bg-gray-200 px-2 py-0.5 rounded text-gray-700 capitalize">
+                          {entry.user_role}
+                        </span>
+                      </div>
+                      <p className="text-sm font-semibold text-gray-800 mt-1">
+                        Razón: <span className="font-normal italic">{entry.reason}</span>
+                      </p>
+                      {entry.changes && (
+                        <p className="text-xs text-gray-600 mt-1">
+                          Acción: {entry.changes}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
+
+      {/* MODAL DE RAZÓN */}
+      {reasonModal.isOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-[60] p-4">
+          <div className="bg-white p-6 rounded-lg shadow-2xl w-full max-w-sm">
+            <h3 className="text-lg font-bold mb-4">
+              {reasonModal.action === 'delete' ? 'Eliminar Ítem' : 'Modificar Ítem'}
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Por favor, indica brevemente la razón por la que se realiza este cambio. Esta información quedará registrada en el historial de la orden.
+            </p>
+            <textarea
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none outline-none"
+              rows={3}
+              placeholder="Ej. El cliente cambió de opinión, error al tomar el pedido..."
+              value={reasonText}
+              onChange={(e) => setReasonText(e.target.value)}
+              autoFocus
+            />
+            <div className="flex justify-end gap-3 mt-5">
+              <button
+                onClick={handleCancelReason}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-semibold"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleConfirmReason}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-semibold shadow-sm"
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE RECONCILIACION DE PAGOS */}
+      {paymentReconciliation.isOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-[60] p-4">
+          <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
+            <h3 className="text-xl font-bold text-red-600 mb-2">Ajuste de Pagos Requerido</h3>
+            <p className="text-gray-600 mb-4 text-sm">
+              La orden estaba pagada pero el total ha cambiado. Debes re-declarar los pagos para cuadrar la caja.
+            </p>
+            <div className="mb-4">
+              <div className="flex justify-between items-center mb-2 font-bold">
+                <span>Nuevo Total:</span>
+                <span>${paymentReconciliation.newTotal.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between items-center mb-2 font-bold text-blue-600">
+                <span>Suma actual de pagos:</span>
+                <span>${paymentReconciliation.payments.reduce((a, p) => a + (p.amount || 0), 0).toFixed(2)}</span>
+              </div>
+            </div>
+
+            <div className="space-y-3 mb-4 max-h-60 overflow-y-auto">
+              {paymentReconciliation.payments.map((p, idx) => (
+                <div key={idx} className="flex gap-2 items-center">
+                  <select 
+                    value={p.method}
+                    onChange={(e) => {
+                      const newP = [...paymentReconciliation.payments];
+                      newP[idx].method = e.target.value;
+                      setPaymentReconciliation(prev => ({ ...prev, payments: newP }));
+                    }}
+                    className="border rounded p-2 flex-1"
+                  >
+                    <option value="efectivo">Efectivo</option>
+                    <option value="transferencia">Transferencia</option>
+                  </select>
+                  <input 
+                    type="number" 
+                    min="0"
+                    step="0.01"
+                    value={p.amount}
+                    onChange={(e) => {
+                      const newP = [...paymentReconciliation.payments];
+                      newP[idx].amount = parseFloat(e.target.value) || 0;
+                      setPaymentReconciliation(prev => ({ ...prev, payments: newP }));
+                    }}
+                    className="border rounded p-2 w-24"
+                  />
+                  <button 
+                    onClick={() => {
+                      const newP = [...paymentReconciliation.payments];
+                      newP.splice(idx, 1);
+                      setPaymentReconciliation(prev => ({ ...prev, payments: newP }));
+                    }}
+                    className="text-red-500 font-bold px-2"
+                  >×</button>
+                </div>
+              ))}
+              <button 
+                onClick={() => setPaymentReconciliation(prev => ({ ...prev, payments: [...prev.payments, { method: 'efectivo', amount: 0 }] }))}
+                className="w-full text-blue-600 border border-blue-600 rounded py-2 hover:bg-blue-50"
+              >
+                + Añadir Pago
+              </button>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setPaymentReconciliation({ isOpen: false, newTotal: 0, payments: [], editPayload: null })} className="px-4 py-2 border rounded">Cancelar</button>
+              <button 
+                onClick={handleConfirmReconciliation} 
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                disabled={Math.abs(paymentReconciliation.payments.reduce((a, p) => a + (p.amount || 0), 0) - paymentReconciliation.newTotal) > 0.01}
+              >
+                Guardar Cambios
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

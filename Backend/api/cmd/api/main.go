@@ -65,6 +65,9 @@ func main() {
 	sessionRepo := repository.NewSessionRepository(db)
 	menuRepo := repository.NewMenuRepository(db)
 	orderRepo := repository.NewOrderRepository(db)
+
+	// Iniciar worker de Blockchain en segundo plano
+	StartBlockchainWorker(orderRepo, blockchainService)
 	tableRepo := repository.NewTableRepository(db)
 	categoryRepo := repository.NewCategoryRepository(db)
 	ingredientRepo := repository.NewIngredientRepository(db)
@@ -196,6 +199,7 @@ func applyOrderSchemaMigrations(db *sql.DB) error {
 		`CREATE INDEX IF NOT EXISTS orders_print_status_idx ON orders (print_status)`,
 		`CREATE INDEX IF NOT EXISTS orders_blockchain_tx_hash_idx ON orders (blockchain_tx_hash)`,
 		`CREATE INDEX IF NOT EXISTS orders_updated_at_idx ON orders (updated_at)`,
+		`ALTER TABLE orders ADD COLUMN IF NOT EXISTS edit_history jsonb NULL`,
 	}
 
 	for _, stmt := range statements {

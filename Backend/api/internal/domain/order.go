@@ -74,6 +74,36 @@ type Order struct {
 	LastPrintError     *string    `json:"last_print_error,omitempty" db:"last_print_error"`
 	PrintedAt          *time.Time `json:"printed_at,omitempty" db:"printed_at"`
 	LastPrintAttemptAt *time.Time `json:"last_print_attempt_at,omitempty" db:"last_print_attempt_at"`
+	EditHistory        EditHistory  `json:"edit_history,omitempty" db:"edit_history"`
+}
+
+type EditHistoryEntry struct {
+	Timestamp   time.Time `json:"timestamp"`
+	UserID      uuid.UUID `json:"user_id"`
+	UserRole    string    `json:"user_role"`
+	Reason      string    `json:"reason"`
+	Changes     string    `json:"changes"`
+}
+
+type EditHistory []EditHistoryEntry
+
+func (e EditHistory) Value() (driver.Value, error) {
+	if len(e) == 0 {
+		return nil, nil
+	}
+	return json.Marshal(e)
+}
+
+func (e *EditHistory) Scan(value interface{}) error {
+	if value == nil {
+		*e = EditHistory{}
+		return nil
+	}
+	b, ok := value.([]byte)
+	if !ok {
+		return errors.New("type assertion to []byte failed")
+	}
+	return json.Unmarshal(b, &e)
 }
 
 type OrderItem struct {
@@ -112,12 +142,17 @@ type EditOrderRequest struct {
 	DeliveryPhone   *string `json:"delivery_phone,omitempty"`   // Cambiar teléfono de entrega
 	DeliveryNotes   *string `json:"delivery_notes,omitempty"`   // Cambiar notas de entrega
 	TableNumber     *int    `json:"table_number,omitempty"`     // Cambiar mesa (solo para order_type="mesa")
+	// Historial y razón
+	EditReason      string  `json:"edit_reason,omitempty"`      // Razón de la modificación
+	// Reconciliación de pagos
+	OverridePayments []Payment `json:"override_payments,omitempty"` // Nuevos pagos obligatorios si cambia el total de una orden pagada
 }
 
 // UpdateItemOp representa una operación de actualización sobre un item específico
 type UpdateItemOp struct {
 	Index               int                  `json:"index"`                          // Índice del item en el array (0-based)
 	Quantity            *int                 `json:"quantity,omitempty"`             // Nueva cantidad
+	PriceAtOrder        *float64             `json:"price_at_order,omitempty"`       // Nuevo precio unitario
 	Notes               *string              `json:"notes,omitempty"`                // Nuevas notas
 	CustomizationsInput *CustomizationsInput `json:"customizations_input,omitempty"` // Nuevas customizaciones
 	IsTakeout           *bool                `json:"is_takeout,omitempty"`           // Cambiar si es para llevar

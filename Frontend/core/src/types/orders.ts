@@ -41,6 +41,14 @@ export interface Payment {
   created_at: string;
 }
 
+export interface EditHistoryEntry {
+  timestamp: string;
+  user_id: string;
+  user_role: string;
+  reason: string;
+  changes: string;
+}
+
 // Orden completa que RECIBIMOS del backend
 export interface Order {
   id: string;
@@ -67,6 +75,8 @@ export interface Order {
   last_print_error?: string;
   printed_at?: string;
   last_print_attempt_at?: string;
+  edit_history?: EditHistoryEntry[]; // Historial de ediciones
+  blockchain_tx_hash?: string; // Hash de la transacción de blockchain
 }
 
 // ============================================
@@ -98,6 +108,7 @@ export interface NewOrderPayload {
 export interface EditOrderItemUpdate {
   index: number;
   quantity?: number;
+  price_at_order?: number;
   notes?: string;
   is_takeout?: boolean;
 }
@@ -106,4 +117,6 @@ export interface EditOrderRequest {
   add_items?: OrderItemPayload[];
   update_items?: EditOrderItemUpdate[];
   remove_items?: number[];
+  edit_reason?: string; // Razón de la edición
+  override_payments?: Partial<Payment>[];
 }

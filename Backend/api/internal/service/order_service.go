@@ -5,6 +5,7 @@ package service
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"sort"
 	"time"
@@ -19,7 +20,7 @@ type OrderService interface {
 	CreateOrder(waiterID uuid.UUID, tableNumber int, orderType string, customerName, deliveryAddress, deliveryPhone, deliveryNotes *string, items []domain.OrderItem, parentOrderID *uuid.UUID) (*domain.Order, error)
 	GetOrders(userRole string, userID uuid.UUID, status string, myOrders string, teamOrders string, createdAfter *time.Time, createdBefore *time.Time) ([]domain.Order, error)
 	GetOrderByID(orderID uuid.UUID) (*domain.Order, error)
-	EditOrder(orderID, userID uuid.UUID, editReq domain.EditOrderRequest) (*domain.Order, error)
+	EditOrder(orderID, userID uuid.UUID, userRole string, editReq domain.EditOrderRequest) (*domain.Order, error)
 	LinkOrderToParent(orderID, parentOrderID uuid.UUID) (*domain.Order, error)
 	UpdateOrderStatus(orderID, userID uuid.UUID, newStatus string) (*domain.Order, error)
 	UpdateOrderItems(orderID uuid.UUID, items []domain.OrderItem) (*domain.Order, error)
@@ -27,6 +28,7 @@ type OrderService interface {
 	AddPaymentProof(orderID uuid.UUID, method string, proofPath string) (*domain.Order, error)
 	AddSplitPayments(orderID uuid.UUID, payments []domain.Payment) (*domain.Order, error)
 	GetWaiterApprovedStats(userRole string, start time.Time, end time.Time, groupBy string) ([]domain.WaiterApprovedStat, error)
+	NotarizeOrderNow(orderID uuid.UUID) (*domain.Order, error)
 }
 
 type orderService struct {
@@ -286,18 +288,32 @@ func (s *orderService) GetOrderByID(orderID uuid.UUID) (*domain.Order, error) {
 	return s.orderRepo.GetOrderByID(orderID)
 }
 
-func (s *orderService) EditOrder(orderID, userID uuid.UUID, editReq domain.EditOrderRequest) (*domain.Order, error) {
+func (s *orderService) EditOrder(orderID, userID uuid.UUID, userRole string, editReq domain.EditOrderRequest) (*domain.Order, error) {
 	order, err := s.orderRepo.GetOrderByID(orderID)
 	if err != nil {
 		return nil, errors.New("orden no encontrada")
 	}
 
-	if order.WaiterID != userID {
+	// Permisos: Mesero creador, o Cajero/Admin
+	if order.WaiterID != userID && userRole != "cajero" && userRole != "admin" {
 		return nil, errors.New("no tienes permisos para editar esta orden")
 	}
 
-	if order.Status != "pendiente_aprobacion" && order.Status != "rechazado" {
-		return nil, errors.New("solo se pueden editar órdenes en estado pendiente_aprobacion o rechazado")
+	// Estados permitidos: pendiente_aprobacion, entregado (por cobrar), pagado, por_verificar. NO rechazado.
+	allowedStates := map[string]bool{
+		"pendiente_aprobacion": true,
+		"entregado":            true,
+		"pagado":               true,
+		"por_verificar":        true,
+	}
+
+	if !allowedStates[order.Status] {
+		return nil, errors.New("el estado actual de la orden no permite edición")
+	}
+
+	// Si está pagada pero ya tiene hash en la blockchain, ya no se puede editar
+	if order.Status == "pagado" && order.BlockchainTxHash != nil {
+		return nil, errors.New("esta orden ya fue enviada a la blockchain y no puede ser modificada")
 	}
 
 	items := make([]domain.OrderItem, len(order.Items))
@@ -328,6 +344,13 @@ func (s *orderService) EditOrder(orderID, userID uuid.UUID, editReq domain.EditO
 			items[op.Index].Quantity = *op.Quantity
 		}
 
+		if op.PriceAtOrder != nil {
+			if *op.PriceAtOrder < 0 {
+				return nil, errors.New("el precio no puede ser negativo")
+			}
+			items[op.Index].PriceAtOrder = *op.PriceAtOrder
+		}
+
 		if op.Notes != nil {
 			items[op.Index].Notes = op.Notes
 		}
@@ -344,9 +367,7 @@ func (s *orderService) EditOrder(orderID, userID uuid.UUID, editReq domain.EditO
 		items = append(items, addItem)
 	}
 
-	if len(items) == 0 {
-		return nil, errors.New("la orden no puede quedar vacía")
-	}
+	// Permitir que la orden quede vacía sin arrojar error
 
 	if order.OrderType == "llevar" || order.OrderType == "domicilio" {
 		for i := range items {
@@ -354,7 +375,64 @@ func (s *orderService) EditOrder(orderID, userID uuid.UUID, editReq domain.EditO
 		}
 	}
 
-	return s.UpdateOrderItems(orderID, items)
+	// Conservamos el estado original de la orden (a petición del usuario)
+	newStatus := order.Status
+
+	// Historial de edición
+	newHistoryEntry := domain.EditHistoryEntry{
+		Timestamp: time.Now(),
+		UserID:    userID,
+		UserRole:  userRole,
+		Reason:    editReq.EditReason,
+		Changes:   "Edición general de orden",
+	}
+
+	// Actualizamos items y calculamos nuevo total
+	var newTotal float64
+	for _, item := range items {
+		newTotal += item.PriceAtOrder * float64(item.Quantity)
+	}
+
+	// Validar pagos si el total cambió y la orden estaba pagada o por verificar
+	if (order.Status == "pagado" || order.Status == "por_verificar") && newTotal != order.Total {
+		if len(editReq.OverridePayments) == 0 {
+			return nil, errors.New("la orden ya fue pagada y su total cambió. Debe proveer override_payments para reconciliar la caja")
+		}
+		var sum float64
+		for _, p := range editReq.OverridePayments {
+			sum += p.Amount
+		}
+		if sum != newTotal {
+			return nil, errors.New("la suma de los nuevos pagos no coincide con el nuevo total de la orden")
+		}
+
+		// Rastrear los pagos antiguos
+		oldPaymentsStr := ""
+		for _, p := range order.Payments {
+			oldPaymentsStr += fmt.Sprintf("[%s: $%.2f] ", p.Method, p.Amount)
+		}
+		newPaymentsStr := ""
+		for _, p := range editReq.OverridePayments {
+			newPaymentsStr += fmt.Sprintf("[%s: $%.2f] ", p.Method, p.Amount)
+		}
+		newHistoryEntry.Changes = fmt.Sprintf("Cambio de Total: de $%.2f a $%.2f. Pagos antiguos: %s | Pagos nuevos: %s", order.Total, newTotal, oldPaymentsStr, newPaymentsStr)
+	} else if newTotal != order.Total {
+		newHistoryEntry.Changes = fmt.Sprintf("Cambio de Total: de $%.2f a $%.2f", order.Total, newTotal)
+	}
+
+	err = s.orderRepo.UpdateOrderWithEditHistory(orderID, newStatus, items, newTotal, newHistoryEntry, editReq.OverridePayments)
+	if err != nil {
+		return nil, err
+	}
+
+	updatedOrder, err := s.orderRepo.GetOrderByID(orderID)
+	if err != nil {
+		return nil, err
+	}
+
+	s.wsHub.BroadcastMessage("ORDER_ITEMS_UPDATED", updatedOrder)
+	s.wsHub.BroadcastMessage("ORDER_STATUS_UPDATED", updatedOrder) // Porque el estado pudo haber cambiado a entregado
+	return updatedOrder, nil
 }
 
 func (s *orderService) UpdateOrderStatus(orderID, userID uuid.UUID, newStatus string) (*domain.Order, error) {
@@ -389,26 +467,7 @@ func (s *orderService) UpdateOrderStatus(orderID, userID uuid.UUID, newStatus st
 	// ----------------------------------------------------------
 
 	// --- LÓGICA BLOCKCHAIN ---
-	if newStatus == "pagado" && s.blockchain != nil {
-		// IMPORTANTE: Obtener la orden COMPLETA con Items para la blockchain
-		fullOrder, err := s.orderRepo.GetOrderByID(orderID)
-		if err != nil {
-			log.Printf("⚠️ No se pudo obtener la orden completa para blockchain: %v", err)
-		} else {
-			// Ejecutar en goroutine para no bloquear al usuario
-			go func(ord *domain.Order) {
-				txHash, err := s.blockchain.NotarizeOrder(ord)
-				if err != nil {
-					log.Printf("❌ Error Blockchain: %v", err)
-				} else {
-					if updateErr := s.orderRepo.UpdateOrderBlockchainTxHash(ord.ID, txHash); updateErr != nil {
-						log.Printf("⚠️ No se pudo guardar hash blockchain para orden %s: %v", ord.ID, updateErr)
-					}
-					log.Printf("✅ Orden %s notarizada en blockchain correctamente", ord.ID)
-				}
-			}(fullOrder)
-		}
-	}
+	// La notarización ahora la maneja el cronjob (BlockchainWorker) después de 1 hora de cooldown.
 	// -------------------------
 
 	// Broadcast general
@@ -556,4 +615,40 @@ func (s *orderService) GetWaiterApprovedStats(userRole string, start time.Time, 
 		return nil, errors.New("unauthorized")
 	}
 	return s.orderRepo.GetWaiterApprovedStats(start, end, groupBy)
+}
+
+func (s *orderService) NotarizeOrderNow(orderID uuid.UUID) (*domain.Order, error) {
+	if s.blockchain == nil {
+		return nil, errors.New("blockchain service not available")
+	}
+
+	order, err := s.orderRepo.GetOrderByID(orderID)
+	if err != nil {
+		return nil, errors.New("orden no encontrada")
+	}
+
+	if order.Status != "pagado" {
+		return nil, errors.New("solo las órdenes pagadas pueden ser notarizadas")
+	}
+
+	if order.BlockchainTxHash != nil {
+		return nil, errors.New("la orden ya fue notarizada")
+	}
+
+	txHash, err := s.blockchain.NotarizeOrder(order)
+	if err != nil {
+		log.Printf("❌ Error Blockchain manual: %v", err)
+		return nil, err
+	}
+
+	if updateErr := s.orderRepo.UpdateOrderBlockchainTxHash(order.ID, txHash); updateErr != nil {
+		log.Printf("⚠️ No se pudo guardar hash blockchain para orden %s: %v", order.ID, updateErr)
+		return nil, updateErr
+	}
+
+	log.Printf("✅ Orden %s notarizada manualmente en blockchain", order.ID)
+
+	updatedOrder, _ := s.orderRepo.GetOrderByID(orderID)
+	s.wsHub.BroadcastMessage("ORDER_UPDATED", updatedOrder)
+	return updatedOrder, nil
 }

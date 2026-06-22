@@ -329,7 +329,7 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
           <OrderDetailModal
             orderId={selectedOrderIdForDetail}
             onClose={() => setSelectedOrderIdForDetail(null)}
-            editable={false}
+            editable={true}
           />
         )}
       </Suspense>

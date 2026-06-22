@@ -192,7 +192,7 @@ export const editOrder = async (orderId: string, editRequest: EditOrderRequest, 
     }
   };
 
-  const response = await axios.patch(`${API_URL}/${orderId}/edit`, editRequest, config);
+  const response = await axios.put(`${API_URL}/${orderId}/edit`, editRequest, config);
 
   console.log('✅ [Frontend] Orden editada exitosamente:', {
     orderId: response.data.id,
@@ -201,6 +201,12 @@ export const editOrder = async (orderId: string, editRequest: EditOrderRequest, 
     total: response.data.total
   });
 
+  return response.data;
+};
+
+export const notarizeOrderNow = async (orderId: string, token: string): Promise<Order> => {
+  const config = { headers: { Authorization: `Bearer ${token}` } };
+  const response = await axios.post(`${API_URL}/${orderId}/notarize-now`, {}, config);
   return response.data;
 };
 
