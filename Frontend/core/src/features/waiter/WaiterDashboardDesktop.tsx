@@ -350,9 +350,17 @@ const WaiterDashboardDesktop: React.FC = () => {
       setDeliveryData(null);
       setSelectedParentOrder(null);
       localStorage.removeItem('waiter-cart-draft-desktop');
-    } catch (error) {
-      setValidationError('No se pudo enviar la comanda. Intenta nuevamente.');
-      toast.error('No se pudo enviar la comanda. Intenta nuevamente.');
+    } catch (error: any) {
+      if (error === 'CASH_REGISTER_CLOSED') {
+        setValidationError('La caja está cerrada.');
+        toast.error('La caja está cerrada. Pide al cajero que la abra antes de enviar comandas.');
+      } else if (error === 'CASH_REGISTER_PENDING_CLOSE') {
+        setValidationError('Cierre de caja pendiente.');
+        toast.error('La caja tiene un cierre pendiente. Pide al cajero que realice el arqueo.');
+      } else {
+        setValidationError('No se pudo enviar la comanda. Intenta nuevamente.');
+        toast.error('No se pudo enviar la comanda. Intenta nuevamente.');
+      }
     } finally {
       setIsPaymentFlowRunning(false);
     }
@@ -541,9 +549,17 @@ const WaiterDashboardDesktop: React.FC = () => {
       setSelectedParentOrder(null);
       localStorage.removeItem('waiter-cart-draft-desktop');
       return true;
-    } catch (error) {
-      setValidationError('No se pudo cobrar y enviar la comanda. Intenta nuevamente.');
-      toast.error('No se pudo cobrar y enviar la comanda. Intenta nuevamente.');
+    } catch (error: any) {
+      if (error === 'CASH_REGISTER_CLOSED') {
+        setValidationError('La caja está cerrada.');
+        toast.error('La caja está cerrada. Pide al cajero que la abra antes de cobrar.');
+      } else if (error === 'CASH_REGISTER_PENDING_CLOSE') {
+        setValidationError('Cierre de caja pendiente.');
+        toast.error('La caja tiene un cierre pendiente. Pide al cajero que realice el arqueo.');
+      } else {
+        setValidationError('No se pudo cobrar y enviar la comanda. Intenta nuevamente.');
+        toast.error('No se pudo cobrar y enviar la comanda. Intenta nuevamente.');
+      }
       return false;
     } finally {
       setIsPaymentFlowRunning(false);

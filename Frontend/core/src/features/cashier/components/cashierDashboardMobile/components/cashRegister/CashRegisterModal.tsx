@@ -62,7 +62,7 @@ export const CashRegisterModal: React.FC<CashRegisterModalProps> = ({ isOpen, on
             <div>
               <h2 className="text-xl font-bold">Control de Caja</h2>
               <p className="text-xs text-emerald-100">
-                {sessionDetails?.session ? 'Caja Abierta' : 'Caja Cerrada'}
+                {sessionDetails?.session?.status === 'pending_close' ? 'Cierre Pendiente' : sessionDetails?.session ? 'Caja Abierta' : 'Caja Cerrada'}
               </p>
             </div>
           </div>

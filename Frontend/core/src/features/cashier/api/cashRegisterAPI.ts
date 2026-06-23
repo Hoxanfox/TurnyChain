@@ -4,7 +4,7 @@ const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 export interface CashRegisterSession {
   id: string;
-  status: 'open' | 'closed';
+  status: 'open' | 'closed' | 'pending_close';
   open_time: string;
   close_time?: string;
   initial_cash: number;
@@ -77,10 +77,11 @@ export const addExpense = async (amount: number, description: string, image?: Fi
   return response.data;
 };
 
-export const closeSession = async (finalCashActual: number, finalTransferActual: number): Promise<CashRegisterSession> => {
+export const closeSession = async (finalCashActual: number, finalTransferActual: number, justification?: string): Promise<CashRegisterSession> => {
   const response = await axios.post(`${API_URL}/cash-register/close`, { 
     final_cash_actual: finalCashActual,
-    final_transfer_actual: finalTransferActual
+    final_transfer_actual: finalTransferActual,
+    justification: justification
   }, getAuthHeaders());
   return response.data;
 };

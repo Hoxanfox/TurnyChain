@@ -36,6 +36,9 @@ func main() {
 	}
 	defer db.Close()
 
+	if err := applyCashRegisterMigrations(db); err != nil {
+		log.Fatalf("Error aplicando migraciones de caja: %v", err)
+	}
 	if err := applyOrderSchemaMigrations(db); err != nil {
 		log.Fatalf("Error aplicando migraciones de órdenes: %v", err)
 	}
@@ -44,9 +47,6 @@ func main() {
 	}
 	if err := applyOrderPaymentsMigration(db); err != nil {
 		log.Fatalf("Error aplicando migraciones de order_payments: %v", err)
-	}
-	if err := applyCashRegisterMigrations(db); err != nil {
-		log.Fatalf("Error aplicando migraciones de caja: %v", err)
 	}
 
 	wsHub := wshub.NewHub()
@@ -84,7 +84,7 @@ func main() {
 	menuService := service.NewMenuService(menuRepo, wsHub)
 
 	kitchenTicketService := service.NewKitchenTicketService(orderRepo, printerRepo, stationRepo, wsHub)
-	orderService := service.NewOrderService(orderRepo, tableRepo, menuRepo, ingredientRepo, accompanimentRepo, wsHub, blockchainService, kitchenTicketService)
+	orderService := service.NewOrderService(orderRepo, tableRepo, menuRepo, ingredientRepo, accompanimentRepo, wsHub, blockchainService, kitchenTicketService, cashRegisterRepo)
 	invoiceService := service.NewInvoiceService(orderRepo)
 	tableService := service.NewTableService(tableRepo)
 	categoryService := service.NewCategoryService(categoryRepo)
@@ -158,7 +158,8 @@ func main() {
 	}
 	app.Static("/api/static", uploadsDir)
 
-	router.SetupRoutes(app, authHandler, userHandler, menuHandler, orderHandler, invoiceHandler, tableHandler, categoryHandler, ingredientHandler, accompanimentHandler, wsHandler, stationHandler, printerHandler, kitchenTicketHandler, backupHandler, cashRegisterHandler, settingHandler, sessionRepo)
+	// Setup router and pass the cash register repository to setup the middleware
+	router.SetupRoutes(app, authHandler, userHandler, menuHandler, orderHandler, invoiceHandler, tableHandler, categoryHandler, ingredientHandler, accompanimentHandler, wsHandler, stationHandler, printerHandler, kitchenTicketHandler, backupHandler, cashRegisterHandler, settingHandler, sessionRepo, cashRegisterRepo)
 
 	// Alias explícitos para compatibilidad de rutas de impresión de cocina.
 	app.Post("/api/orders/:orderId/kitchen-tickets/print/caja", middleware.Protected(sessionRepo), kitchenTicketHandler.PrintGlobalCashTicket)
@@ -201,6 +202,7 @@ func applyOrderSchemaMigrations(db *sql.DB) error {
 		`CREATE INDEX IF NOT EXISTS orders_blockchain_tx_hash_idx ON orders (blockchain_tx_hash)`,
 		`CREATE INDEX IF NOT EXISTS orders_updated_at_idx ON orders (updated_at)`,
 		`ALTER TABLE orders ADD COLUMN IF NOT EXISTS edit_history jsonb NULL`,
+		`ALTER TABLE orders ADD COLUMN IF NOT EXISTS cash_session_id uuid REFERENCES cash_register_sessions(id) ON DELETE SET NULL`,
 	}
 
 	for _, stmt := range statements {
@@ -247,9 +249,11 @@ func applyOrderPaymentsMigration(db *sql.DB) error {
 			amount numeric(10, 2) NOT NULL,
 			payment_method varchar(20) NOT NULL CHECK (payment_method IN ('efectivo', 'transferencia')),
 			payment_proof_path text NULL,
+			cash_session_id uuid REFERENCES cash_register_sessions(id) ON DELETE SET NULL,
 			created_at timestamptz NOT NULL DEFAULT now()
 		)`,
 		`CREATE INDEX IF NOT EXISTS order_payments_order_id_idx ON order_payments (order_id)`,
+		`ALTER TABLE order_payments ADD COLUMN IF NOT EXISTS cash_session_id uuid REFERENCES cash_register_sessions(id) ON DELETE SET NULL`,
 	}
 
 	for _, stmt := range statements {
@@ -288,6 +292,9 @@ func applyCashRegisterMigrations(db *sql.DB) error {
 		`ALTER TABLE cash_register_sessions ADD COLUMN IF NOT EXISTS final_transfer_actual numeric(12, 2) NULL`,
 		`ALTER TABLE cash_register_sessions ADD COLUMN IF NOT EXISTS transfer_discrepancy numeric(12, 2) NULL`,
 		`ALTER TABLE cash_register_sessions ADD COLUMN IF NOT EXISTS initial_transfer numeric(12, 2) NOT NULL DEFAULT 0`,
+		`ALTER TABLE cash_register_sessions ADD COLUMN IF NOT EXISTS justification text NULL`,
+		`ALTER TABLE cash_register_sessions DROP CONSTRAINT IF EXISTS cash_register_sessions_status_check`,
+		`ALTER TABLE cash_register_sessions ADD CONSTRAINT cash_register_sessions_status_check CHECK (status IN ('open', 'closed', 'pending_close'))`,
 		`CREATE INDEX IF NOT EXISTS cash_register_sessions_status_idx ON cash_register_sessions (status)`,
 		`CREATE INDEX IF NOT EXISTS cash_register_expenses_session_id_idx ON cash_register_expenses (session_id)`,
 		`CREATE TABLE IF NOT EXISTS settings (

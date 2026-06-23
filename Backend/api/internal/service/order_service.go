@@ -41,6 +41,7 @@ type orderService struct {
 	wsHub                *wshub.Hub
 	blockchain           BlockchainService
 	kitchenTicketService *KitchenTicketService
+	cashRegisterRepo     repository.CashRegisterRepository
 }
 
 func NewOrderService(
@@ -52,6 +53,7 @@ func NewOrderService(
 	wsHub *wshub.Hub,
 	bc BlockchainService,
 	kitchenTicketService *KitchenTicketService,
+	cashRegisterRepo repository.CashRegisterRepository,
 ) OrderService {
 	return &orderService{
 		orderRepo:            orderRepo,
@@ -62,6 +64,7 @@ func NewOrderService(
 		wsHub:                wsHub,
 		blockchain:           bc,
 		kitchenTicketService: kitchenTicketService,
+		cashRegisterRepo:     cashRegisterRepo,
 	}
 }
 
@@ -205,6 +208,10 @@ func (s *orderService) CreateOrder(waiterID uuid.UUID, tableNumber int, orderTyp
 		DeliveryAddress: deliveryAddress,
 		DeliveryPhone:   deliveryPhone,
 		DeliveryNotes:   deliveryNotes,
+	}
+
+	if session, err := s.cashRegisterRepo.GetOpenSession(); err == nil && session != nil {
+		order.CashSessionID = &session.ID
 	}
 
 	createdOrder, err := s.orderRepo.CreateOrder(order)
@@ -587,6 +594,15 @@ func (s *orderService) AddSplitPayments(orderID uuid.UUID, payments []domain.Pay
 	log.Printf("📤 [Backend] Recibiendo pagos divididos para orden %s", orderID.String())
 	for i, p := range payments {
 		log.Printf("   - Pago %d: %s | Monto: %.2f | Ruta comprobante: %v", i+1, p.Method, p.Amount, p.PaymentProofPath)
+	}
+
+	var sessionID *uuid.UUID
+	if session, err := s.cashRegisterRepo.GetOpenSession(); err == nil && session != nil {
+		sessionID = &session.ID
+	}
+
+	for i := range payments {
+		payments[i].CashSessionID = sessionID
 	}
 
 	order, err := s.orderRepo.AddSplitPayments(orderID, payments)

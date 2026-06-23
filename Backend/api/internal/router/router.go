@@ -11,7 +11,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *handler.UserHandler, menuHandler *handler.MenuHandler, orderHandler *handler.OrderHandler, invoiceHandler *handler.InvoiceHandler, tableHandler *handler.TableHandler, categoryHandler *handler.CategoryHandler, ingredientHandler *handler.IngredientHandler, accompanimentHandler *handler.AccompanimentHandler, wsHandler *handler.WebSocketHandler, stationHandler *handler.StationHandler, printerHandler *handler.PrinterHandler, kitchenTicketHandler *handler.KitchenTicketHandler, backupHandler *handler.BackupHandler, cashRegisterHandler *handler.CashRegisterHandler, settingHandler *handler.SettingHandler, sessionRepo repository.SessionRepository) {
+func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *handler.UserHandler, menuHandler *handler.MenuHandler, orderHandler *handler.OrderHandler, invoiceHandler *handler.InvoiceHandler, tableHandler *handler.TableHandler, categoryHandler *handler.CategoryHandler, ingredientHandler *handler.IngredientHandler, accompanimentHandler *handler.AccompanimentHandler, wsHandler *handler.WebSocketHandler, stationHandler *handler.StationHandler, printerHandler *handler.PrinterHandler, kitchenTicketHandler *handler.KitchenTicketHandler, backupHandler *handler.BackupHandler, cashRegisterHandler *handler.CashRegisterHandler, settingHandler *handler.SettingHandler, sessionRepo repository.SessionRepository, cashRegisterRepo repository.CashRegisterRepository) {
 	// Ruta pública para WebSockets
 	app.Get("/ws", websocket.New(wsHandler.HandleConnection))
 
@@ -57,8 +57,8 @@ func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *
 
 	// Rutas de Órdenes
 	orders := protected.Group("/orders")
-	orders.Post("/", orderHandler.CreateOrder)
-	orders.Post("/with-payment", orderHandler.CreateOrderWithPayment) // Nueva ruta para orden con pago
+	orders.Post("/", middleware.CashSessionMiddleware(cashRegisterRepo), orderHandler.CreateOrder)
+	orders.Post("/with-payment", middleware.CashSessionMiddleware(cashRegisterRepo), orderHandler.CreateOrderWithPayment) // Nueva ruta para orden con pago
 	orders.Get("/", orderHandler.GetOrders)
 	orders.Get("/today", orderHandler.GetOrdersToday)
 	orders.Get("/waiter-approved-stats", orderHandler.GetWaiterApprovedStats) // Nueva ruta para estadísticas de meseros
@@ -70,8 +70,8 @@ func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *
 	orders.Post("/:id/notarize-now", orderHandler.NotarizeOrderNow) // Ruta para notarización inmediata
 	orders.Get("/blockchain/pending-count", orderHandler.GetPendingBlockchainOrderCount) // Conteo de órdenes por notarizar
 	orders.Post("/:id/link", orderHandler.LinkOrder) // Nueva ruta para vincular órdenes
-	orders.Post("/:id/proof", orderHandler.UploadPaymentProof) // Ruta existente para 1 solo pago
-	orders.Post("/:id/split-payments", orderHandler.UploadSplitPayments) // Nueva ruta para multiples pagos
+	orders.Post("/:id/proof", middleware.CashSessionMiddleware(cashRegisterRepo), orderHandler.UploadPaymentProof) // Ruta existente para 1 solo pago
+	orders.Post("/:id/split-payments", middleware.CashSessionMiddleware(cashRegisterRepo), orderHandler.UploadSplitPayments) // Nueva ruta para multiples pagos
 
 	// Rutas de Facturas
 	invoices := protected.Group("/invoices")
@@ -139,6 +139,6 @@ func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *
 	cashRegister.Post("/open", cashRegisterHandler.OpenSession)
 	cashRegister.Get("/current", cashRegisterHandler.GetCurrentSession)
 	cashRegister.Get("/closing-details", cashRegisterHandler.GetClosingDetails)
-	cashRegister.Post("/expenses", cashRegisterHandler.AddExpense)
+	cashRegister.Post("/expenses", middleware.CashSessionMiddleware(cashRegisterRepo), cashRegisterHandler.AddExpense)
 	cashRegister.Post("/close", cashRegisterHandler.CloseSession)
 }

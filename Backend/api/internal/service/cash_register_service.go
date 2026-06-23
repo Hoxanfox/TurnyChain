@@ -15,7 +15,7 @@ type CashRegisterService interface {
 	GetCurrentSessionDetails() (*domain.CashRegisterSessionDetails, error)
 	GetClosingSessionDetails() (*domain.CashRegisterClosingDetails, error)
 	AddExpense(amount float64, description string, imagePath *string) (*domain.CashRegisterExpense, error)
-	CloseSession(finalCashActual float64, finalTransferActual float64) (*domain.CashRegisterSession, error)
+	CloseSession(finalCashActual float64, finalTransferActual float64, justification *string) (*domain.CashRegisterSession, error)
 }
 
 type cashRegisterService struct {
@@ -64,6 +64,27 @@ func (s *cashRegisterService) GetCurrentSessionDetails() (*domain.CashRegisterSe
 		}, nil
 	}
 
+	loc := time.Local
+	if bogota, err := time.LoadLocation("America/Bogota"); err == nil {
+		loc = bogota
+	}
+	now := time.Now().In(loc)
+	startOfToday := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+
+	// Check if session is from a previous day
+	sessionOpenLocal := session.OpenTime.In(loc)
+	sessionStartOfDay := time.Date(sessionOpenLocal.Year(), sessionOpenLocal.Month(), sessionOpenLocal.Day(), 0, 0, 0, 0, loc)
+
+	if sessionStartOfDay.Before(startOfToday) && session.Status == "open" {
+		log.Printf("⚠️ [GetCurrentSessionDetails] Session %s is from a previous day. Changing to pending_close", session.ID)
+		session.Status = "pending_close"
+		session.UpdatedAt = time.Now()
+		if err := s.repo.CloseSession(session); err != nil {
+			log.Printf("❌ Failed to auto-transition session to pending_close: %v", err)
+			// Continue returning it anyway
+		}
+	}
+
 	expenses, err := s.repo.GetExpensesBySession(session.ID)
 	if err != nil {
 		return nil, err
@@ -74,12 +95,7 @@ func (s *cashRegisterService) GetCurrentSessionDetails() (*domain.CashRegisterSe
 		totalExpenses += e.Amount
 	}
 
-	loc := time.Local
-	if bogota, err := time.LoadLocation("America/Bogota"); err == nil {
-		loc = bogota
-	}
-	now := time.Now().In(loc)
-	startOfToday := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+
 
 	// Determinar el tiempo de inicio basado en el cierre de la última sesión
 	lastClosedSession, err := s.repo.GetLastClosedSession()
@@ -149,7 +165,7 @@ func (s *cashRegisterService) AddExpense(amount float64, description string, ima
 	return expense, nil
 }
 
-func (s *cashRegisterService) CloseSession(finalCashActual float64, finalTransferActual float64) (*domain.CashRegisterSession, error) {
+func (s *cashRegisterService) CloseSession(finalCashActual float64, finalTransferActual float64, justification *string) (*domain.CashRegisterSession, error) {
 	details, err := s.GetCurrentSessionDetails()
 	if err != nil {
 		return nil, err
@@ -162,6 +178,10 @@ func (s *cashRegisterService) CloseSession(finalCashActual float64, finalTransfe
 	cashDiscrepancy := finalCashActual - details.ExpectedCash
 	transferDiscrepancy := finalTransferActual - details.TotalTransfer
 
+	if (cashDiscrepancy != 0 || transferDiscrepancy != 0) && (justification == nil || *justification == "") {
+		return nil, errors.New("DISCREPANCY_NEEDS_JUSTIFICATION")
+	}
+
 	session := details.Session
 	session.Status = "closed"
 	session.CloseTime = &now
@@ -171,6 +191,7 @@ func (s *cashRegisterService) CloseSession(finalCashActual float64, finalTransfe
 	session.FinalTransferExpected = &details.TotalTransfer
 	session.FinalTransferActual = &finalTransferActual
 	session.TransferDiscrepancy = &transferDiscrepancy
+	session.Justification = justification
 	session.UpdatedAt = now
 
 	err = s.repo.CloseSession(session)

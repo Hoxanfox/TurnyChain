@@ -100,6 +100,7 @@ func (h *CashRegisterHandler) AddExpense(c *fiber.Ctx) error {
 type CloseSessionRequest struct {
 	FinalCashActual     float64 `json:"final_cash_actual"`
 	FinalTransferActual float64 `json:"final_transfer_actual"`
+	Justification       *string `json:"justification,omitempty"`
 }
 
 func (h *CashRegisterHandler) CloseSession(c *fiber.Ctx) error {
@@ -108,8 +109,11 @@ func (h *CashRegisterHandler) CloseSession(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
 	}
 
-	session, err := h.Service.CloseSession(req.FinalCashActual, req.FinalTransferActual)
+	session, err := h.Service.CloseSession(req.FinalCashActual, req.FinalTransferActual, req.Justification)
 	if err != nil {
+		if err.Error() == "DISCREPANCY_NEEDS_JUSTIFICATION" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		}
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 

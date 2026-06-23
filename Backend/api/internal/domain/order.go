@@ -57,6 +57,8 @@ type Order struct {
 	UpdatedAt     time.Time   `json:"updated_at" db:"updated_at"`
 	// Tipo de orden: "mesa" (permite híbridos), "llevar" (todo empacado), "domicilio" (todo empacado + dirección)
 	OrderType string `json:"order_type" db:"order_type"`
+	// Cash Session ID to link this order to a specific cash register session
+	CashSessionID *uuid.UUID `json:"cash_session_id,omitempty" db:"cash_session_id"`
 	// Nombre del cliente (obligatorio para "llevar" y "domicilio")
 	CustomerName *string `json:"customer_name,omitempty" db:"customer_name"`
 	// Campos para órdenes a domicilio (solo cuando order_type = "domicilio")
@@ -126,8 +128,9 @@ type Payment struct {
 	OrderID          uuid.UUID `json:"order_id" db:"order_id"`
 	Amount           float64   `json:"amount" db:"amount"`
 	Method           string    `json:"method" db:"payment_method"`
-	PaymentProofPath *string   `json:"payment_proof_path,omitempty" db:"payment_proof_path"`
-	CreatedAt        time.Time `json:"created_at" db:"created_at"`
+	PaymentProofPath *string    `json:"payment_proof_path,omitempty" db:"payment_proof_path"`
+	CashSessionID    *uuid.UUID `json:"cash_session_id,omitempty" db:"cash_session_id"`
+	CreatedAt        time.Time  `json:"created_at" db:"created_at"`
 }
 
 // EditOrderRequest estructura para edición granular de órdenes

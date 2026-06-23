@@ -51,10 +51,10 @@ func (r *orderRepository) CreateOrder(order *domain.Order) (*domain.Order, error
 	}
 
 	order.ID = uuid.New()
-	orderQuery := `INSERT INTO orders (id, parent_order_id, waiter_id, table_id, table_number, status, total, order_type, customer_name, delivery_address, delivery_phone, delivery_notes, print_status, print_attempts) 
-	               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) 
+	orderQuery := `INSERT INTO orders (id, parent_order_id, waiter_id, table_id, table_number, status, total, order_type, customer_name, delivery_address, delivery_phone, delivery_notes, print_status, print_attempts, cash_session_id) 
+	               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) 
                    RETURNING id, created_at`
-	err = tx.QueryRow(orderQuery, order.ID, order.ParentOrderID, order.WaiterID, order.TableID, order.TableNumber, order.Status, order.Total, order.OrderType, order.CustomerName, order.DeliveryAddress, order.DeliveryPhone, order.DeliveryNotes, "queued", 0).Scan(&order.ID, &order.CreatedAt)
+	err = tx.QueryRow(orderQuery, order.ID, order.ParentOrderID, order.WaiterID, order.TableID, order.TableNumber, order.Status, order.Total, order.OrderType, order.CustomerName, order.DeliveryAddress, order.DeliveryPhone, order.DeliveryNotes, "queued", 0, order.CashSessionID).Scan(&order.ID, &order.CreatedAt)
 	if err != nil {
 		tx.Rollback()
 		return nil, err
@@ -999,8 +999,8 @@ func (r *orderRepository) AddSplitPayments(orderID uuid.UUID, payments []domain.
 
 	// Insert payments
 	for _, p := range payments {
-		_, err = tx.Exec(`INSERT INTO order_payments (order_id, amount, payment_method, payment_proof_path) VALUES ($1, $2, $3, $4)`,
-			orderID, p.Amount, p.Method, p.PaymentProofPath)
+		_, err = tx.Exec(`INSERT INTO order_payments (order_id, amount, payment_method, payment_proof_path, cash_session_id) VALUES ($1, $2, $3, $4, $5)`,
+			orderID, p.Amount, p.Method, p.PaymentProofPath, p.CashSessionID)
 		if err != nil {
 			return nil, err
 		}

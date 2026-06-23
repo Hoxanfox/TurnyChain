@@ -40,14 +40,14 @@ func (r *postgresCashRegisterRepository) CreateSession(session *domain.CashRegis
 
 func (r *postgresCashRegisterRepository) GetOpenSession() (*domain.CashRegisterSession, error) {
 	query := `
-		SELECT id, status, open_time, close_time, initial_cash, initial_transfer, final_cash_expected, final_cash_actual, discrepancy, final_transfer_expected, final_transfer_actual, transfer_discrepancy, created_at, updated_at
+		SELECT id, status, open_time, close_time, initial_cash, initial_transfer, final_cash_expected, final_cash_actual, discrepancy, justification, final_transfer_expected, final_transfer_actual, transfer_discrepancy, created_at, updated_at
 		FROM cash_register_sessions
-		WHERE status = 'open'
+		WHERE status IN ('open', 'pending_close')
 		ORDER BY created_at DESC LIMIT 1
 	`
 	row := r.db.QueryRow(query)
 	var s domain.CashRegisterSession
-	err := row.Scan(&s.ID, &s.Status, &s.OpenTime, &s.CloseTime, &s.InitialCash, &s.InitialTransfer, &s.FinalCashExpected, &s.FinalCashActual, &s.Discrepancy, &s.FinalTransferExpected, &s.FinalTransferActual, &s.TransferDiscrepancy, &s.CreatedAt, &s.UpdatedAt)
+	err := row.Scan(&s.ID, &s.Status, &s.OpenTime, &s.CloseTime, &s.InitialCash, &s.InitialTransfer, &s.FinalCashExpected, &s.FinalCashActual, &s.Discrepancy, &s.Justification, &s.FinalTransferExpected, &s.FinalTransferActual, &s.TransferDiscrepancy, &s.CreatedAt, &s.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil // No open session
@@ -59,14 +59,14 @@ func (r *postgresCashRegisterRepository) GetOpenSession() (*domain.CashRegisterS
 
 func (r *postgresCashRegisterRepository) GetLastClosedSession() (*domain.CashRegisterSession, error) {
 	query := `
-		SELECT id, status, open_time, close_time, initial_cash, initial_transfer, final_cash_expected, final_cash_actual, discrepancy, final_transfer_expected, final_transfer_actual, transfer_discrepancy, created_at, updated_at
+		SELECT id, status, open_time, close_time, initial_cash, initial_transfer, final_cash_expected, final_cash_actual, discrepancy, justification, final_transfer_expected, final_transfer_actual, transfer_discrepancy, created_at, updated_at
 		FROM cash_register_sessions
 		WHERE status = 'closed'
 		ORDER BY close_time DESC LIMIT 1
 	`
 	row := r.db.QueryRow(query)
 	var s domain.CashRegisterSession
-	err := row.Scan(&s.ID, &s.Status, &s.OpenTime, &s.CloseTime, &s.InitialCash, &s.InitialTransfer, &s.FinalCashExpected, &s.FinalCashActual, &s.Discrepancy, &s.FinalTransferExpected, &s.FinalTransferActual, &s.TransferDiscrepancy, &s.CreatedAt, &s.UpdatedAt)
+	err := row.Scan(&s.ID, &s.Status, &s.OpenTime, &s.CloseTime, &s.InitialCash, &s.InitialTransfer, &s.FinalCashExpected, &s.FinalCashActual, &s.Discrepancy, &s.Justification, &s.FinalTransferExpected, &s.FinalTransferActual, &s.TransferDiscrepancy, &s.CreatedAt, &s.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil // No closed session
@@ -78,13 +78,13 @@ func (r *postgresCashRegisterRepository) GetLastClosedSession() (*domain.CashReg
 
 func (r *postgresCashRegisterRepository) GetSessionByID(id uuid.UUID) (*domain.CashRegisterSession, error) {
 	query := `
-		SELECT id, status, open_time, close_time, initial_cash, initial_transfer, final_cash_expected, final_cash_actual, discrepancy, final_transfer_expected, final_transfer_actual, transfer_discrepancy, created_at, updated_at
+		SELECT id, status, open_time, close_time, initial_cash, initial_transfer, final_cash_expected, final_cash_actual, discrepancy, justification, final_transfer_expected, final_transfer_actual, transfer_discrepancy, created_at, updated_at
 		FROM cash_register_sessions
 		WHERE id = $1
 	`
 	row := r.db.QueryRow(query, id)
 	var s domain.CashRegisterSession
-	err := row.Scan(&s.ID, &s.Status, &s.OpenTime, &s.CloseTime, &s.InitialCash, &s.InitialTransfer, &s.FinalCashExpected, &s.FinalCashActual, &s.Discrepancy, &s.FinalTransferExpected, &s.FinalTransferActual, &s.TransferDiscrepancy, &s.CreatedAt, &s.UpdatedAt)
+	err := row.Scan(&s.ID, &s.Status, &s.OpenTime, &s.CloseTime, &s.InitialCash, &s.InitialTransfer, &s.FinalCashExpected, &s.FinalCashActual, &s.Discrepancy, &s.Justification, &s.FinalTransferExpected, &s.FinalTransferActual, &s.TransferDiscrepancy, &s.CreatedAt, &s.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -94,10 +94,10 @@ func (r *postgresCashRegisterRepository) GetSessionByID(id uuid.UUID) (*domain.C
 func (r *postgresCashRegisterRepository) CloseSession(session *domain.CashRegisterSession) error {
 	query := `
 		UPDATE cash_register_sessions
-		SET status = $1, close_time = $2, final_cash_expected = $3, final_cash_actual = $4, discrepancy = $5, final_transfer_expected = $6, final_transfer_actual = $7, transfer_discrepancy = $8, updated_at = $9
-		WHERE id = $10
+		SET status = $1, close_time = $2, final_cash_expected = $3, final_cash_actual = $4, discrepancy = $5, final_transfer_expected = $6, final_transfer_actual = $7, transfer_discrepancy = $8, updated_at = $9, justification = $10
+		WHERE id = $11
 	`
-	_, err := r.db.Exec(query, session.Status, session.CloseTime, session.FinalCashExpected, session.FinalCashActual, session.Discrepancy, session.FinalTransferExpected, session.FinalTransferActual, session.TransferDiscrepancy, session.UpdatedAt, session.ID)
+	_, err := r.db.Exec(query, session.Status, session.CloseTime, session.FinalCashExpected, session.FinalCashActual, session.Discrepancy, session.FinalTransferExpected, session.FinalTransferActual, session.TransferDiscrepancy, session.UpdatedAt, session.Justification, session.ID)
 	return err
 }
 

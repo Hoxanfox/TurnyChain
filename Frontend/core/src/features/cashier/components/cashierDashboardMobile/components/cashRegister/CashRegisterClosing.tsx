@@ -15,6 +15,8 @@ export const CashRegisterClosing: React.FC<CashRegisterClosingProps> = ({ detail
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [closedData, setClosedData] = useState<any>(null);
   const [showCalculator, setShowCalculator] = useState(false);
+  const [needsJustification, setNeedsJustification] = useState(false);
+  const [justification, setJustification] = useState('');
 
   const handleClose = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,12 +27,17 @@ export const CashRegisterClosing: React.FC<CashRegisterClosingProps> = ({ detail
 
     setIsSubmitting(true);
     try {
-      const result = await closeSession(cashAmount, transferAmount);
+      const result = await closeSession(cashAmount, transferAmount, needsJustification ? justification : undefined);
       setClosedData(result);
       onClosed();
-    } catch (error) {
-      console.error('Error closing session', error);
-      alert('Error al cerrar la caja. Inténtalo de nuevo.');
+    } catch (error: any) {
+      if (error.response?.data?.error === 'DISCREPANCY_NEEDS_JUSTIFICATION') {
+        setNeedsJustification(true);
+      } else {
+        console.error('Error closing session', error);
+        alert('Error al cerrar la caja. Inténtalo de nuevo.');
+      }
+    } finally {
       setIsSubmitting(false);
     }
   };
@@ -185,6 +192,23 @@ export const CashRegisterClosing: React.FC<CashRegisterClosingProps> = ({ detail
           )}
         </div>
 
+        {/* Justification Textarea */}
+        {needsJustification && (
+          <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-xl shadow-sm mt-4 animate-fadeIn">
+            <label className="block text-sm font-bold text-red-800 mb-2">
+              ⚠️ Se detectó un descuadre. Por favor, justifica el motivo:
+            </label>
+            <textarea
+              value={justification}
+              onChange={(e) => setJustification(e.target.value)}
+              required
+              className="w-full px-3 py-2 bg-white border border-red-300 rounded-lg text-sm focus:border-red-500 focus:ring-2 focus:ring-red-200 outline-none resize-none"
+              rows={3}
+              placeholder="Ej: Faltante de billetes pequeños, gasto no registrado a tiempo..."
+            ></textarea>
+          </div>
+        )}
+
         <div className="flex gap-2 pt-2">
           <button 
             type="button" 
@@ -196,7 +220,7 @@ export const CashRegisterClosing: React.FC<CashRegisterClosingProps> = ({ detail
           </button>
           <button 
             type="submit" 
-            disabled={isSubmitting || actualCash === '' || actualTransfer === ''}
+            disabled={isSubmitting || actualCash === '' || actualTransfer === '' || (needsJustification && justification.trim() === '')}
             className="w-2/3 py-3 bg-gray-900 text-white rounded-xl font-bold text-sm shadow-md hover:bg-black transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {isSubmitting ? 'Cerrando...' : '🔒 Confirmar Cierre'}

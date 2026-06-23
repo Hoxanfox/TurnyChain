@@ -16,6 +16,7 @@ type CashRegisterSession struct {
 	FinalCashExpected     *float64   `json:"final_cash_expected,omitempty" db:"final_cash_expected"`
 	FinalCashActual       *float64   `json:"final_cash_actual,omitempty" db:"final_cash_actual"`
 	Discrepancy           *float64   `json:"discrepancy,omitempty" db:"discrepancy"`
+	Justification         *string    `json:"justification,omitempty" db:"justification"`
 	FinalTransferExpected *float64   `json:"final_transfer_expected,omitempty" db:"final_transfer_expected"`
 	FinalTransferActual   *float64   `json:"final_transfer_actual,omitempty" db:"final_transfer_actual"`
 	TransferDiscrepancy   *float64   `json:"transfer_discrepancy,omitempty" db:"transfer_discrepancy"`

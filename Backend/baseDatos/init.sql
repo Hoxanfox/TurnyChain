@@ -29,13 +29,14 @@ CREATE TABLE "user_sessions" (
 -- Tabla para turnos de caja
 CREATE TABLE "cash_register_sessions" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  "status" varchar(20) NOT NULL CHECK (status IN ('open', 'closed')),
+  "status" varchar(20) NOT NULL CHECK (status IN ('open', 'closed', 'pending_close')),
   "open_time" timestamptz NOT NULL DEFAULT (now()),
   "close_time" timestamptz NULL,
   "initial_cash" numeric(12, 2) NOT NULL DEFAULT 0,
   "final_cash_expected" numeric(12, 2) NULL,
   "final_cash_actual" numeric(12, 2) NULL,
   "discrepancy" numeric(12, 2) NULL,
+  "justification" text NULL,
   "created_at" timestamptz NOT NULL DEFAULT (now()),
   "updated_at" timestamptz NOT NULL DEFAULT (now())
 );
@@ -149,6 +150,7 @@ CREATE TABLE "orders" (
   "last_print_error" text NULL,
   "printed_at" timestamptz NULL,
   "last_print_attempt_at" timestamptz NULL,
+  "cash_session_id" uuid REFERENCES "cash_register_sessions"("id") ON DELETE SET NULL,
   "created_at" timestamptz NOT NULL DEFAULT (now()),
   "updated_at" timestamptz NOT NULL DEFAULT (now())
 );
@@ -172,6 +174,7 @@ CREATE TABLE "order_payments" (
   "amount" numeric(10, 2) NOT NULL,
   "payment_method" varchar(20) NOT NULL CHECK (payment_method IN ('efectivo', 'transferencia')),
   "payment_proof_path" text NULL,
+  "cash_session_id" uuid REFERENCES "cash_register_sessions"("id") ON DELETE SET NULL,
   "created_at" timestamptz NOT NULL DEFAULT (now())
 );
 
