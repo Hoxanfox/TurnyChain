@@ -55,6 +55,7 @@ interface CashierDashboardDesktopProps {
   onExportReport: () => void;
   onOpenPrintSettings: () => void;
   onOpenBlockchainModal: () => void;
+  onOpenBrebPanel?: () => void;
   onCloseNotification: () => void;
   onSelectTable: (tableNumber: number) => void;
   onStatusChange: (orderId: string, status: string) => void;
@@ -100,6 +101,7 @@ export const CashierDashboardDesktop: React.FC<CashierDashboardDesktopProps> = (
   onExportReport,
   onOpenPrintSettings,
   onOpenBlockchainModal,
+  onOpenBrebPanel,
   onCloseNotification,
   onSelectTable,
   onStatusChange,
@@ -273,6 +275,7 @@ export const CashierDashboardDesktop: React.FC<CashierDashboardDesktopProps> = (
           onExportReport={onExportReport}
           onOpenPrintSettings={onOpenPrintSettings}
           onOpenBlockchainModal={onOpenBlockchainModal}
+          onOpenBrebPanel={onOpenBrebPanel}
           onOpenPrintMonitor={() => setOpenPrintMonitorSignal((prev) => prev + 1)}
           activeFiltersCount={activeFiltersCount}
           orderIdQuery={orderIdQuery}

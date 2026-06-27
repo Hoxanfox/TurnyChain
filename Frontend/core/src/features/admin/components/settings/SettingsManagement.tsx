@@ -15,8 +15,11 @@ const SettingsManagement: React.FC = () => {
   const [qrCodePath, setQrCodePath] = useState<string | null>(null);
   const [logoPath, setLogoPath] = useState<string | null>(null);
   const [appName, setAppName] = useState<string>('TurnyChain');
+  const [gmailUser, setGmailUser] = useState<string>('');
+  const [gmailAppPassword, setGmailAppPassword] = useState<string>('');
   const [uploading, setUploading] = useState(false);
   const [savingName, setSavingName] = useState(false);
+  const [savingGmail, setSavingGmail] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const handleUnlock = async (e: React.FormEvent) => {
@@ -42,9 +45,13 @@ const SettingsManagement: React.FC = () => {
       const qr = settings.find((s: Setting) => s.key === 'qr_code');
       const logo = settings.find((s: Setting) => s.key === 'logo');
       const name = settings.find((s: Setting) => s.key === 'app_name');
+      const gUser = settings.find((s: Setting) => s.key === 'gmail_user');
+      const gPass = settings.find((s: Setting) => s.key === 'gmail_app_password');
       if (qr) setQrCodePath(qr.value);
       if (logo) setLogoPath(logo.value);
       if (name) setAppName(name.value);
+      if (gUser) setGmailUser(gUser.value);
+      if (gPass) setGmailAppPassword(gPass.value);
     } catch (err) {
       console.error("Error loading settings:", err);
     }
@@ -63,6 +70,22 @@ const SettingsManagement: React.FC = () => {
       setError(err.response?.data?.error || 'Error al guardar el nombre de la aplicación.');
     } finally {
       setSavingName(false);
+    }
+  };
+
+  const handleSaveGmail = async () => {
+    if (!token) return;
+    setSavingGmail(true);
+    setError(null);
+    setSuccessMsg(null);
+    try {
+      await settingsAPI.updateSetting('gmail_user', gmailUser.trim(), token);
+      await settingsAPI.updateSetting('gmail_app_password', gmailAppPassword.trim(), token);
+      setSuccessMsg('Credenciales de correo actualizadas correctamente. El servicio IMAP se reconectará automáticamente.');
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Error al guardar las credenciales.');
+    } finally {
+      setSavingGmail(false);
     }
   };
 
@@ -182,6 +205,45 @@ const SettingsManagement: React.FC = () => {
               }`}
             >
               {savingName ? 'Guardando...' : 'Guardar Nombre'}
+            </button>
+          </div>
+        </div>
+
+        {/* GMAIL IMAP CARD */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 md:col-span-2">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+              <span className="text-xl">📧</span>
+            </div>
+            <h3 className="text-lg font-bold text-gray-800">Lector Automático de Nequi (IMAP)</h3>
+          </div>
+          <p className="text-sm text-gray-500 mb-4">Configura un correo de Gmail y una Contraseña de Aplicación para leer las transferencias automáticamente.</p>
+          
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <input
+                type="email"
+                value={gmailUser}
+                onChange={(e) => setGmailUser(e.target.value)}
+                placeholder="correo@gmail.com"
+                className="flex-1 px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-indigo-500 focus:ring-0 transition-colors"
+              />
+              <input
+                type="password"
+                value={gmailAppPassword}
+                onChange={(e) => setGmailAppPassword(e.target.value)}
+                placeholder="Contraseña de Aplicación (16 letras)"
+                className="flex-1 px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-indigo-500 focus:ring-0 transition-colors"
+              />
+            </div>
+            <button
+              onClick={handleSaveGmail}
+              disabled={savingGmail}
+              className={`w-full py-3 rounded-xl font-bold text-white transition-all ${
+                savingGmail ? 'bg-gray-400 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700 shadow-md hover:shadow-lg'
+              }`}
+            >
+              {savingGmail ? 'Guardando...' : 'Guardar Credenciales de Correo'}
             </button>
           </div>
         </div>

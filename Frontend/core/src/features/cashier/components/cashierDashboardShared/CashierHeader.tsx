@@ -10,6 +10,7 @@ interface CashierHeaderProps {
   onExportReport: () => void;
   onOpenPrintSettings: () => void;
   onOpenBlockchainModal: () => void;
+  onOpenBrebPanel?: () => void;
   onOpenPrintMonitor?: () => void;
   onOpenMetrics?: () => void;
   activeFiltersCount?: number;
@@ -29,6 +30,7 @@ export const CashierHeader: React.FC<CashierHeaderProps> = ({
   onExportReport,
   onOpenPrintSettings,
   onOpenBlockchainModal,
+  onOpenBrebPanel,
   onOpenPrintMonitor,
   onOpenMetrics,
   activeFiltersCount = 0,
@@ -173,6 +175,17 @@ export const CashierHeader: React.FC<CashierHeaderProps> = ({
                     className="w-full text-left px-4 py-3 text-amber-700 hover:bg-amber-50 font-semibold border-t border-gray-100"
                   >
                     📈 Metricas del negocio
+                  </button>
+                )}
+                {onOpenBrebPanel && (
+                  <button
+                    onClick={() => {
+                      onOpenBrebPanel();
+                      setIsActionsMenuOpen(false);
+                    }}
+                    className="w-full text-left px-4 py-3 text-pink-700 hover:bg-pink-50 font-semibold border-t border-gray-100"
+                  >
+                    📲 Transferencias Nequi
                   </button>
                 )}
                 {onOpenPrintMonitor && (

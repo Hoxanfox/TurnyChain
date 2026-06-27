@@ -18,6 +18,7 @@ import type { CashierNotification } from './types/cashierDashboardTypes';
 import { printKitchenTicketsFrontend, getPrintSettings } from '../../utils/printUtils';
 import { kitchenTicketsAPI } from '../shared/orders/api/kitchenTicketsAPI';
 import CheckoutModal from '../waiter/components/CheckoutModal';
+import BrebTransfersPanel from './components/BrebTransfersPanel';
 
 const CashierDashboard: React.FC = () => {
   const location = useLocation();
@@ -31,6 +32,8 @@ const CashierDashboard: React.FC = () => {
   const [isBlockchainModalOpen, setIsBlockchainModalOpen] = useState(false);
   const [isTicketsPreviewOpen, setIsTicketsPreviewOpen] = useState(false);
   const [selectedOrderIdForPreview, setSelectedOrderIdForPreview] = useState<string | null>(null);
+  const [isBrebPanelOpen, setIsBrebPanelOpen] = useState(false);
+  const [lastBrebMessage, setLastBrebMessage] = useState<any>(null);
 
   const [checkoutOrderId, setCheckoutOrderId] = useState<string | null>(null);
   const [checkoutGroupOrderInfos, setCheckoutGroupOrderInfos] = useState<{ id: string, total: number }[]>([]);
@@ -41,9 +44,16 @@ const CashierDashboard: React.FC = () => {
 
   const cashierLogic = useCashierLogic(activeOrders);
 
-  useCashierWebSocket((options) => {
-    setNotification(options);
-  });
+  useCashierWebSocket(
+    (options) => {
+      setNotification(options);
+    },
+    (message) => {
+      if (message.type === 'BREB_TRANSFER_RECEIVED' || message.type === 'BREB_TRANSFER_USED') {
+        setLastBrebMessage(message);
+      }
+    }
+  );
 
   useEffect(() => {
     dispatch(fetchActiveOrders());
@@ -269,6 +279,7 @@ const CashierDashboard: React.FC = () => {
     onExportReport: cashierLogic.exportReport,
     onOpenPrintSettings: () => setIsPrintSettingsOpen(true),
     onOpenBlockchainModal: () => setIsBlockchainModalOpen(true),
+    onOpenBrebPanel: () => setIsBrebPanelOpen(true),
     onCloseNotification: () => setNotification(null),
     onRetryLoadOrders: () => dispatch(fetchActiveOrders()),
 
@@ -331,6 +342,12 @@ const CashierDashboard: React.FC = () => {
         isOpen={isBlockchainModalOpen}
         onClose={() => setIsBlockchainModalOpen(false)}
         pendingCount={cashierLogic.pendingBlockchainCount}
+      />
+
+      <BrebTransfersPanel
+        isOpen={isBrebPanelOpen}
+        onClose={() => setIsBrebPanelOpen(false)}
+        wsMessage={lastBrebMessage}
       />
     </>
   );

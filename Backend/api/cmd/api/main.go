@@ -77,6 +77,7 @@ func main() {
 	printerRepo := repository.NewPrinterRepository(db)
 	cashRegisterRepo := repository.NewCashRegisterRepository(db)
 	settingRepo := repository.NewSettingRepository(db)
+	bankTransferRepo := repository.NewBankTransferRepository(db)
 
 	// Servicios
 	userService := service.NewUserService(userRepo, sessionRepo)
@@ -95,6 +96,7 @@ func main() {
 	backupService := service.NewBackupService(db)
 	cashRegisterService := service.NewCashRegisterService(cashRegisterRepo)
 	settingService := service.NewSettingService(settingRepo)
+	bankTransferService := service.NewBankTransferService(bankTransferRepo)
 
 	// Handlers
 	userHandler := handler.NewUserHandler(userService)
@@ -113,6 +115,11 @@ func main() {
 	backupHandler := handler.NewBackupHandler(backupService)
 	cashRegisterHandler := handler.NewCashRegisterHandler(cashRegisterService)
 	settingHandler := handler.NewSettingHandler(settingService)
+	bankTransferHandler := handler.NewBankTransferHandler(bankTransferService, wsHub)
+
+	// Iniciar IMAP Service en background
+	imapService := service.NewImapService(settingService, bankTransferHandler)
+	imapService.Start()
 
 	app := fiber.New(fiber.Config{
 		BodyLimit: 20 * 1024 * 1024, // 20 MB max file size
@@ -159,7 +166,7 @@ func main() {
 	app.Static("/api/static", uploadsDir)
 
 	// Setup router and pass the cash register repository to setup the middleware
-	router.SetupRoutes(app, authHandler, userHandler, menuHandler, orderHandler, invoiceHandler, tableHandler, categoryHandler, ingredientHandler, accompanimentHandler, wsHandler, stationHandler, printerHandler, kitchenTicketHandler, backupHandler, cashRegisterHandler, settingHandler, sessionRepo, cashRegisterRepo)
+	router.SetupRoutes(app, authHandler, userHandler, menuHandler, orderHandler, invoiceHandler, tableHandler, categoryHandler, ingredientHandler, accompanimentHandler, wsHandler, stationHandler, printerHandler, kitchenTicketHandler, backupHandler, cashRegisterHandler, settingHandler, bankTransferHandler, sessionRepo, cashRegisterRepo)
 
 	// Alias explícitos para compatibilidad de rutas de impresión de cocina.
 	app.Post("/api/orders/:orderId/kitchen-tickets/print/caja", middleware.Protected(sessionRepo), kitchenTicketHandler.PrintGlobalCashTicket)

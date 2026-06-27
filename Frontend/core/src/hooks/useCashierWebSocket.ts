@@ -21,7 +21,8 @@ interface NotificationOptions {
 }
 
 export const useCashierWebSocket = (
-  onNotification?: (options: NotificationOptions) => void
+  onNotification?: (options: NotificationOptions) => void,
+  onMessage?: (message: WebSocketMessage) => void
 ) => {
   const dispatch = useDispatch<AppDispatch>();
   const ws = useRef<WebSocket | null>(null);
@@ -32,9 +33,15 @@ export const useCashierWebSocket = (
   const refreshDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onNotificationRef = useRef(onNotification);
 
+  const onMessageRef = useRef(onMessage);
+
   useEffect(() => {
     onNotificationRef.current = onNotification;
   }, [onNotification]);
+
+  useEffect(() => {
+    onMessageRef.current = onMessage;
+  }, [onMessage]);
 
   useEffect(() => {
     // Solo conectar si es cajero
@@ -60,6 +67,10 @@ export const useCashierWebSocket = (
     };
 
     const handleWebSocketMessage = (message: WebSocketMessage) => {
+      if (onMessageRef.current) {
+        onMessageRef.current(message);
+      }
+
       switch (message.type) {
         case 'PAYMENT_VERIFICATION_PENDING':
           handlePaymentVerificationPending(message.payload);

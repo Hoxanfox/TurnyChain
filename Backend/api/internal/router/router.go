@@ -11,12 +11,15 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *handler.UserHandler, menuHandler *handler.MenuHandler, orderHandler *handler.OrderHandler, invoiceHandler *handler.InvoiceHandler, tableHandler *handler.TableHandler, categoryHandler *handler.CategoryHandler, ingredientHandler *handler.IngredientHandler, accompanimentHandler *handler.AccompanimentHandler, wsHandler *handler.WebSocketHandler, stationHandler *handler.StationHandler, printerHandler *handler.PrinterHandler, kitchenTicketHandler *handler.KitchenTicketHandler, backupHandler *handler.BackupHandler, cashRegisterHandler *handler.CashRegisterHandler, settingHandler *handler.SettingHandler, sessionRepo repository.SessionRepository, cashRegisterRepo repository.CashRegisterRepository) {
+func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *handler.UserHandler, menuHandler *handler.MenuHandler, orderHandler *handler.OrderHandler, invoiceHandler *handler.InvoiceHandler, tableHandler *handler.TableHandler, categoryHandler *handler.CategoryHandler, ingredientHandler *handler.IngredientHandler, accompanimentHandler *handler.AccompanimentHandler, wsHandler *handler.WebSocketHandler, stationHandler *handler.StationHandler, printerHandler *handler.PrinterHandler, kitchenTicketHandler *handler.KitchenTicketHandler, backupHandler *handler.BackupHandler, cashRegisterHandler *handler.CashRegisterHandler, settingHandler *handler.SettingHandler, bankTransferHandler *handler.BankTransferHandler, sessionRepo repository.SessionRepository, cashRegisterRepo repository.CashRegisterRepository) {
 	// Ruta pública para WebSockets
 	app.Get("/ws", websocket.New(wsHandler.HandleConnection))
 
 	// Grupo principal de la API
 	api := app.Group("/api")
+
+	// Webhook para transferencias (abierto para recibir llamadas externas)
+	api.Post("/webhooks/breb", bankTransferHandler.HandleWebhook)
 
 	// Rutas públicas de autenticación y settings
 	auth := api.Group("/auth")
@@ -141,4 +144,9 @@ func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *
 	cashRegister.Get("/closing-details", cashRegisterHandler.GetClosingDetails)
 	cashRegister.Post("/expenses", middleware.CashSessionMiddleware(cashRegisterRepo), cashRegisterHandler.AddExpense)
 	cashRegister.Post("/close", cashRegisterHandler.CloseSession)
+
+	// Rutas de Transferencias Bancarias / BREB
+	bankTransfers := protected.Group("/bank-transfers")
+	bankTransfers.Get("/recent", bankTransferHandler.GetRecent)
+	bankTransfers.Post("/link", bankTransferHandler.LinkToOrder)
 }

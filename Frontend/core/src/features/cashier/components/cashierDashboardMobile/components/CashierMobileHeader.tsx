@@ -21,6 +21,7 @@ interface CashierMobileHeaderProps {
   onExportReport: () => void;
   onViewUrgent: () => void;
   onOpenCashRegister: () => void;
+  onOpenBrebPanel: () => void;
 }
 
 export const CashierMobileHeader: React.FC<CashierMobileHeaderProps> = ({
@@ -42,6 +43,7 @@ export const CashierMobileHeader: React.FC<CashierMobileHeaderProps> = ({
   onExportReport,
   onViewUrgent,
   onOpenCashRegister,
+  onOpenBrebPanel,
 }) => {
   const navigate = useNavigate();
   const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false);
@@ -139,6 +141,15 @@ export const CashierMobileHeader: React.FC<CashierMobileHeaderProps> = ({
                     className="w-full text-left px-4 py-3 text-emerald-700 hover:bg-emerald-50 font-semibold border-b border-gray-100"
                   >
                     📝 Tomar Comanda
+                  </button>
+                  <button
+                    onClick={() => {
+                      onOpenBrebPanel();
+                      setIsActionsMenuOpen(false);
+                    }}
+                    className="w-full text-left px-4 py-3 text-indigo-700 hover:bg-indigo-50 font-semibold border-b border-gray-100"
+                  >
+                    📲 Transferencias Nequi
                   </button>
                   <button
                     onClick={() => {

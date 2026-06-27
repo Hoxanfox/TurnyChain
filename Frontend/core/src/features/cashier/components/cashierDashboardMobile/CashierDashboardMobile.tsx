@@ -80,6 +80,7 @@ interface CashierDashboardMobileProps {
   onOpenCheckoutGroup: (ordersInfo: { id: string, total: number }[], total: number, tableNumber: number) => void;
   onRetryPrint: (orderId: string) => void;
   onRetryLoadOrders?: () => void;
+  onOpenBrebPanel: () => void;
   shortcutTarget?: { tableNumber: number; orderId: string } | null;
   shortcutNonce?: number;
 }
@@ -121,6 +122,7 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
   onOpenCheckoutGroup,
   onRetryPrint,
   onRetryLoadOrders,
+  onOpenBrebPanel,
   shortcutTarget = null,
   shortcutNonce = 0,
 }) => {
@@ -207,6 +209,7 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
         onExportReport={onExportReport}
         onViewUrgent={() => setViewMode('urgent')}
         onOpenCashRegister={() => setShowCashRegisterModal(true)}
+        onOpenBrebPanel={onOpenBrebPanel}
       />
 
       <CashierMobileTabs

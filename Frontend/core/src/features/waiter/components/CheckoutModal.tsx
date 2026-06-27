@@ -33,6 +33,9 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [currentProofImage, setCurrentProofImage] = useState<File | null>(null);
   const [currentPreviewUrl, setCurrentPreviewUrl] = useState<string | null>(null);
 
+  const [matchingTransfers, setMatchingTransfers] = useState<any[]>([]);
+  const [isSearchingTransfers, setIsSearchingTransfers] = useState(false);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -53,6 +56,29 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
     setCurrentProofImage(null);
     setCurrentPreviewUrl(null);
     setError(null);
+    
+    if (method === 'transferencia' && localStorage.getItem('user_role') === 'cajero') {
+      searchMatchingTransfers(remaining > 0 ? remaining : 0);
+    }
+  };
+
+  const searchMatchingTransfers = async (amountToMatch: number) => {
+    if (!token || amountToMatch <= 0) return;
+    try {
+      setIsSearchingTransfers(true);
+      const res = await fetch('http://localhost:8080/api/bank-transfers/recent', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const unusedMatch = (data || []).filter((t: any) => !t.is_used && t.amount === amountToMatch);
+        setMatchingTransfers(unusedMatch);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSearchingTransfers(false);
+    }
   };
 
   const handleCancelAdding = () => {
@@ -167,20 +193,20 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
             });
           }
 
-          if (orderPayments.length > 0) {
-            await uploadSplitPayments(orderInfo.id, orderPayments, token);
-            if (forcePaidAfterCheckout) {
-              await updateOrderStatus(orderInfo.id, 'pagado', token);
+            if (orderPayments.length > 0) {
+              await uploadSplitPayments(orderInfo.id, orderPayments, token);
+              if (forcePaidAfterCheckout) {
+                await updateOrderStatus(orderInfo.id, 'pagado', token);
+              }
             }
           }
+        } else {
+          await uploadSplitPayments(orderId, payments, token);
+          if (forcePaidAfterCheckout) {
+            await updateOrderStatus(orderId, 'pagado', token);
+          }
         }
-      } else {
-        await uploadSplitPayments(orderId, payments, token);
-        if (forcePaidAfterCheckout) {
-          await updateOrderStatus(orderId, 'pagado', token);
-        }
-      }
-      onSuccess();
+        onSuccess();
     } catch (err: any) {
       setError(
         err.response?.data?.message ||
@@ -344,7 +370,13 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   <input
                     type="number"
                     value={currentAmount}
-                    onChange={(e) => setCurrentAmount(e.target.value === '' ? '' : Number(e.target.value))}
+                    onChange={(e) => {
+                      const val = e.target.value === '' ? '' : Number(e.target.value);
+                      setCurrentAmount(val);
+                      if (currentMethod === 'transferencia' && typeof val === 'number') {
+                        searchMatchingTransfers(val);
+                      }
+                    }}
                     max={remaining}
                     className="w-full pl-8 pr-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl font-bold text-gray-800 focus:outline-none focus:border-indigo-500 transition-colors"
                   />
@@ -361,7 +393,33 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
               {currentMethod === 'transferencia' && (
                 <div>
-                  <label className="block text-sm font-semibold text-gray-600 mb-1">Comprobante (Obligatorio)</label>
+                  <div className="mb-4">
+                    <label className="block text-sm font-semibold text-gray-600 mb-1">Transferencias Nequi/BREB Encontradas</label>
+                    {isSearchingTransfers ? (
+                      <p className="text-xs text-gray-500">Buscando transferencias por {formatMoney(Number(currentAmount))}...</p>
+                    ) : matchingTransfers.length > 0 ? (
+                      <div className="space-y-2">
+                        {matchingTransfers.map((t) => (
+                          <div 
+                            key={t.id} 
+                            className="p-3 rounded-lg border bg-indigo-50 border-indigo-200 shadow-sm"
+                          >
+                            <div className="flex justify-between items-center">
+                              <span className="font-bold text-indigo-700">¡Llegó pago de {formatMoney(t.amount)}!</span>
+                              <span className="text-xs text-gray-500">{new Date(t.timestamp).toLocaleTimeString()}</span>
+                            </div>
+                            <p className="text-sm text-gray-700">De: {t.sender}</p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-500 bg-gray-50 p-2 rounded">No se detectaron pagos recientes por este monto exacto.</p>
+                    )}
+                  </div>
+
+                  <label className="block text-sm font-semibold text-gray-600 mb-1">
+                    Comprobante (Obligatorio)
+                  </label>
                   <input
                     type="file"
                     accept="image/*"
