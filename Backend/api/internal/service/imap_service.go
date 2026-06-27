@@ -75,7 +75,7 @@ func (s *imapService) runLoop() {
 }
 
 func (s *imapService) pollEmails(username, password string) error {
-	log.Printf("[IMAP] Connecting to imap.gmail.com:993 as %s\n", username)
+	// log.Printf("[IMAP] Checking emails for %s...\n", username) // Removed to prevent log spam every 15 seconds
 
 	c, err := client.DialTLS("imap.gmail.com:993", nil)
 	if err != nil {

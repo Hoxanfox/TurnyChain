@@ -12,6 +12,7 @@ import { validatePaymentSession, validatePrinterOperational } from '../auth/sess
 import type { MenuItem, CartItem } from '../../types/menu';
 import type { Order } from '../../types/orders';
 import { FaQrcode } from 'react-icons/fa';
+import { MdNotificationsActive, MdNotificationsNone } from 'react-icons/md';
 import OrderDetailModal from '../shared/orders/components/OrderDetailModal.tsx';
 import CheckoutModal from './components/CheckoutModal';
 import CheckoutBeforeSendModal from './components/CheckoutBeforeSendModal';
@@ -30,6 +31,7 @@ import TablesSlide from './slides/TablesSlide';
 import MenuSlide from './slides/MenuSlide';
 import CartSlide from './slides/CartSlide';
 import PaymentsSlide from './slides/PaymentsSlide';
+import TransfersSlide from './slides/TransfersSlide';
 
 // Importar hook de media query y vista desktop
 import { useIsDesktop } from '../../hooks/useMediaQuery';
@@ -77,6 +79,9 @@ const WaiterDashboard: React.FC = () => {
   const [lastWsNotification, setLastWsNotification] = useState<string | null>(null);
   const [showQRModal, setShowQRModal] = useState(false);
 
+  const [lastRawWsMessage, setLastRawWsMessage] = useState<any>(null);
+  const [showToolsMenu, setShowToolsMenu] = useState(false);
+
   // 🏆 Hook de Gamificación
   const { validOrdersCount, isMaestro, isCelebrating, stopCelebrating } = useWaiterGamification();
 
@@ -95,7 +100,15 @@ const WaiterDashboard: React.FC = () => {
     }
   }, []);
 
-  useWaiterWebSocket(handleWaiterWsNotification);
+  const handleRawWsMessage = useCallback((msg: any) => {
+    setLastRawWsMessage(msg);
+    if (msg.type === 'BREB_TRANSFER_RECEIVED') {
+      setHasWsNotification(true);
+      setLastWsNotification(`Nueva transferencia por ${formatMoney(msg.payload.amount)}`);
+    }
+  }, []);
+
+  useWaiterWebSocket(handleWaiterWsNotification, handleRawWsMessage);
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [tableId, setTableId] = useState('');
@@ -692,7 +705,7 @@ const WaiterDashboard: React.FC = () => {
           </div>
         )}
 
-        <header className="relative px-4 py-2 flex justify-between items-center shadow-md transition-all duration-500 bg-gradient-to-r from-indigo-600 to-indigo-700">
+        <header className="relative z-50 px-4 py-2 flex justify-between items-center shadow-md transition-all duration-500 bg-gradient-to-r from-indigo-600 to-indigo-700">
           {/* Capa de Fondos Gamificación */}
           <div className="gamification-bg-container rounded-b-lg">
             {!isMaestro && validOrdersCount > 0 && (
@@ -714,36 +727,87 @@ const WaiterDashboard: React.FC = () => {
           </div>
           <div className="flex gap-2 items-center z-10">
             <button 
-              onClick={() => setShowQRModal(true)}
-              className="w-9 h-9 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors shadow-sm"
-              title="Mostrar Código QR"
+              onClick={() => {
+                swiperRef.current?.slideTo(4);
+                setHasWsNotification(false);
+              }}
+              className="relative w-9 h-9 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors shadow-sm"
+              title="Notificaciones de Transferencias"
             >
-              <FaQrcode className="text-white text-lg" />
+              {hasWsNotification ? (
+                <>
+                  <MdNotificationsActive className="text-yellow-300 text-xl animate-pulse" />
+                  <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-indigo-600"></span>
+                </>
+              ) : (
+                <MdNotificationsNone className="text-white text-xl" />
+              )}
             </button>
-            {user?.role === 'cajero' && (
-              <button
-                onClick={() => navigate('/dashboard')}
-                className="bg-amber-500 text-white px-3 py-1.5 rounded-lg shadow-sm hover:bg-amber-600 transition-colors text-sm font-bold"
+            
+            {/* Tools Dropdown */}
+            <div className="relative">
+              <button 
+                onClick={() => setShowToolsMenu(!showToolsMenu)}
+                className="w-9 h-9 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors shadow-sm text-white"
+                title="Herramientas"
               >
-                Volver
+                🛠️
               </button>
-            )}
-            <button
-              onClick={() => swiperRef.current?.slideTo(3)}
-              className="bg-white text-indigo-700 px-3 py-1.5 rounded-lg shadow-sm hover:bg-gray-50 transition-colors text-sm font-medium"
-            >
-              Hoy
-            </button>
-            <button
-              onClick={() => setIsColleagueModalOpen(true)}
-              className="bg-violet-600 hover:bg-violet-700 active:bg-violet-800 text-white px-3 py-1.5 rounded-lg shadow-sm transition-colors text-sm font-medium flex items-center gap-1"
-              title="Cobrar a Compañeros"
-            >
-              🤝
-            </button>
+              
+              {showToolsMenu && (
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl overflow-hidden z-50 border border-gray-100 animate-fade-in">
+                  <div className="py-1">
+                    <button 
+                      onClick={() => {
+                        setShowQRModal(true);
+                        setShowToolsMenu(false);
+                      }}
+                      className="w-full text-left px-4 py-3 hover:bg-indigo-50 text-gray-700 font-medium flex items-center gap-3 transition-colors"
+                    >
+                      <FaQrcode className="text-indigo-600 text-lg" /> Código QR
+                    </button>
+                    
+                    <button
+                      onClick={() => {
+                        swiperRef.current?.slideTo(3);
+                        setShowToolsMenu(false);
+                      }}
+                      className="w-full text-left px-4 py-3 hover:bg-indigo-50 text-gray-700 font-medium flex items-center gap-3 transition-colors border-t border-gray-50"
+                    >
+                      <span className="text-lg">💰</span> Pagos / Hoy
+                    </button>
+                    
+                    <button
+                      onClick={() => {
+                        setIsColleagueModalOpen(true);
+                        setShowToolsMenu(false);
+                      }}
+                      className="w-full text-left px-4 py-3 hover:bg-violet-50 text-gray-700 font-medium flex items-center gap-3 transition-colors border-t border-gray-50"
+                    >
+                      <span className="text-lg">🤝</span> Cobrar a Compañeros
+                    </button>
+                    
+                    {user?.role === 'cajero' && (
+                      <button
+                        onClick={() => navigate('/dashboard')}
+                        className="w-full text-left px-4 py-3 hover:bg-amber-50 text-amber-700 font-bold flex items-center gap-3 transition-colors border-t border-gray-50"
+                      >
+                        <span className="text-lg">🔙</span> Volver al Cajero
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+            
             <WaiterProfileMenu />
           </div>
         </header>
+
+        {/* Cierra dropdown si se hace clic afuera (hack rápido cubriendo el resto) */}
+        {showToolsMenu && (
+          <div className="fixed inset-0 z-40" onClick={() => setShowToolsMenu(false)}></div>
+        )}
 
         {selectedParentOrder && (
           <div className="bg-emerald-50 border-y border-emerald-200 px-4 py-2 flex items-center justify-between">
@@ -829,6 +893,15 @@ const WaiterDashboard: React.FC = () => {
                 onSelectParentOrder={handleSelectParentOrder}
               />
             </SwiperSlide>
+
+            {/* Slide 5: Notificaciones (Transferencias) */}
+            <SwiperSlide>
+              <TransfersSlide 
+                isOpen={true} 
+                onClose={() => swiperRef.current?.slideTo(0)} 
+                wsMessage={lastRawWsMessage}
+              />
+            </SwiperSlide>
           </Swiper>
         </div>
 
@@ -863,12 +936,20 @@ const WaiterDashboard: React.FC = () => {
               }`}
               aria-label="Ir a Pagos"
             />
+            <button
+              onClick={() => swiperRef.current?.slideTo(4)}
+              className={`w-2 h-2 rounded-full transition-all ${
+                activeSlide === 4 ? 'bg-indigo-600 w-8' : 'bg-gray-300'
+              }`}
+              aria-label="Ir a Transferencias"
+            />
           </div>
           <p className="text-center text-xs text-gray-600 font-medium">
             {activeSlide === 0 && '📋 Paso 1: Selecciona una mesa'}
             {activeSlide === 1 && '🍽️ Paso 2: Elige del menú'}
             {activeSlide === 2 && '✅ Paso 3: Revisa y envía'}
             {activeSlide === 3 && '💳 Gestión de Pagos'}
+            {activeSlide === 4 && '🔔 Notificaciones y Transferencias'}
           </p>
         </footer>
       </div>

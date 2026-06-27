@@ -2,6 +2,7 @@ package handler
 
 import (
 	"log"
+	"time"
 
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/service"
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/websocket"
@@ -33,8 +34,9 @@ func (h *BankTransferHandler) HandleWebhook(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 
-	// Notify cashiers in real time
+	// Notify cashiers and waiters in real time
 	h.hub.BroadcastToRole("cajero", "BREB_TRANSFER_RECEIVED", transfer)
+	h.hub.BroadcastToRole("mesero", "BREB_TRANSFER_RECEIVED", transfer)
 
 	return c.Status(fiber.StatusCreated).JSON(transfer)
 }
@@ -47,6 +49,7 @@ func (h *BankTransferHandler) ProcessEmail(subject string, body string) error {
 	}
 
 	h.hub.BroadcastToRole("cajero", "BREB_TRANSFER_RECEIVED", transfer)
+	h.hub.BroadcastToRole("mesero", "BREB_TRANSFER_RECEIVED", transfer)
 	return nil
 }
 
@@ -72,8 +75,48 @@ func (h *BankTransferHandler) LinkToOrder(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not link transfer"})
 	}
 
-	// Optionally notify via WS so other cashiers see it as used
+	// Optionally notify via WS so other cashiers and waiters see it as used
 	h.hub.BroadcastToRole("cajero", "BREB_TRANSFER_USED", payload.TransferID)
+	h.hub.BroadcastToRole("mesero", "BREB_TRANSFER_USED", payload.TransferID)
 
 	return c.JSON(fiber.Map{"success": true})
+}
+
+func (h *BankTransferHandler) SearchTransfers(c *fiber.Ctx) error {
+	startTimeStr := c.Query("start_time")
+	endTimeStr := c.Query("end_time")
+	page := c.QueryInt("page", 1)
+	limit := c.QueryInt("limit", 10)
+
+	if startTimeStr == "" || endTimeStr == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "start_time and end_time are required"})
+	}
+
+	// Parse times assuming RFC3339 format from frontend
+	startTime, err := time.Parse(time.RFC3339, startTimeStr)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid start_time format, expected RFC3339"})
+	}
+
+	endTime, err := time.Parse(time.RFC3339, endTimeStr)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid end_time format, expected RFC3339"})
+	}
+
+	offset := (page - 1) * limit
+	if offset < 0 {
+		offset = 0
+	}
+
+	transfers, total, err := h.service.SearchTransfers(startTime, endTime, offset, limit)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not search transfers"})
+	}
+
+	return c.JSON(fiber.Map{
+		"data":  transfers,
+		"total": total,
+		"page":  page,
+		"limit": limit,
+	})
 }

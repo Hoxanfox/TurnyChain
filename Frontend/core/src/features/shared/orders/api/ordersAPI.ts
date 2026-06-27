@@ -237,7 +237,6 @@ export const uploadSplitPayments = async (orderId: string, payments: PaymentInpu
       Authorization: `Bearer ${token}`
     }
   };
-
   const response = await axios.post(`${API_URL}/${orderId}/split-payments`, formData, config);
   return response.data;
 };
@@ -246,4 +245,47 @@ export const getPendingBlockchainCount = async (token: string): Promise<{ count:
 	const config = { headers: { Authorization: `Bearer ${token}` } };
 	const response = await axios.get(`${API_URL}/blockchain/pending-count`, config);
 	return response.data;
+};
+
+// --- API de Transferencias Bancarias ---
+export interface BankTransfer {
+  id: string;
+  sender: string;
+  amount: number;
+  bank_name: string;
+  timestamp: string;
+  is_used: boolean;
+  order_id?: string;
+  raw_text?: string;
+}
+
+export interface BankTransferSearchResponse {
+  data: BankTransfer[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export const searchBankTransfers = async (
+  token: string, 
+  startTime: string, 
+  endTime: string, 
+  page: number = 1, 
+  limit: number = 10
+): Promise<BankTransferSearchResponse> => {
+  const config = {
+    headers: { Authorization: `Bearer ${token}` },
+    params: { start_time: startTime, end_time: endTime, page, limit }
+  };
+  const response = await axios.get('/api/bank-transfers/search', config);
+  return response.data;
+};
+
+export const linkBankTransfer = async (
+  token: string,
+  transferId: string,
+  orderId: string
+): Promise<void> => {
+  const config = { headers: { Authorization: `Bearer ${token}` } };
+  await axios.post('/api/bank-transfers/link', { transfer_id: transferId, order_id: orderId }, config);
 };

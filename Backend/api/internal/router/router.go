@@ -148,5 +148,6 @@ func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *
 	// Rutas de Transferencias Bancarias / BREB
 	bankTransfers := protected.Group("/bank-transfers")
 	bankTransfers.Get("/recent", bankTransferHandler.GetRecent)
+	bankTransfers.Get("/search", bankTransferHandler.SearchTransfers)
 	bankTransfers.Post("/link", bankTransferHandler.LinkToOrder)
 }

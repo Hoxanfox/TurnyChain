@@ -22,7 +22,8 @@ interface NotificationOptions {
 }
 
 export const useWaiterWebSocket = (
-  onNotification?: (options: NotificationOptions) => void
+  onNotification?: (options: NotificationOptions) => void,
+  onRawMessage?: (msg: WebSocketMessage) => void
 ) => {
   const dispatch = useDispatch<AppDispatch>();
   const ws = useRef<WebSocket | null>(null);
@@ -33,10 +34,12 @@ export const useWaiterWebSocket = (
   const shouldReconnect = useRef(true);
   const lastRefreshByOrder = useRef<Record<string, number>>({});
   const onNotificationRef = useRef(onNotification);
+  const onRawMessageRef = useRef(onRawMessage);
 
   useEffect(() => {
     onNotificationRef.current = onNotification;
-  }, [onNotification]);
+    onRawMessageRef.current = onRawMessage;
+  }, [onNotification, onRawMessage]);
 
   useEffect(() => {
     // Solo conectar si es mesero
@@ -122,6 +125,10 @@ export const useWaiterWebSocket = (
 
         default:
           console.log('📬 [Mesero] Evento:', message.type);
+      }
+      
+      if (onRawMessageRef.current) {
+        onRawMessageRef.current(message);
       }
     };
 

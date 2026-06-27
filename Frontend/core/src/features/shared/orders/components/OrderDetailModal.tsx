@@ -7,6 +7,7 @@ import { fetchActiveOrders, fetchOrderDetails, updateOrder, forceNotarizeOrder }
 import type { AppDispatch, RootState } from '../../../../app/store.ts';
 import type { OrderItem, Order, Payment } from '../../../../types/orders.ts';
 import { getPaymentProofUrl } from '../../../../utils/imageUtils.ts';
+import TransferSearchModal from './TransferSearchModal.tsx';
 
 // ============================================================
 // Componente para mostrar información de pago y comprobante
@@ -222,6 +223,7 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ orderId, onClose, e
   const [editedNotes, setEditedNotes] = useState<string>('');
   const [reasonModal, setReasonModal] = useState<{isOpen: boolean, action: 'edit' | 'delete' | null, index: number | null}>({ isOpen: false, action: null, index: null });
   const [reasonText, setReasonText] = useState('');
+  const [isTransferSearchOpen, setIsTransferSearchOpen] = useState(false);
   
   const [paymentReconciliation, setPaymentReconciliation] = useState<{
     isOpen: boolean;
@@ -586,6 +588,18 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ orderId, onClose, e
             {selectedOrderDetails.payment_method && (
               <PaymentInfoSection order={selectedOrderDetails} />
             )}
+
+            {/* Botón de Buscar Transferencia (Disponible para Cajero/Admin/Mesero) */}
+            <div className="mb-4">
+              <button
+                onClick={() => setIsTransferSearchOpen(true)}
+                className="w-full sm:w-auto px-4 py-2 bg-indigo-50 border border-indigo-200 text-indigo-700 font-bold rounded-lg hover:bg-indigo-100 transition-colors flex items-center justify-center gap-2 shadow-sm"
+              >
+                <span className="text-lg">🔎</span>
+                Buscar Transferencia Vinculable
+              </button>
+            </div>
+
             <h3 className="font-bold mt-4 mb-2 border-t pt-2">Ítems:</h3>
             <ul className="space-y-3">
               {(selectedOrderDetails.items || []).map((item, index) => {
@@ -988,6 +1002,19 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ orderId, onClose, e
             </div>
           </div>
         </div>
+      )}
+      
+      {/* Transfer Search Modal */}
+      {selectedOrderDetails && (
+        <TransferSearchModal
+          isOpen={isTransferSearchOpen}
+          onClose={() => setIsTransferSearchOpen(false)}
+          orderId={selectedOrderDetails.id}
+          orderCreatedAt={selectedOrderDetails.created_at}
+          onTransferLinked={() => {
+            dispatch(fetchOrderDetails(selectedOrderDetails.id));
+          }}
+        />
       )}
     </div>
   );

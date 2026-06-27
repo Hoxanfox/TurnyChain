@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { MdClose, MdCheckCircle, MdCancel } from 'react-icons/md';
+import { MdCheckCircle, MdCancel } from 'react-icons/md';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../../../app/store';
+import ClockPickerModal from './components/ClockPickerModal';
 
 interface BankTransfer {
   id: string;
@@ -12,22 +13,24 @@ interface BankTransfer {
   is_used: boolean;
 }
 
-interface BrebTransfersPanelProps {
+interface TransfersSlideProps {
   isOpen: boolean;
   onClose: () => void;
   wsMessage: any; // Used to listen for real-time ws events
 }
 
-const BrebTransfersPanel: React.FC<BrebTransfersPanelProps> = ({ isOpen, onClose, wsMessage }) => {
+const TransfersSlide: React.FC<TransfersSlideProps> = ({ isOpen, wsMessage }) => {
   const token = useSelector((state: RootState) => state.auth.token);
   const [transfers, setTransfers] = useState<BankTransfer[]>([]);
   const [loading, setLoading] = useState(false);
+  const [selectedHour, setSelectedHour] = useState<string | 'ALL'>('ALL');
+  const [isClockModalOpen, setIsClockModalOpen] = useState(false);
 
   const fetchTransfers = async () => {
     if (!token) return;
     try {
       setLoading(true);
-      const res = await fetch('http://localhost:8080/api/bank-transfers/recent', {
+      const res = await fetch('/api/bank-transfers/recent', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -44,8 +47,41 @@ const BrebTransfersPanel: React.FC<BrebTransfersPanelProps> = ({ isOpen, onClose
   useEffect(() => {
     if (isOpen) {
       fetchTransfers();
+      setSelectedHour('ALL'); // Reset when opened
     }
   }, [isOpen]);
+
+  // Se eliminó hourChips ya que ahora usamos el ClockPickerModal
+
+  const handleHourSelect = async (hourDate: Date | 'ALL') => {
+    if (hourDate === 'ALL') {
+      setSelectedHour('ALL');
+      fetchTransfers();
+      return;
+    }
+    
+    setSelectedHour(hourDate.toISOString());
+    if (!token) return;
+    try {
+      setLoading(true);
+      const startTime = new Date(hourDate);
+      const endTime = new Date(hourDate);
+      endTime.setHours(endTime.getHours() + 1);
+      
+      // Llamada directa al search con el rango exacto
+      const res = await fetch(`/api/bank-transfers/search?start_time=${startTime.toISOString()}&end_time=${endTime.toISOString()}&page=1&limit=100`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setTransfers(data.data || []);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (wsMessage?.type === 'BREB_TRANSFER_RECEIVED') {
@@ -106,18 +142,36 @@ const BrebTransfersPanel: React.FC<BrebTransfersPanelProps> = ({ isOpen, onClose
     return timeB - timeA;
   });
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-y-0 right-0 w-80 bg-white shadow-2xl z-50 flex flex-col transform transition-transform animate-slide-in-right">
-      <div className="bg-indigo-900 text-white p-4 flex justify-between items-center shadow-md">
-        <h2 className="text-lg font-bold">📲 Transferencias (Nequi/BREB)</h2>
-        <button onClick={onClose} className="p-1 bg-indigo-800 rounded-full hover:bg-indigo-700 transition">
-          <MdClose size={24} />
+    <div className="w-full h-full flex flex-col bg-slate-50 relative overflow-hidden">
+      {/* Header Fijo */}
+      <div className="bg-indigo-900 text-white p-4 flex justify-between items-center shadow-md shrink-0">
+        <h2 className="text-lg font-bold">📲 Notificaciones BREB</h2>
+      </div>
+      
+      {/* Selector Intuitivo de Horas */}
+      <div className="bg-white px-4 py-3 border-b border-gray-200 flex gap-3 shrink-0 shadow-sm">
+        <button 
+          onClick={() => handleHourSelect('ALL')}
+          className={`flex-1 py-2 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-2 ${selectedHour === 'ALL' ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+        >
+          <span>📜</span> Todas (Recientes)
+        </button>
+        <button 
+          onClick={() => setIsClockModalOpen(true)}
+          className={`flex-1 py-2 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-2 ${selectedHour !== 'ALL' ? 'bg-violet-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+        >
+          <span>⌚</span> Filtrar por Hora
         </button>
       </div>
 
-      <div className="p-4 flex-1 overflow-y-auto bg-slate-100">
+      <ClockPickerModal 
+        isOpen={isClockModalOpen}
+        onClose={() => setIsClockModalOpen(false)}
+        onSelectHour={(date) => handleHourSelect(date)}
+      />
+
+      <div className="p-4 flex-1 overflow-y-auto bg-slate-50 pb-20">
         {loading && (
           <div className="flex justify-center items-center py-10">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
@@ -126,11 +180,12 @@ const BrebTransfersPanel: React.FC<BrebTransfersPanelProps> = ({ isOpen, onClose
         {!loading && transfers.length === 0 && (
           <div className="text-gray-500 text-center mt-10 p-6 bg-white rounded-xl shadow-sm border border-gray-200">
             <span className="text-4xl block mb-2">📭</span>
-            No hay transferencias recientes.
+            No hay transferencias en esta hora.
           </div>
         )}
         
         {!loading && sortedGroupKeys.map(fullKey => {
+          if (!groupedTransfers[fullKey]) return null;
           const label = fullKey.split('|')[1];
           const group = groupedTransfers[fullKey];
           
@@ -176,4 +231,4 @@ const BrebTransfersPanel: React.FC<BrebTransfersPanelProps> = ({ isOpen, onClose
   );
 };
 
-export default BrebTransfersPanel;
+export default TransfersSlide;

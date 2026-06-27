@@ -12,6 +12,7 @@ type BankTransferRepository interface {
 	GetRecent(limit int) ([]domain.BankTransfer, error)
 	MarkAsUsed(transferID string, orderID string) error
 	GetUnusedByAmount(amount float64) ([]domain.BankTransfer, error)
+	SearchTransfers(startTime, endTime time.Time, offset, limit int) ([]domain.BankTransfer, int, error)
 }
 
 type bankTransferRepository struct {
@@ -68,7 +69,7 @@ func (r *bankTransferRepository) GetRecent(limit int) ([]domain.BankTransfer, er
 		
 		// Force Colombia timezone (UTC-5) to prevent JSON marshalling it as UTC 
 		colombiaZone := time.FixedZone("UTC-5", -5*3600)
-		t.Timestamp = time.Date(t.Timestamp.Year(), t.Timestamp.Month(), t.Timestamp.Day(), t.Timestamp.Hour(), t.Timestamp.Minute(), t.Timestamp.Second(), t.Timestamp.Nanosecond(), colombiaZone)
+		t.Timestamp = t.Timestamp.In(colombiaZone)
 
 		if orderID.Valid {
 			t.OrderID = &orderID.String
@@ -106,9 +107,51 @@ func (r *bankTransferRepository) GetUnusedByAmount(amount float64) ([]domain.Ban
 		
 		// Force Colombia timezone (UTC-5)
 		colombiaZone := time.FixedZone("UTC-5", -5*3600)
-		t.Timestamp = time.Date(t.Timestamp.Year(), t.Timestamp.Month(), t.Timestamp.Day(), t.Timestamp.Hour(), t.Timestamp.Minute(), t.Timestamp.Second(), t.Timestamp.Nanosecond(), colombiaZone)
+		t.Timestamp = t.Timestamp.In(colombiaZone)
 
 		transfers = append(transfers, t)
 	}
 	return transfers, nil
+}
+
+func (r *bankTransferRepository) SearchTransfers(startTime, endTime time.Time, offset, limit int) ([]domain.BankTransfer, int, error) {
+	// Query total count
+	var total int
+	countQuery := `SELECT COUNT(*) FROM bank_transfers WHERE timestamp >= $1 AND timestamp <= $2`
+	if err := r.db.QueryRow(countQuery, startTime, endTime).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	// Query paginated data
+	query := `
+		SELECT id, sender, amount, bank_name, timestamp, is_used, order_id, raw_text
+		FROM bank_transfers
+		WHERE timestamp >= $1 AND timestamp <= $2
+		ORDER BY timestamp DESC
+		LIMIT $3 OFFSET $4
+	`
+	rows, err := r.db.Query(query, startTime, endTime, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	transfers := make([]domain.BankTransfer, 0)
+	for rows.Next() {
+		var t domain.BankTransfer
+		var orderID sql.NullString
+		if err := rows.Scan(&t.ID, &t.Sender, &t.Amount, &t.BankName, &t.Timestamp, &t.IsUsed, &orderID, &t.RawText); err != nil {
+			return nil, 0, err
+		}
+		
+		colombiaZone := time.FixedZone("UTC-5", -5*3600)
+		t.Timestamp = t.Timestamp.In(colombiaZone)
+
+		if orderID.Valid {
+			t.OrderID = &orderID.String
+		}
+		transfers = append(transfers, t)
+	}
+
+	return transfers, total, nil
 }

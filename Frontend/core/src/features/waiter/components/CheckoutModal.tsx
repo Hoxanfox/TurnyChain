@@ -57,7 +57,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
     setCurrentPreviewUrl(null);
     setError(null);
     
-    if (method === 'transferencia' && localStorage.getItem('user_role') === 'cajero') {
+    if (method === 'transferencia') {
       searchMatchingTransfers(remaining > 0 ? remaining : 0);
     }
   };
