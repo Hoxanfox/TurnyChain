@@ -22,6 +22,7 @@ interface CashierMobileHeaderProps {
   onViewUrgent: () => void;
   onOpenCashRegister: () => void;
   onOpenBrebPanel: () => void;
+  hasWsNotification?: boolean;
 }
 
 export const CashierMobileHeader: React.FC<CashierMobileHeaderProps> = ({
@@ -44,6 +45,7 @@ export const CashierMobileHeader: React.FC<CashierMobileHeaderProps> = ({
   onViewUrgent,
   onOpenCashRegister,
   onOpenBrebPanel,
+  hasWsNotification = false,
 }) => {
   const navigate = useNavigate();
   const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false);
@@ -63,14 +65,17 @@ export const CashierMobileHeader: React.FC<CashierMobileHeaderProps> = ({
             <div className="relative">
               <button
                 onClick={() => setIsActionsMenuOpen((prev) => !prev)}
-                className="p-3 min-w-[48px] min-h-[48px] justify-center bg-white bg-opacity-20 rounded-xl hover:bg-opacity-30 transition-all flex items-center gap-1 active:scale-95"
+                className="p-3 min-w-[48px] min-h-[48px] justify-center bg-white bg-opacity-20 rounded-xl hover:bg-opacity-30 transition-all flex items-center gap-1 active:scale-95 relative"
                 title="Abrir acciones"
               >
                 <span className="text-xl">☰</span>
                 {(orderIdQuery.trim() || waiterQuery.trim()) && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                  <span className="absolute -top-1 -left-1 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
                     !
                   </span>
+                )}
+                {hasWsNotification && (
+                  <span className="absolute -top-2 -right-2 text-xl animate-[spin_0.5s_linear_infinite] drop-shadow-md text-yellow-500" title="Nueva notificación">🔔</span>
                 )}
               </button>
 
@@ -147,9 +152,12 @@ export const CashierMobileHeader: React.FC<CashierMobileHeaderProps> = ({
                       onOpenBrebPanel();
                       setIsActionsMenuOpen(false);
                     }}
-                    className="w-full text-left px-4 py-3 text-indigo-700 hover:bg-indigo-50 font-semibold border-b border-gray-100"
+                    className="w-full text-left px-4 py-3 text-indigo-700 hover:bg-indigo-50 font-semibold border-b border-gray-100 flex justify-between items-center"
                   >
-                    📲 Transferencias Nequi
+                    <span>📲 Transferencias Nequi</span>
+                    {hasWsNotification && (
+                      <span className="text-xl animate-[spin_0.5s_linear_infinite] drop-shadow-md text-yellow-500" title="Nueva transferencia">🔔</span>
+                    )}
                   </button>
                   <button
                     onClick={() => {

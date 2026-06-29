@@ -71,6 +71,7 @@ interface CashierDashboardDesktopProps {
   onRetryLoadOrders: () => void;
   shortcutTarget?: { tableNumber: number; orderId: string } | null;
   shortcutNonce?: number;
+  hasWsNotification?: boolean;
 }
 
 export const CashierDashboardDesktop: React.FC<CashierDashboardDesktopProps> = ({
@@ -116,6 +117,7 @@ export const CashierDashboardDesktop: React.FC<CashierDashboardDesktopProps> = (
   onRetryLoadOrders,
   shortcutTarget = null,
   shortcutNonce = 0,
+  hasWsNotification = false,
 }) => {
   const navigate = useNavigate();
   const [selectedProofOrder, setSelectedProofOrder] = useState<Order | null>(null);
@@ -276,6 +278,7 @@ export const CashierDashboardDesktop: React.FC<CashierDashboardDesktopProps> = (
           onOpenPrintSettings={onOpenPrintSettings}
           onOpenBlockchainModal={onOpenBlockchainModal}
           onOpenBrebPanel={onOpenBrebPanel}
+          hasWsNotification={hasWsNotification}
           onOpenPrintMonitor={() => setOpenPrintMonitorSignal((prev) => prev + 1)}
           activeFiltersCount={activeFiltersCount}
           orderIdQuery={orderIdQuery}

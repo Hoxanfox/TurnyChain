@@ -99,6 +99,11 @@ export const useCashierWebSocket = (
           }
           break;
 
+        case 'BREB_TRANSFER_RECEIVED':
+          console.log('📲 [Cajero] Nueva transferencia recibida:', message.payload);
+          playNotificationSound();
+          break;
+
         default:
           console.log('📬 [Cajero] Evento no manejado:', message.type);
       }

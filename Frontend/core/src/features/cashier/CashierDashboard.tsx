@@ -42,6 +42,8 @@ const CashierDashboard: React.FC = () => {
   const [shortcutTarget, setShortcutTarget] = useState<{ tableNumber: number; orderId: string } | null>(null);
   const [shortcutNonce, setShortcutNonce] = useState(0);
 
+  const [hasWsNotification, setHasWsNotification] = useState(false);
+
   const cashierLogic = useCashierLogic(activeOrders);
 
   useCashierWebSocket(
@@ -51,6 +53,9 @@ const CashierDashboard: React.FC = () => {
     (message) => {
       if (message.type === 'BREB_TRANSFER_RECEIVED' || message.type === 'BREB_TRANSFER_USED') {
         setLastBrebMessage(message);
+        if (message.type === 'BREB_TRANSFER_RECEIVED') {
+          setHasWsNotification(true);
+        }
       }
     }
   );
@@ -279,7 +284,10 @@ const CashierDashboard: React.FC = () => {
     onExportReport: cashierLogic.exportReport,
     onOpenPrintSettings: () => setIsPrintSettingsOpen(true),
     onOpenBlockchainModal: () => setIsBlockchainModalOpen(true),
-    onOpenBrebPanel: () => setIsBrebPanelOpen(true),
+    onOpenBrebPanel: () => {
+      setIsBrebPanelOpen(true);
+      setHasWsNotification(false);
+    },
     onCloseNotification: () => setNotification(null),
     onRetryLoadOrders: () => dispatch(fetchActiveOrders()),
 
@@ -305,12 +313,14 @@ const CashierDashboard: React.FC = () => {
           shortcutTarget={shortcutTarget}
           shortcutNonce={shortcutNonce}
           onViewProof={() => {}}
+          hasWsNotification={hasWsNotification}
         />
       ) : (
         <CashierDashboardMobile
           {...commonProps}
           shortcutTarget={shortcutTarget}
           shortcutNonce={shortcutNonce}
+          hasWsNotification={hasWsNotification}
         />
       )}
 

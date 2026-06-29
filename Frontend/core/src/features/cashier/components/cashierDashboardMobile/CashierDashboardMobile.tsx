@@ -83,6 +83,7 @@ interface CashierDashboardMobileProps {
   onOpenBrebPanel: () => void;
   shortcutTarget?: { tableNumber: number; orderId: string } | null;
   shortcutNonce?: number;
+  hasWsNotification?: boolean;
 }
 
 export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
@@ -125,6 +126,7 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
   onOpenBrebPanel,
   shortcutTarget = null,
   shortcutNonce = 0,
+  hasWsNotification = false,
 }) => {
   const navigate = useNavigate();
   const isPorCobrarStatus = useMemo(
@@ -210,6 +212,7 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
         onViewUrgent={() => setViewMode('urgent')}
         onOpenCashRegister={() => setShowCashRegisterModal(true)}
         onOpenBrebPanel={onOpenBrebPanel}
+        hasWsNotification={hasWsNotification}
       />
 
       <CashierMobileTabs

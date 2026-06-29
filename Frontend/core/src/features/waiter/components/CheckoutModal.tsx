@@ -62,6 +62,18 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
     }
   };
 
+  const activeOrders = useSelector((state: RootState) => state.orders.activeOrders);
+  const myOrders = useSelector((state: RootState) => state.orders.myOrders);
+  
+  const orderCreatedAt = targetOrderIds.reduce((oldest, id) => {
+    const order = activeOrders.find(o => o.id === id) || myOrders.find(o => o.id === id);
+    if (!order) return oldest;
+    if (!oldest || new Date(order.created_at) < new Date(oldest)) {
+      return order.created_at;
+    }
+    return oldest;
+  }, undefined as string | undefined);
+
   const searchMatchingTransfers = async (amountToMatch: number) => {
     if (!token || amountToMatch <= 0) return;
     try {
@@ -71,7 +83,15 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
       });
       if (res.ok) {
         const data = await res.json();
-        const unusedMatch = (data || []).filter((t: any) => !t.is_used && t.amount === amountToMatch);
+        const unusedMatch = (data || []).filter((t: any) => {
+          if (t.is_used || t.amount !== amountToMatch) return false;
+          if (orderCreatedAt) {
+            const transferTime = new Date(t.timestamp).getTime();
+            const orderTime = new Date(orderCreatedAt).getTime();
+            if (transferTime < orderTime) return false;
+          }
+          return true;
+        });
         setMatchingTransfers(unusedMatch);
       }
     } catch (err) {
@@ -394,7 +414,16 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
               {currentMethod === 'transferencia' && (
                 <div>
                   <div className="mb-4">
-                    <label className="block text-sm font-semibold text-gray-600 mb-1">Transferencias Nequi/BREB Encontradas</label>
+                    <div className="flex justify-between items-center mb-1">
+                      <label className="text-sm font-semibold text-gray-600">Transferencias Nequi/BREB Encontradas</label>
+                      <button 
+                        onClick={() => searchMatchingTransfers(Number(currentAmount))}
+                        disabled={isSearchingTransfers || !currentAmount}
+                        className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded hover:bg-indigo-100 disabled:opacity-50"
+                      >
+                        {isSearchingTransfers ? 'Buscando...' : 'Buscar de nuevo'}
+                      </button>
+                    </div>
                     {isSearchingTransfers ? (
                       <p className="text-xs text-gray-500">Buscando transferencias por {formatMoney(Number(currentAmount))}...</p>
                     ) : matchingTransfers.length > 0 ? (

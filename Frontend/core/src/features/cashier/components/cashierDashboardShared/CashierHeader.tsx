@@ -11,6 +11,7 @@ interface CashierHeaderProps {
   onOpenPrintSettings: () => void;
   onOpenBlockchainModal: () => void;
   onOpenBrebPanel?: () => void;
+  hasWsNotification?: boolean;
   onOpenPrintMonitor?: () => void;
   onOpenMetrics?: () => void;
   activeFiltersCount?: number;
@@ -31,6 +32,7 @@ export const CashierHeader: React.FC<CashierHeaderProps> = ({
   onOpenPrintSettings,
   onOpenBlockchainModal,
   onOpenBrebPanel,
+  hasWsNotification = false,
   onOpenPrintMonitor,
   onOpenMetrics,
   activeFiltersCount = 0,
@@ -134,11 +136,14 @@ export const CashierHeader: React.FC<CashierHeaderProps> = ({
           <div className="relative">
             <button
               onClick={() => setIsActionsMenuOpen((prev) => !prev)}
-              className="px-4 py-2 bg-white text-indigo-700 rounded-lg hover:bg-indigo-50 transition-all font-semibold shadow-lg hover:shadow-xl flex items-center gap-2"
+              className="px-4 py-2 bg-white text-indigo-700 rounded-lg hover:bg-indigo-50 transition-all font-semibold shadow-lg hover:shadow-xl flex items-center gap-2 relative"
               title="Abrir menú de acciones"
             >
               <span className="text-xl">☰</span>
               <span className="hidden sm:inline">Acciones</span>
+              {hasWsNotification && (
+                <span className="absolute -top-2 -right-2 text-xl animate-[spin_0.5s_linear_infinite] drop-shadow-md text-yellow-500" title="Nueva notificación">🔔</span>
+              )}
             </button>
 
             {isActionsMenuOpen && (
@@ -183,9 +188,12 @@ export const CashierHeader: React.FC<CashierHeaderProps> = ({
                       onOpenBrebPanel();
                       setIsActionsMenuOpen(false);
                     }}
-                    className="w-full text-left px-4 py-3 text-pink-700 hover:bg-pink-50 font-semibold border-t border-gray-100"
+                    className="w-full text-left px-4 py-3 text-pink-700 hover:bg-pink-50 font-semibold border-t border-gray-100 flex justify-between items-center"
                   >
-                    📲 Transferencias Nequi
+                    <span>📲 Transferencias Nequi</span>
+                    {hasWsNotification && (
+                      <span className="text-xl animate-[spin_0.5s_linear_infinite] drop-shadow-md text-yellow-500" title="Nueva transferencia">🔔</span>
+                    )}
                   </button>
                 )}
                 {onOpenPrintMonitor && (
