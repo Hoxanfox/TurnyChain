@@ -54,13 +54,26 @@ func (h *BankTransferHandler) ProcessEmail(subject string, body string) error {
 }
 
 func (h *BankTransferHandler) GetRecent(c *fiber.Ctx) error {
-	transfers, err := h.service.GetRecent()
+	page := c.QueryInt("page", 1)
+	limit := c.QueryInt("limit", 15)
+
+	offset := (page - 1) * limit
+	if offset < 0 {
+		offset = 0
+	}
+
+	transfers, total, err := h.service.GetPaginatedRecent(offset, limit)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not fetch transfers"})
 	}
-	return c.JSON(transfers)
-}
 
+	return c.JSON(fiber.Map{
+		"data":  transfers,
+		"total": total,
+		"page":  page,
+		"limit": limit,
+	})
+}
 func (h *BankTransferHandler) LinkToOrder(c *fiber.Ctx) error {
 	payload := struct {
 		TransferID string `json:"transfer_id"`

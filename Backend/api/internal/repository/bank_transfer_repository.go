@@ -9,7 +9,7 @@ import (
 
 type BankTransferRepository interface {
 	Create(transfer *domain.BankTransfer) error
-	GetRecent(limit int) ([]domain.BankTransfer, error)
+	GetPaginatedRecent(offset, limit int) ([]domain.BankTransfer, int, error)
 	MarkAsUsed(transferID string, orderID string) error
 	GetUnusedByAmount(amount float64) ([]domain.BankTransfer, error)
 	SearchTransfers(startTime, endTime time.Time, offset, limit int) ([]domain.BankTransfer, int, error)
@@ -46,16 +46,29 @@ func (r *bankTransferRepository) Create(t *domain.BankTransfer) error {
 	return err
 }
 
-func (r *bankTransferRepository) GetRecent(limit int) ([]domain.BankTransfer, error) {
+func (r *bankTransferRepository) GetPaginatedRecent(offset, limit int) ([]domain.BankTransfer, int, error) {
+	colombiaZone := time.FixedZone("UTC-5", -5*3600)
+	now := time.Now().In(colombiaZone)
+	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, colombiaZone)
+
+	// Query to get total count
+	var total int
+	countQuery := `SELECT COUNT(*) FROM bank_transfers WHERE timestamp >= $1`
+	err := r.db.QueryRow(countQuery, startOfDay).Scan(&total)
+	if err != nil {
+		return nil, 0, err
+	}
+
 	query := `
 		SELECT id, sender, amount, bank_name, timestamp, is_used, order_id, raw_text
 		FROM bank_transfers
+		WHERE timestamp >= $1
 		ORDER BY timestamp DESC
-		LIMIT $1
+		LIMIT $2 OFFSET $3
 	`
-	rows, err := r.db.Query(query, limit)
+	rows, err := r.db.Query(query, startOfDay, limit, offset)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 
@@ -64,7 +77,7 @@ func (r *bankTransferRepository) GetRecent(limit int) ([]domain.BankTransfer, er
 		var t domain.BankTransfer
 		var orderID sql.NullString
 		if err := rows.Scan(&t.ID, &t.Sender, &t.Amount, &t.BankName, &t.Timestamp, &t.IsUsed, &orderID, &t.RawText); err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		
 		// Force Colombia timezone (UTC-5) to prevent JSON marshalling it as UTC 
@@ -76,7 +89,7 @@ func (r *bankTransferRepository) GetRecent(limit int) ([]domain.BankTransfer, er
 		}
 		transfers = append(transfers, t)
 	}
-	return transfers, nil
+	return transfers, total, nil
 }
 
 func (r *bankTransferRepository) MarkAsUsed(transferID string, orderID string) error {

@@ -61,7 +61,6 @@ import DeliveryInfoModal from './components/DeliveryInfoModal';
 // Importar toast y confetti
 import toast, { Toaster } from 'react-hot-toast';
 import { useWaiterGamification } from './hooks/useWaiterGamification';
-import { FireParticles } from './components/FireParticles';
 import './styles/Gamification.css';
 
 const WaiterDashboard: React.FC = () => {
@@ -83,7 +82,7 @@ const WaiterDashboard: React.FC = () => {
   const [showToolsMenu, setShowToolsMenu] = useState(false);
 
   // 🏆 Hook de Gamificación
-  const { validOrdersCount, isMaestro, isCelebrating, stopCelebrating } = useWaiterGamification();
+  const { isMaestro, isCelebrating, stopCelebrating } = useWaiterGamification();
 
   const handleWaiterWsNotification = useCallback((options: { title: string; message: string; type: 'info' | 'success' | 'warning' | 'error'; orderId?: string }) => {
     if (options.orderId) {
@@ -708,9 +707,6 @@ const WaiterDashboard: React.FC = () => {
         <header className="relative z-50 px-4 py-2 flex justify-between items-center shadow-md transition-all duration-500 bg-gradient-to-r from-indigo-600 to-indigo-700">
           {/* Capa de Fondos Gamificación */}
           <div className="gamification-bg-container rounded-b-lg">
-            {!isMaestro && validOrdersCount > 0 && (
-              <FireParticles count={validOrdersCount} />
-            )}
           </div>
           <div className="flex items-center gap-2 z-10">
             <h1 
@@ -719,7 +715,7 @@ const WaiterDashboard: React.FC = () => {
                   setHasWsNotification(false);
                 }
               }}
-              className={`font-bold cursor-pointer inline-block ${hasWsNotification ? 'animate-[spin_0.5s_linear_infinite] drop-shadow-md text-yellow-300' : ''} ${isMaestro ? 'maestro-text text-lg tracking-wide' : 'text-lg text-white'}`}
+              className={`font-bold cursor-pointer inline-block ${hasWsNotification ? 'drop-shadow-md text-yellow-300' : ''} ${isMaestro ? 'maestro-text text-lg tracking-wide' : 'text-lg text-white'}`}
               title={hasWsNotification ? (lastWsNotification || 'Nuevas notificaciones - Clic para limpiar') : ''}
             >
               {isMaestro ? `⭐ Consagrado` : 'Mesero'}

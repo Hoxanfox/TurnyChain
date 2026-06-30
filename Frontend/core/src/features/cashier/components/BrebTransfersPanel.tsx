@@ -25,17 +25,28 @@ const BrebTransfersPanel: React.FC<BrebTransfersPanelProps> = ({ isOpen, onClose
   const [loading, setLoading] = useState(false);
   const [selectedHour, setSelectedHour] = useState<string | 'ALL'>('ALL');
   const [isClockModalOpen, setIsClockModalOpen] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const LIMIT = 15;
 
-  const fetchTransfers = async () => {
+  const fetchTransfers = async (pageNum = 1) => {
     if (!token) return;
     try {
       setLoading(true);
-      const res = await fetch('http://localhost:8080/api/bank-transfers/recent', {
+      const res = await fetch(`http://localhost:8080/api/bank-transfers/recent?page=${pageNum}&limit=${LIMIT}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
         const data = await res.json();
-        setTransfers(data || []);
+        const fetchedTransfers = data.data || [];
+        
+        if (pageNum === 1) {
+          setTransfers(fetchedTransfers);
+        } else {
+          setTransfers(prev => [...prev, ...fetchedTransfers]);
+        }
+        
+        setHasMore(fetchedTransfers.length === LIMIT);
       }
     } catch (err) {
       console.error('Error fetching bank transfers', err);
@@ -44,9 +55,18 @@ const BrebTransfersPanel: React.FC<BrebTransfersPanelProps> = ({ isOpen, onClose
     }
   };
 
+  const handleLoadMore = () => {
+    if (!loading && hasMore) {
+      const nextPage = page + 1;
+      setPage(nextPage);
+      fetchTransfers(nextPage);
+    }
+  };
+
   useEffect(() => {
     if (isOpen) {
-      fetchTransfers();
+      setPage(1);
+      fetchTransfers(1);
       setSelectedHour('ALL');
     }
   }, [isOpen]);
@@ -54,7 +74,8 @@ const BrebTransfersPanel: React.FC<BrebTransfersPanelProps> = ({ isOpen, onClose
   const handleHourSelect = async (hourDate: Date | 'ALL') => {
     if (hourDate === 'ALL') {
       setSelectedHour('ALL');
-      fetchTransfers();
+      setPage(1);
+      fetchTransfers(1);
       return;
     }
     
@@ -72,6 +93,7 @@ const BrebTransfersPanel: React.FC<BrebTransfersPanelProps> = ({ isOpen, onClose
       if (res.ok) {
         const data = await res.json();
         setTransfers(data.data || []);
+        setHasMore(false); // No pagination for hourly filter
       }
     } catch (err) {
       console.error(err);
@@ -225,6 +247,17 @@ const BrebTransfersPanel: React.FC<BrebTransfersPanelProps> = ({ isOpen, onClose
             </div>
           );
         })}
+        
+        {!loading && hasMore && selectedHour === 'ALL' && transfers.length > 0 && (
+          <div className="flex justify-center mt-4 mb-8">
+            <button
+              onClick={handleLoadMore}
+              className="px-6 py-2 bg-indigo-100 text-indigo-700 font-bold rounded-xl shadow-sm hover:bg-indigo-200 hover:shadow-md transition-all active:scale-95"
+            >
+              Cargar más
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

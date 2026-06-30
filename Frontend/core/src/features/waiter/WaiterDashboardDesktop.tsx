@@ -46,7 +46,6 @@ import DeliveryInfoModal from './components/DeliveryInfoModal';
 import toast, { Toaster } from 'react-hot-toast';
 import { useWaiterWebSocket } from '../../hooks/useWaiterWebSocket';
 import { useWaiterGamification } from './hooks/useWaiterGamification';
-import { FireParticles } from './components/FireParticles';
 import './styles/Gamification.css';
 
 const WaiterDashboardDesktop: React.FC = () => {
@@ -89,7 +88,7 @@ const WaiterDashboardDesktop: React.FC = () => {
   const [isOnline, setIsOnline] = useState<boolean>(isClientOnline());
 
   // 🏆 Hook de Gamificación
-  const { validOrdersCount, isMaestro, isCelebrating, stopCelebrating } = useWaiterGamification();
+  const { isMaestro, isCelebrating, stopCelebrating } = useWaiterGamification();
 
   const buildRequestId = () =>
     globalThis.crypto?.randomUUID?.() ||
@@ -637,9 +636,6 @@ const WaiterDashboardDesktop: React.FC = () => {
         {/* Header - Compacto */}
         <header className="relative px-6 py-2.5 flex justify-between items-center shadow-md transition-all duration-500 bg-gradient-to-r from-indigo-600 to-indigo-700">
           <div className="gamification-bg-container rounded-b-lg">
-            {!isMaestro && validOrdersCount > 0 && (
-              <FireParticles count={validOrdersCount} />
-            )}
           </div>
           <div className="flex items-center gap-4 z-10">
             <h1 
@@ -648,7 +644,7 @@ const WaiterDashboardDesktop: React.FC = () => {
                   setHasWsNotification(false);
                 }
               }}
-              className={`font-bold cursor-pointer inline-block ${hasWsNotification ? 'animate-[spin_0.5s_linear_infinite] drop-shadow-md text-yellow-300' : ''} ${isMaestro ? 'maestro-text text-2xl tracking-wide' : 'text-xl text-white'}`}
+              className={`font-bold cursor-pointer inline-block ${hasWsNotification ? 'drop-shadow-md text-yellow-300' : ''} ${isMaestro ? 'maestro-text text-2xl tracking-wide' : 'text-xl text-white'}`}
               title={hasWsNotification ? (lastWsNotification || 'Nuevas notificaciones - Clic para limpiar') : ''}
             >
               {isMaestro ? `⭐ Consagrado` : 'Panel Mesero'}

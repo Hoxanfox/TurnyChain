@@ -34,8 +34,8 @@ const TransfersSlide: React.FC<TransfersSlideProps> = ({ isOpen, wsMessage }) =>
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
-        const data = await res.json();
-        setTransfers(data || []);
+        const json = await res.json();
+        setTransfers(json.data || []);
       }
     } catch (err) {
       console.error('Error fetching bank transfers', err);

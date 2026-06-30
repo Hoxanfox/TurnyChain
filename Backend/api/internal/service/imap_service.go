@@ -69,7 +69,7 @@ func (s *imapService) runLoop() {
 			time.Sleep(30 * time.Second)
 		} else {
 			// Successful poll but ended? Wait and poll again.
-			time.Sleep(15 * time.Second)
+			time.Sleep(1 * time.Second)
 		}
 	}
 }

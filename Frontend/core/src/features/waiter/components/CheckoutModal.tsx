@@ -82,8 +82,8 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
-        const data = await res.json();
-        const unusedMatch = (data || []).filter((t: any) => {
+        const json = await res.json();
+        const unusedMatch = (json.data || []).filter((t: any) => {
           if (t.is_used || t.amount !== amountToMatch) return false;
           if (orderCreatedAt) {
             const transferTime = new Date(t.timestamp).getTime();

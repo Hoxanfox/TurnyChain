@@ -10,7 +10,7 @@ import (
 
 type BankTransferService interface {
 	ProcessEmailWebhook(rawText string) (*domain.BankTransfer, error)
-	GetRecent() ([]domain.BankTransfer, error)
+	GetPaginatedRecent(offset, limit int) ([]domain.BankTransfer, int, error)
 	GetUnusedByAmount(amount float64) ([]domain.BankTransfer, error)
 	MarkAsUsed(transferID string, orderID string) error
 	SearchTransfers(startTime, endTime time.Time, offset, limit int) ([]domain.BankTransfer, int, error)
@@ -39,9 +39,8 @@ func (s *bankTransferService) ProcessEmailWebhook(rawText string) (*domain.BankT
 	return transfer, nil
 }
 
-func (s *bankTransferService) GetRecent() ([]domain.BankTransfer, error) {
-	// Let's get the last 50 for the UI panel
-	return s.repo.GetRecent(50)
+func (s *bankTransferService) GetPaginatedRecent(offset, limit int) ([]domain.BankTransfer, int, error) {
+	return s.repo.GetPaginatedRecent(offset, limit)
 }
 
 func (s *bankTransferService) GetUnusedByAmount(amount float64) ([]domain.BankTransfer, error) {
