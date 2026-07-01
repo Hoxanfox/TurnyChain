@@ -94,7 +94,7 @@ func (h *WebSocketHandler) HandleConnection(c *websocket.Conn) {
 	}
 
 	userID := userIDParsed.String()
-	role := roleRaw
+	role := strings.ToLower(strings.TrimSpace(roleRaw))
 
 	// Crear ClientInfo
 	clientInfo := &wshub.ClientInfo{

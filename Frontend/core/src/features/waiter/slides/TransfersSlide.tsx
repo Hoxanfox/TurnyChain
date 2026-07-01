@@ -86,7 +86,10 @@ const TransfersSlide: React.FC<TransfersSlideProps> = ({ isOpen, wsMessage }) =>
   useEffect(() => {
     if (wsMessage?.type === 'BREB_TRANSFER_RECEIVED') {
       const newTransfer = wsMessage.payload;
-      setTransfers(prev => [newTransfer, ...prev]);
+      setTransfers(prev => {
+        if (prev.some(t => t.id === newTransfer.id)) return prev;
+        return [newTransfer, ...prev];
+      });
     }
     if (wsMessage?.type === 'BREB_TRANSFER_USED') {
       const usedId = wsMessage.payload;

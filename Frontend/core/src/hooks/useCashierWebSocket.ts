@@ -45,7 +45,7 @@ export const useCashierWebSocket = (
 
   useEffect(() => {
     // Solo conectar si es cajero
-    const userRole = localStorage.getItem('user_role');
+    const userRole = localStorage.getItem('user_role')?.toLowerCase();
     if (userRole !== 'cajero') {
       console.log('⚠️ useCashierWebSocket: Usuario no es cajero, omitiendo conexión');
       return;

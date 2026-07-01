@@ -42,10 +42,10 @@ export const useWaiterWebSocket = (
   }, [onNotification, onRawMessage]);
 
   useEffect(() => {
-    // Solo conectar si es mesero
-    const userRole = localStorage.getItem('user_role');
-    if (userRole !== 'mesero') {
-      console.log('⚠️ useWaiterWebSocket: Usuario no es mesero, omitiendo conexión');
+    // Conectar si es mesero o cajero (porque el cajero puede usar la vista de mesero)
+    const userRole = localStorage.getItem('user_role')?.toLowerCase();
+    if (userRole !== 'mesero' && userRole !== 'cajero') {
+      console.log('⚠️ useWaiterWebSocket: Usuario no es mesero ni cajero, omitiendo conexión');
       return;
     }
 

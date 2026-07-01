@@ -47,30 +47,41 @@ func (s *imapService) runLoop() {
 	log.Println("[IMAP] Starting IMAP service worker...")
 
 	for {
-		select {
-		case <-s.stopChan:
-			log.Println("[IMAP] Stopping current worker loop.")
-			return
-		default:
-		}
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("[IMAP] Recovered from panic: %v", r)
+				}
+			}()
 
-		userSetting, _ := s.settingService.GetSetting("gmail_user")
-		passSetting, _ := s.settingService.GetSetting("gmail_app_password")
+			select {
+			case <-s.stopChan:
+				log.Println("[IMAP] Stopping current worker loop.")
+				return
+			default:
+			}
 
-		if userSetting == nil || passSetting == nil || userSetting.Value == "" || passSetting.Value == "" {
-			// Try again in 60 seconds
-			time.Sleep(60 * time.Second)
-			continue
-		}
+			userSetting, _ := s.settingService.GetSetting("gmail_user")
+			passSetting, _ := s.settingService.GetSetting("gmail_app_password")
 
-		err := s.pollEmails(userSetting.Value, passSetting.Value)
-		if err != nil {
-			log.Printf("[IMAP] Error: %v. Retrying in 30 seconds...\n", err)
-			time.Sleep(30 * time.Second)
-		} else {
-			// Successful poll but ended? Wait and poll again.
-			time.Sleep(1 * time.Second)
-		}
+			if userSetting == nil || passSetting == nil || userSetting.Value == "" || passSetting.Value == "" {
+				// Try again in 60 seconds
+				time.Sleep(60 * time.Second)
+				return
+			}
+
+			err := s.pollEmails(userSetting.Value, passSetting.Value)
+			if err != nil {
+				log.Printf("[IMAP] Error: %v. Retrying in 30 seconds...\n", err)
+				time.Sleep(30 * time.Second)
+			} else {
+				// Successful poll but ended? Wait and poll again.
+				time.Sleep(5 * time.Second)
+			}
+		}()
+
+		// Add a tiny sleep to prevent 100% CPU on fast consecutive panics
+		time.Sleep(100 * time.Millisecond)
 	}
 }
 
