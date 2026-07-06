@@ -8,12 +8,18 @@ import type { RootState } from '../../../../../app/store.ts';
 
 interface MenuState {
   items: MenuItem[];
+  soldOutMenuIds: string[];
+  soldOutAccompanimentIds: string[];
+  soldOutIngredientIds: string[];
   status: 'idle' | 'loading' | 'succeeded' | 'failed';
   error: string | null;
 }
 
 const initialState: MenuState = {
   items: [],
+  soldOutMenuIds: [],
+  soldOutAccompanimentIds: [],
+  soldOutIngredientIds: [],
   status: 'idle',
   error: null,
 };
@@ -65,6 +71,38 @@ export const menuSlice = createSlice({
     menuItemRemoved: (state, action: PayloadAction<{ id: string }>) => {
       state.items = state.items.filter(item => item.id !== action.payload.id);
     },
+    setSoldOutMenuId: (state, action: PayloadAction<{ id: string, isSoldOut: boolean }>) => {
+      const { id, isSoldOut } = action.payload;
+      const index = state.soldOutMenuIds.indexOf(id);
+      if (isSoldOut && index === -1) {
+        state.soldOutMenuIds.push(id);
+      } else if (!isSoldOut && index !== -1) {
+        state.soldOutMenuIds.splice(index, 1);
+      }
+    },
+    setSoldOutAccompanimentId: (state, action: PayloadAction<{ id: string, isSoldOut: boolean }>) => {
+      const { id, isSoldOut } = action.payload;
+      const index = state.soldOutAccompanimentIds.indexOf(id);
+      if (isSoldOut && index === -1) {
+        state.soldOutAccompanimentIds.push(id);
+      } else if (!isSoldOut && index !== -1) {
+        state.soldOutAccompanimentIds.splice(index, 1);
+      }
+    },
+    setSoldOutIngredientId: (state, action: PayloadAction<{ id: string, isSoldOut: boolean }>) => {
+      const { id, isSoldOut } = action.payload;
+      const index = state.soldOutIngredientIds.indexOf(id);
+      if (isSoldOut && index === -1) {
+        state.soldOutIngredientIds.push(id);
+      } else if (!isSoldOut && index !== -1) {
+        state.soldOutIngredientIds.splice(index, 1);
+      }
+    },
+    setSyncSoldOut: (state, action: PayloadAction<{ menus: string[], accompaniments: string[], ingredients: string[] }>) => {
+      state.soldOutMenuIds = action.payload.menus;
+      state.soldOutAccompanimentIds = action.payload.accompaniments;
+      state.soldOutIngredientIds = action.payload.ingredients;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -106,5 +144,5 @@ export const menuSlice = createSlice({
 });
 
 // CORRECCIÓN: Exportamos las nuevas acciones.
-export const { menuItemAdded, menuItemUpdated, menuItemRemoved } = menuSlice.actions;
+export const { menuItemAdded, menuItemUpdated, menuItemRemoved, setSoldOutMenuId, setSoldOutAccompanimentId, setSoldOutIngredientId, setSyncSoldOut } = menuSlice.actions;
 export default menuSlice.reducer;

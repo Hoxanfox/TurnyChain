@@ -14,7 +14,7 @@ interface MenuDisplayProps {
 
 const MenuDisplay: React.FC<MenuDisplayProps> = ({ onAddToCart }) => {
   const dispatch = useDispatch<AppDispatch>();
-  const { items: menuItems, status: menuStatus } = useSelector((state: RootState) => state.menu);
+  const { items: menuItems, status: menuStatus, soldOutMenuIds, soldOutAccompanimentIds, soldOutIngredientIds } = useSelector((state: RootState) => state.menu);
 
   // Estados para filtros y búsqueda
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -196,31 +196,55 @@ const MenuDisplay: React.FC<MenuDisplayProps> = ({ onAddToCart }) => {
               )}
               {/* Grid de items filtrados por categoría y búsqueda */}
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                {filteredAndSortedItems.map(item => (
-                  <button
-                    key={item.id}
-                    onClick={() => onAddToCart(item)}
-                    className="relative p-4 bg-gradient-to-br from-white to-gray-50 border border-gray-200 rounded-xl shadow-sm text-left hover:shadow-lg hover:border-indigo-300 hover:from-indigo-50 hover:to-white transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 active:scale-95"
-                  >
-                    {/* Badge de item popular */}
-                    {isPopular(item) && (
-                      <div className="absolute -top-2 -right-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-lg flex items-center gap-1 z-10">
-                        ⭐ Popular
-                      </div>
-                    )}
-                    <p className="font-bold text-gray-900 text-sm mb-1 line-clamp-2 pr-2 min-h-[2.5rem]">
-                      {item.name}
-                    </p>
-                    {item.description && (
-                      <p className="text-xs text-gray-600 mb-2 line-clamp-2">
-                        {item.description}
+                {filteredAndSortedItems.map(item => {
+                  const isSoldOut = soldOutMenuIds?.includes(item.id);
+                  const hasMissingAcc = item.accompaniments?.some(acc => soldOutAccompanimentIds?.includes(acc.id));
+                  const hasMissingIng = item.ingredients?.some(ing => soldOutIngredientIds?.includes(ing.id));
+                  const isPartiallySoldOut = !isSoldOut && (hasMissingAcc || hasMissingIng);
+
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => !isSoldOut && onAddToCart(item)}
+                      disabled={isSoldOut}
+                      className={`relative p-4 border rounded-xl shadow-sm text-left transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                        isSoldOut 
+                          ? 'bg-red-50 border-red-500 opacity-75 cursor-not-allowed' 
+                          : isPartiallySoldOut
+                          ? 'bg-yellow-50 border-yellow-400 hover:shadow-lg hover:bg-yellow-100 hover:border-yellow-500'
+                          : 'bg-gradient-to-br from-white to-gray-50 border-gray-200 hover:shadow-lg hover:border-indigo-300 hover:from-indigo-50 hover:to-white active:scale-95'
+                      }`}
+                    >
+                      {/* Badge de item popular */}
+                      {isPopular(item) && !isSoldOut && !isPartiallySoldOut && (
+                        <div className="absolute -top-2 -right-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-lg flex items-center gap-1 z-10">
+                          ⭐ Popular
+                        </div>
+                      )}
+                      {/* Badge de agotado total o parcial */}
+                      {isSoldOut ? (
+                        <div className="absolute top-2 right-2 bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-sm shadow z-10 animate-pulse">
+                          AGOTADO
+                        </div>
+                      ) : isPartiallySoldOut ? (
+                        <div className="absolute top-2 right-2 bg-yellow-500 text-white text-[10px] font-black px-2 py-0.5 rounded-sm shadow z-10">
+                          PARCIAL
+                        </div>
+                      ) : null}
+                      <p className={`font-bold text-sm mb-1 line-clamp-2 pr-2 min-h-[2.5rem] ${isSoldOut ? 'text-red-800' : isPartiallySoldOut ? 'text-yellow-800' : 'text-gray-900'}`}>
+                        {item.name}
                       </p>
-                    )}
-                    <p className="text-lg font-bold text-indigo-700 mt-auto">
-                      ${item.price.toLocaleString('es-CO')}
-                    </p>
-                  </button>
-                ))}
+                      {item.description && (
+                        <p className={`text-xs mb-2 line-clamp-2 ${isSoldOut ? 'text-red-600' : isPartiallySoldOut ? 'text-yellow-700' : 'text-gray-600'}`}>
+                          {item.description}
+                        </p>
+                      )}
+                      <p className={`text-lg font-bold mt-auto ${isSoldOut ? 'text-red-700' : isPartiallySoldOut ? 'text-yellow-800' : 'text-indigo-700'}`}>
+                        ${item.price.toLocaleString('es-CO')}
+                      </p>
+                    </button>
+                  );
+                })}
               </div>
               {/* Mensaje si no hay items disponibles en la categoría */}
               {filteredAndSortedItems.length === 0 && !searchTerm && (

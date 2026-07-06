@@ -6,6 +6,8 @@ import { formatMoney } from '../../../utils/formatUtils.ts';
 import type { MenuItem, CartItem } from '../../../types/menu';
 import type { Accompaniment } from '../../../types/accompaniments';
 import type { Ingredient } from '../../../types/ingredients';
+import { useSelector } from 'react-redux';
+import type { RootState } from '../../../app/store';
 
 // Se define un tipo claro para los datos que devuelve el modal.
 interface CustomizationData {
@@ -24,6 +26,7 @@ interface CustomizeOrderItemModalProps {
 }
 
 const CustomizeOrderItemModal: React.FC<CustomizeOrderItemModalProps> = ({ item, onConfirm, onClose }) => {
+  const { soldOutAccompanimentIds, soldOutIngredientIds } = useSelector((state: RootState) => state.menu);
   const [price, setPrice] = useState(item.price);
   const [selectedAccompaniments, setSelectedAccompaniments] = useState<Accompaniment[]>(
     'selectedAccompaniments' in item && item.selectedAccompaniments
@@ -119,25 +122,45 @@ const CustomizeOrderItemModal: React.FC<CustomizeOrderItemModalProps> = ({ item,
                 <input type="number" id="price" step="0.01" value={price} onChange={(e) => setPrice(parseFloat(e.target.value))} className="mt-1 block w-full px-3 py-2 border rounded-md"/>
             </div>
             <div>
-                <h3 className="font-semibold text-sm text-gray-700">Ingredientes:</h3>
-                <div className="flex flex-wrap gap-2 mt-2">
-                    {(item.ingredients || []).map(ing => (
-                    <button key={ing.id} onClick={() => handleIngredientToggle(ing)}
-                        className={`px-3 py-1 rounded-full text-sm ${!removedIngredients.find(i => i.id === ing.id) ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800 line-through'}`}>
-                        {ing.name}
-                    </button>
-                    ))}
+                <h3 className="font-semibold text-sm text-gray-700 mb-2">Ingredientes:</h3>
+                <div className="flex flex-wrap gap-2">
+                    {(item.ingredients || []).map(ingredient => {
+                        const isRemoved = removedIngredients.some(i => i.id === ingredient.id);
+                        const isSoldOut = soldOutIngredientIds?.includes(ingredient.id);
+                        return (
+                            <button
+                                key={ingredient.id}
+                                type="button"
+                                disabled={isSoldOut}
+                                onClick={() => handleIngredientToggle(ingredient)}
+                                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all flex items-center gap-1 border-2 ${
+                                    isSoldOut
+                                        ? 'bg-red-50 border-red-200 text-red-500 opacity-75 cursor-not-allowed line-through'
+                                        : isRemoved
+                                        ? 'bg-gray-100 border-gray-300 text-gray-500 line-through'
+                                        : 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100 hover:border-green-300'
+                                }`}
+                            >
+                                {ingredient.name}
+                                {isSoldOut && <span className="text-[10px] uppercase font-bold text-red-500 ml-1">(Agotado)</span>}
+                            </button>
+                        );
+                    })}
                 </div>
             </div>
             <div>
                 <h3 className="font-semibold text-sm text-gray-700">Acompañantes:</h3>
                 <div className="flex flex-wrap gap-2 mt-2">
-                    {(item.accompaniments || []).map(acc => (
-                    <button key={acc.id} onClick={() => handleAccompanimentToggle(acc)}
-                        className={`px-3 py-1 rounded-full text-sm ${selectedAccompaniments.find(a => a.id === acc.id) ? 'bg-blue-200 text-blue-800' : 'bg-gray-200 text-gray-800'}`}>
-                        {acc.name}
-                    </button>
-                    ))}
+                    {(item.accompaniments || []).map(acc => {
+                      const isSoldOut = soldOutAccompanimentIds?.includes(acc.id);
+                      return (
+                        <button key={acc.id} onClick={() => !isSoldOut && handleAccompanimentToggle(acc)}
+                            disabled={isSoldOut}
+                            className={`px-3 py-1 rounded-full text-sm ${isSoldOut ? 'bg-red-100 text-red-500 line-through opacity-75 cursor-not-allowed border border-red-300' : selectedAccompaniments.find(a => a.id === acc.id) ? 'bg-blue-200 text-blue-800' : 'bg-gray-200 text-gray-800'}`}>
+                            {acc.name} {isSoldOut && '(Agotado)'}
+                        </button>
+                      );
+                    })}
                 </div>
             </div>
             <div>

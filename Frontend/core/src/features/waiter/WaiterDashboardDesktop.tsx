@@ -25,6 +25,7 @@ import CustomizeOrderItemModal from './components/CustomizeOrderItemModal';
 import MenuDisplay from './components/MenuDisplay';
 import CurrentOrder from './components/CurrentOrder';
 import QRModal from './components/QRModal';
+import PanicButtonModal from './components/PanicButtonModal';
 import { FaQrcode } from 'react-icons/fa';
 
 // Importar funciones y tipos comunes del feature
@@ -48,7 +49,11 @@ import { useWaiterWebSocket } from '../../hooks/useWaiterWebSocket';
 import { useWaiterGamification } from './hooks/useWaiterGamification';
 import './styles/Gamification.css';
 
-const WaiterDashboardDesktop: React.FC = () => {
+interface WaiterDashboardDesktopProps {
+  sendMessage?: (type: string, payload: any) => void;
+}
+
+const WaiterDashboardDesktop: React.FC<WaiterDashboardDesktopProps> = ({ sendMessage }) => {
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
   const { tables } = useSelector((state: RootState) => state.tables);
@@ -104,6 +109,7 @@ const WaiterDashboardDesktop: React.FC = () => {
   const [hasWsNotification, setHasWsNotification] = useState(false);
   const [lastWsNotification, setLastWsNotification] = useState<string | null>(null);
   const [showQRModal, setShowQRModal] = useState(false);
+  const [showPanicModal, setShowPanicModal] = useState(false);
 
   const handleWaiterWsNotification = useCallback((options: { title: string; message: string; type: 'info' | 'success' | 'warning' | 'error'; orderId?: string }) => {
     if (options.orderId) {
@@ -658,6 +664,15 @@ const WaiterDashboardDesktop: React.FC = () => {
             >
               <FaQrcode className="text-white text-lg" />
             </button>
+            {user?.role === 'mesero' && (
+              <button 
+                onClick={() => setShowPanicModal(true)}
+                className="w-9 h-9 bg-red-500/80 rounded-full flex items-center justify-center hover:bg-red-600 transition-colors shadow-sm border border-red-300"
+                title="Reportar Agotado"
+              >
+                <span className="text-white">🚨</span>
+              </button>
+            )}
             {user?.role === 'cajero' && (
               <button
                 onClick={() => navigate('/dashboard')}
@@ -969,6 +984,14 @@ const WaiterDashboardDesktop: React.FC = () => {
       {/* QR Modal */}
       {showQRModal && (
         <QRModal onClose={() => setShowQRModal(false)} />
+      )}
+
+      {/* Modal de Botón de Pánico */}
+      {showPanicModal && (
+        <PanicButtonModal 
+          onClose={() => setShowPanicModal(false)} 
+          sendMessage={sendMessage}
+        />
       )}
     </>
   );

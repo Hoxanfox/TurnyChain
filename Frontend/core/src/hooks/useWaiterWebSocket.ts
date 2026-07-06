@@ -5,6 +5,7 @@
 import { useEffect, useRef } from 'react';
 import { useDispatch } from 'react-redux';
 import { orderUpdated, fetchMyOrders, fetchActiveOrders } from '../features/shared/orders/api/ordersSlice';
+import { setSoldOutMenuId, setSoldOutAccompanimentId, setSoldOutIngredientId, setSyncSoldOut } from '../features/admin/components/menu/api/menuSlice.ts';
 import { logout } from '../features/auth/authSlice';
 import type { AppDispatch } from '../app/store';
 import type { Order } from '../types/orders';
@@ -121,6 +122,24 @@ export const useWaiterWebSocket = (
             dispatch(orderUpdated(message.payload.order as Order));
             scheduleOrdersRefresh((message.payload.order as Order).id);
           }
+          break;
+
+        case 'SOLD_OUT_TOGGLED':
+          if (message.payload.type === 'menu') {
+            dispatch(setSoldOutMenuId({ id: message.payload.id, isSoldOut: message.payload.isSoldOut }));
+          } else if (message.payload.type === 'accompaniment') {
+            dispatch(setSoldOutAccompanimentId({ id: message.payload.id, isSoldOut: message.payload.isSoldOut }));
+          } else if (message.payload.type === 'ingredient') {
+            dispatch(setSoldOutIngredientId({ id: message.payload.id, isSoldOut: message.payload.isSoldOut }));
+          }
+          break;
+
+        case 'SYNC_SOLD_OUT':
+          dispatch(setSyncSoldOut({ 
+            menus: message.payload.menus || [], 
+            accompaniments: message.payload.accompaniments || [],
+            ingredients: message.payload.ingredients || []
+          }));
           break;
 
         default:
@@ -255,6 +274,11 @@ export const useWaiterWebSocket = (
 
         // Sincroniza datos al reconectar por si se perdieron eventos mientras estuvo caído.
         scheduleOrdersRefresh(undefined, { force: true, includeTeamOrders: true });
+        
+        // Solicita sincronización de productos agotados
+        if (ws.current?.readyState === WebSocket.OPEN) {
+          ws.current.send(JSON.stringify({ type: 'REQUEST_SOLD_OUT_SYNC' }));
+        }
 
         // Heartbeat
         heartbeatInterval.current = setInterval(() => {
@@ -340,6 +364,14 @@ export const useWaiterWebSocket = (
     };
   }, [dispatch]);
 
-  return ws.current;
+  const sendMessage = (type: string, payload: any) => {
+    if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+      ws.current.send(JSON.stringify({ type, payload }));
+    } else {
+      console.warn('⚠️ [Mesero] No se puede enviar mensaje, WebSocket no conectado');
+    }
+  };
+
+  return { sendMessage };
 };
 

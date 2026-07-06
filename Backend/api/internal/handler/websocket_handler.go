@@ -12,9 +12,18 @@ import (
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/repository"
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/service"
 	wshub "github.com/Hoxanfox/TurnyChain/Backend/api/internal/websocket"
+	"encoding/json"
 	"github.com/gofiber/contrib/websocket"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/google/uuid"
+	"sync"
+)
+
+var (
+	soldOutMu    sync.RWMutex
+	soldOutMenus = make(map[string]bool)
+	soldOutAccs  = make(map[string]bool)
+	soldOutIngs  = make(map[string]bool)
 )
 
 type WebSocketHandler struct {
@@ -114,12 +123,69 @@ func (h *WebSocketHandler) HandleConnection(c *websocket.Conn) {
 
 	// Bucle para mantener la conexión viva y manejar mensajes del cliente si fuera necesario
 	for {
-		_, _, err := c.ReadMessage()
+		msgType, msgBody, err := c.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 				log.Printf("⚠️ Error de lectura de WebSocket (UserID: %s, Role: %s): %v", userID, role, err)
 			}
 			break // Salir del bucle si el cliente se desconecta
+		}
+
+		if msgType == websocket.TextMessage {
+			var msg wshub.Message
+			if err := json.Unmarshal(msgBody, &msg); err == nil {
+				if msg.Type == "SOLD_OUT_TOGGLED" {
+					payloadMap, ok := msg.Payload.(map[string]interface{})
+					if ok {
+						id, _ := payloadMap["id"].(string)
+						t, _ := payloadMap["type"].(string)
+						isSoldOut, _ := payloadMap["isSoldOut"].(bool)
+
+						soldOutMu.Lock()
+						if t == "menu" {
+							soldOutMenus[id] = isSoldOut
+						} else if t == "accompaniment" {
+							soldOutAccs[id] = isSoldOut
+						} else if t == "ingredient" {
+							soldOutIngs[id] = isSoldOut
+						}
+						soldOutMu.Unlock()
+					}
+
+					// Broadcast to all waiters and cashiers
+					h.hub.BroadcastToRole("mesero", "SOLD_OUT_TOGGLED", msg.Payload)
+					h.hub.BroadcastToRole("cajero", "SOLD_OUT_TOGGLED", msg.Payload)
+				} else if msg.Type == "REQUEST_SOLD_OUT_SYNC" {
+					soldOutMu.RLock()
+					menus := []string{}
+					for id, isSoldOut := range soldOutMenus {
+						if isSoldOut {
+							menus = append(menus, id)
+						}
+					}
+					accs := []string{}
+					for id, isSoldOut := range soldOutAccs {
+						if isSoldOut {
+							accs = append(accs, id)
+						}
+					}
+					ings := []string{}
+					for id, isSoldOut := range soldOutIngs {
+						if isSoldOut {
+							ings = append(ings, id)
+						}
+					}
+					soldOutMu.RUnlock()
+
+					payload := map[string]interface{}{
+						"menus":          menus,
+						"accompaniments": accs,
+						"ingredients":    ings,
+					}
+					h.hub.BroadcastToRole("mesero", "SYNC_SOLD_OUT", payload)
+					h.hub.BroadcastToRole("cajero", "SYNC_SOLD_OUT", payload)
+				}
+			}
 		}
 
 		active, err := h.sessionRepo.IsSessionActive(sessionIDParsed, userIDParsed, time.Now().UTC())

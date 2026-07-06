@@ -22,6 +22,7 @@ import ColleagueOrdersModal from './components/ColleagueOrdersModal';
 import WaiterProfileMenu from './components/WaiterProfileMenu';
 import CustomizeOrderItemModal from './components/CustomizeOrderItemModal';
 import QRModal from './components/QRModal';
+import PanicButtonModal from './components/PanicButtonModal';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import type { Swiper as SwiperType } from 'swiper';
 import 'swiper/swiper-bundle.css';
@@ -77,6 +78,7 @@ const WaiterDashboard: React.FC = () => {
   const [hasWsNotification, setHasWsNotification] = useState(false);
   const [lastWsNotification, setLastWsNotification] = useState<string | null>(null);
   const [showQRModal, setShowQRModal] = useState(false);
+  const [showPanicModal, setShowPanicModal] = useState(false);
 
   const [lastRawWsMessage, setLastRawWsMessage] = useState<any>(null);
   const [showToolsMenu, setShowToolsMenu] = useState(false);
@@ -107,7 +109,7 @@ const WaiterDashboard: React.FC = () => {
     }
   }, []);
 
-  useWaiterWebSocket(handleWaiterWsNotification, handleRawWsMessage);
+  const { sendMessage } = useWaiterWebSocket(handleWaiterWsNotification, handleRawWsMessage);
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [tableId, setTableId] = useState('');
@@ -219,7 +221,7 @@ const WaiterDashboard: React.FC = () => {
 
   // Si es desktop, renderizar la vista de escritorio
   if (isDesktop) {
-    return <WaiterDashboardDesktop />;
+    return <WaiterDashboardDesktop sendMessage={sendMessage} />;
   }
 
   const handleConfirmCustomization = (customizationData: CustomizationData) => {
@@ -739,6 +741,17 @@ const WaiterDashboard: React.FC = () => {
                 <MdNotificationsNone className="text-white text-xl" />
               )}
             </button>
+
+            {/* Botón de Pánico (Solo para Meseros) */}
+            {user?.role === 'mesero' && (
+              <button 
+                onClick={() => setShowPanicModal(true)}
+                className="w-9 h-9 bg-red-500/80 rounded-full flex items-center justify-center hover:bg-red-600 transition-colors shadow-sm text-white border border-red-300"
+                title="Reportar Agotado"
+              >
+                🚨
+              </button>
+            )}
             
             {/* Tools Dropdown */}
             <div className="relative">
@@ -1002,6 +1015,12 @@ const WaiterDashboard: React.FC = () => {
         onRetry={handleRetryPaymentFlow}
         onBackToCheckout={handleBackToCheckout}
       />
+      {showPanicModal && (
+        <PanicButtonModal 
+          onClose={() => setShowPanicModal(false)} 
+          sendMessage={sendMessage}
+        />
+      )}
       {showDeliveryModal && (
         <DeliveryInfoModal
           onClose={() => setShowDeliveryModal(false)}
