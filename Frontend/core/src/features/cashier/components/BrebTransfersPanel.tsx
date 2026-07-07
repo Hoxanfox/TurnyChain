@@ -103,16 +103,14 @@ const BrebTransfersPanel: React.FC<BrebTransfersPanelProps> = ({ isOpen, onClose
   };
 
   useEffect(() => {
-    if (wsMessage?.type === 'BREB_TRANSFER_RECEIVED') {
-      const newTransfer = wsMessage.payload;
-      setTransfers(prev => {
-        if (prev.some(t => t.id === newTransfer.id)) return prev;
-        return [newTransfer, ...prev];
-      });
-    }
-    if (wsMessage?.type === 'BREB_TRANSFER_USED') {
-      const usedId = wsMessage.payload;
-      setTransfers(prev => prev.map(t => t.id === usedId ? { ...t, is_used: true } : t));
+    if (wsMessage?.type === 'BREB_TRANSFER_RECEIVED' || wsMessage?.type === 'BREB_TRANSFER_USED') {
+      if (selectedHour === 'ALL') {
+        // Refetch to guarantee sync with the DB instead of manual array manipulation
+        fetchTransfers(1);
+      } else {
+        // If they are viewing a specific hour, refresh that hour too
+        handleHourSelect(new Date(selectedHour));
+      }
     }
   }, [wsMessage]);
 
