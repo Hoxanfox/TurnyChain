@@ -73,6 +73,41 @@ services:
       - backend
     restart: unless-stopped
 
+  # --- 4. PROMETHEUS (MONITOREO DE METRICAS) ---
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: restaurant_prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./Backend/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    restart: unless-stopped
+    depends_on:
+      - backend
+
+  # --- 5. GRAFANA (VISUALIZACION DE METRICAS) ---
+  grafana:
+    image: grafana/grafana:latest
+    container_name: restaurant_grafana
+    ports:
+      - "3000:3000"
+    environment:
+      # Permitir incrustar Grafana en un iframe dentro del admin
+      - GF_SECURITY_ALLOW_EMBEDDING=true
+      # Habilitar acceso anónimo para no requerir login al ver los dashboards embebidos
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+      - GF_AUTH_DISABLE_LOGIN_FORM=true
+    volumes:
+      - ./Backend/grafana/provisioning:/etc/grafana/provisioning
+      - grafana_data:/var/lib/grafana
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+
 volumes:
   postgres_data:
   uploads_data:
+  prometheus_data:
+  grafana_data:

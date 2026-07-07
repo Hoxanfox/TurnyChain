@@ -18,12 +18,13 @@ import StationManagement from './components/stations/StationManagement.tsx';
 import PrinterManagement from './components/printers/PrinterManagement.tsx';
 import BackupManagement from './components/backup/BackupManagement';
 import SettingsManagement from './components/settings/SettingsManagement';
+import MonitoringManagement from './components/monitoring/MonitoringManagement.tsx';
 import DataExchangeButton from './components/shared/DataExchangeButton';
 import { clearBackendErrors } from './api/backendLogsSlice.ts';
 import type { RootState } from '../../app/store';
-import { FaCog } from 'react-icons/fa';
+import { FaCog, FaChartBar } from 'react-icons/fa';
 
-type AdminTab = 'users' | 'orders' | 'tables' | 'menu' | 'categories' | 'ingredients' | 'accompaniments' | 'stations' | 'printers' | 'backup' | 'settings';
+type AdminTab = 'users' | 'orders' | 'tables' | 'menu' | 'categories' | 'ingredients' | 'accompaniments' | 'stations' | 'printers' | 'backup' | 'settings' | 'monitoring';
 
 interface TabConfig {
   id: AdminTab;
@@ -58,6 +59,7 @@ const AdminDashboard: React.FC = () => {
     { id: 'printers', label: 'Impresoras', icon: FaPrint, color: 'teal' },
     { id: 'backup', label: 'Backup', icon: FaDatabase, color: 'slate' },
     { id: 'settings', label: 'Ajustes', icon: FaCog, color: 'pink' },
+    { id: 'monitoring', label: 'Monitoreo', icon: FaChartBar, color: 'cyan' },
   ];
 
   const getTabClasses = (tab: TabConfig) => {
@@ -208,6 +210,7 @@ const AdminDashboard: React.FC = () => {
             {activeTab === 'printers' && <PrinterManagement />}
             {activeTab === 'backup' && <BackupManagement />}
             {activeTab === 'settings' && <SettingsManagement />}
+            {activeTab === 'monitoring' && <MonitoringManagement />}
           </div>
         </main>
       </div>

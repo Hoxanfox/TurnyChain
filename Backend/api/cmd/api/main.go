@@ -17,9 +17,11 @@ import (
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/router"
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/service"
 	wshub "github.com/Hoxanfox/TurnyChain/Backend/api/internal/websocket"
+	"github.com/ansrivas/fiberprometheus/v2"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/recover"
+	"github.com/prometheus/client_golang/prometheus"
 	_ "github.com/lib/pq"
 	_ "time/tzdata"
 )
@@ -142,6 +144,12 @@ func main() {
 			return c.Status(code).JSON(fiber.Map{"error": err.Error()})
 		},
 	})
+
+	// fiberprometheus.NewWithRegistry usa el registro global que ya tiene los GoCollectors por defecto
+	prom := fiberprometheus.NewWithRegistry(prometheus.DefaultRegisterer, "restaurant_backend", "http", "", nil)
+	prom.RegisterAt(app, "/metrics")
+	app.Use(prom.Middleware)
+
 	app.Use(cors.New())
 	app.Use(recover.New(recover.Config{
 		EnableStackTrace: true,
