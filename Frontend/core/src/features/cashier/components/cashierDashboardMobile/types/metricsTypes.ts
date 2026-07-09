@@ -14,3 +14,18 @@ export interface CashierMetricsSummary {
   topWaiterTotal: number;
   topWaiterOrders: number;
 }
+
+export interface ProductSalesStat {
+  product_id: string;
+  product_name: string;
+  category_name: string;
+  total_quantity: number;
+  total_revenue: number;
+}
+
+export interface ProductMetricsSummary {
+  totalProductsSold: number;
+  topProductName: string;
+  topProductQuantity: number;
+  topCategoryName: string;
+}

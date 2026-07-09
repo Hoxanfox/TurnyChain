@@ -28,6 +28,7 @@ type OrderRepository interface {
 	UpdateOrderBlockchainTxHash(orderID uuid.UUID, txHash string) error
 	GetInvoiceHistory(query string, from *time.Time, to *time.Time, limit int, offset int) ([]domain.InvoiceHistoryItem, error)
 	GetWaiterApprovedStats(start time.Time, end time.Time, groupBy string) ([]domain.WaiterApprovedStat, error)
+	GetProductSalesStats(start time.Time, end time.Time) ([]domain.ProductSalesStat, error)
 	UpdateOrderPrintStatus(orderID uuid.UUID, status string, incrementAttempts int, lastError *string, printedAt *time.Time) (*domain.Order, error)
 	UpdateOrderPrintStatusGuarded(orderID uuid.UUID, status string, incrementAttempts int, lastError *string, printedAt *time.Time, allowOverwritePrinted bool) (*domain.Order, bool, error)
 	GetOrderIDsByPrintStatus(statuses []string) ([]uuid.UUID, error)
@@ -1250,6 +1251,47 @@ func (r *orderRepository) GetInvoiceHistory(query string, from *time.Time, to *t
 	}
 
 	return items, nil
+}
+
+func (r *orderRepository) GetProductSalesStats(start time.Time, end time.Time) ([]domain.ProductSalesStat, error) {
+	query := `
+		SELECT 
+			oi.menu_item_id as product_id,
+			m.name as product_name,
+			COALESCE(c.name, 'Sin Categoría') as category_name,
+			SUM(oi.quantity) as total_quantity,
+			SUM(oi.quantity * oi.price_at_order) as total_revenue
+		FROM order_items oi
+		JOIN orders o ON oi.order_id = o.id
+		JOIN menu_items m ON oi.menu_item_id = m.id
+		LEFT JOIN categories c ON m.category_id = c.id
+		WHERE o.status = 'pagado'
+		  AND o.updated_at >= $1
+		  AND o.updated_at < $2
+		GROUP BY oi.menu_item_id, m.name, c.name
+		ORDER BY total_quantity DESC
+	`
+
+	rows, err := r.db.Query(query, start, end)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var stats []domain.ProductSalesStat
+	for rows.Next() {
+		var stat domain.ProductSalesStat
+		if err := rows.Scan(&stat.ProductID, &stat.ProductName, &stat.CategoryName, &stat.TotalQuantity, &stat.TotalRevenue); err != nil {
+			return nil, err
+		}
+		stats = append(stats, stat)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return stats, nil
 }
 
 func (r *orderRepository) UpdateOrderPrintStatus(orderID uuid.UUID, status string, incrementAttempts int, lastError *string, printedAt *time.Time) (*domain.Order, error) {

@@ -65,6 +65,7 @@ func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *
 	orders.Get("/", orderHandler.GetOrders)
 	orders.Get("/today", orderHandler.GetOrdersToday)
 	orders.Get("/waiter-approved-stats", orderHandler.GetWaiterApprovedStats) // Nueva ruta para estadísticas de meseros
+	orders.Get("/product-stats", orderHandler.GetProductSalesStats) // Nueva ruta para métricas de productos
 	orders.Get("/:id", orderHandler.GetOrderByID)
 	orders.Put("/:id/status", orderHandler.UpdateOrderStatus)
 	orders.Put("/:id/manage", orderHandler.ManageOrder)

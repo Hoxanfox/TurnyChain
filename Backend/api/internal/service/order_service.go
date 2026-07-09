@@ -28,6 +28,7 @@ type OrderService interface {
 	AddPaymentProof(orderID uuid.UUID, method string, proofPath string) (*domain.Order, error)
 	AddSplitPayments(orderID uuid.UUID, payments []domain.Payment) (*domain.Order, error)
 	GetWaiterApprovedStats(userRole string, start time.Time, end time.Time, groupBy string) ([]domain.WaiterApprovedStat, error)
+	GetProductSalesStats(userRole string, start time.Time, end time.Time) ([]domain.ProductSalesStat, error)
 	NotarizeOrderNow(orderID uuid.UUID) (*domain.Order, error)
 	GetPendingBlockchainOrderCount(cooldown time.Duration) (int, error)
 }
@@ -637,6 +638,13 @@ func (s *orderService) GetWaiterApprovedStats(userRole string, start time.Time, 
 		return nil, errors.New("unauthorized")
 	}
 	return s.orderRepo.GetWaiterApprovedStats(start, end, groupBy)
+}
+
+func (s *orderService) GetProductSalesStats(userRole string, start time.Time, end time.Time) ([]domain.ProductSalesStat, error) {
+	if userRole != "admin" && userRole != "cajero" {
+		return nil, errors.New("unauthorized")
+	}
+	return s.orderRepo.GetProductSalesStats(start, end)
 }
 
 func (s *orderService) NotarizeOrderNow(orderID uuid.UUID) (*domain.Order, error) {
