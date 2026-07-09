@@ -9,6 +9,7 @@ import (
 
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/domain"
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/repository"
+	wshub "github.com/Hoxanfox/TurnyChain/Backend/api/internal/websocket"
 )
 
 type SettingService interface {
@@ -20,10 +21,11 @@ type SettingService interface {
 
 type settingService struct {
 	repo repository.SettingRepository
+	hub  *wshub.Hub
 }
 
-func NewSettingService(repo repository.SettingRepository) SettingService {
-	return &settingService{repo: repo}
+func NewSettingService(repo repository.SettingRepository, hub *wshub.Hub) SettingService {
+	return &settingService{repo: repo, hub: hub}
 }
 
 func (s *settingService) GetSetting(key string) (*domain.Setting, error) {
@@ -35,7 +37,14 @@ func (s *settingService) GetAllSettings() ([]domain.Setting, error) {
 }
 
 func (s *settingService) UpsertSetting(key string, value string) error {
-	return s.repo.UpsertSetting(key, value)
+	err := s.repo.UpsertSetting(key, value)
+	if err == nil && s.hub != nil {
+		s.hub.BroadcastMessage("setting_updated", map[string]interface{}{
+			"key":   key,
+			"value": value,
+		})
+	}
+	return err
 }
 
 func (s *settingService) UploadSettingImage(key string, file *multipart.FileHeader) (string, error) {

@@ -79,6 +79,10 @@ export const useCashierMobileDerivedData = ({
       return a - b;
     }), [ordersByTable]);
 
+  const porCobrarTables = useMemo(() => Array.from(new Set(deliveredOrders.map(o => o.table_number))), [deliveredOrders]);
+  const pagadasTables = useMemo(() => Array.from(new Set(paidOrders.map(o => o.table_number))), [paidOrders]);
+  const porVerificarTables = useMemo(() => Array.from(new Set(urgentOrders.map(o => o.table_number))), [urgentOrders]);
+
   return {
     allOrders,
     waiterOptions,
@@ -87,5 +91,8 @@ export const useCashierMobileDerivedData = ({
     paidOrders,
     statsForCard,
     sortedTableNumbers,
+    porCobrarTables,
+    pagadasTables,
+    porVerificarTables,
   };
 };

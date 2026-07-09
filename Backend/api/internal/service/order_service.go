@@ -569,7 +569,8 @@ func (s *orderService) AddPaymentProof(orderID uuid.UUID, method string, proofPa
 
 	// Notificar via WebSocket broadcast general que la orden cambió
 	s.wsHub.BroadcastMessage("ORDER_UPDATED", order)
-	log.Printf("📡 [Backend] Evento broadcast 'ORDER_UPDATED' emitido para orden %s", orderID.String())
+	s.wsHub.BroadcastMessage("ORDER_STATUS_UPDATED", order)
+	log.Printf("📡 [Backend] Evento broadcast 'ORDER_UPDATED' y 'ORDER_STATUS_UPDATED' emitido para orden %s", orderID.String())
 
 	// Notificar específicamente a los cajeros sobre verificación de pago pendiente
 	s.wsHub.BroadcastToRole("cajero", "PAYMENT_VERIFICATION_PENDING", map[string]interface{}{
@@ -614,7 +615,8 @@ func (s *orderService) AddSplitPayments(orderID uuid.UUID, payments []domain.Pay
 	log.Printf("✅ [Backend] Orden %s actualizada a estado '%s' con %d pagos", orderID.String(), order.Status, len(payments))
 
 	s.wsHub.BroadcastMessage("ORDER_UPDATED", order)
-	log.Printf("📡 [Backend] Evento broadcast 'ORDER_UPDATED' emitido para orden %s", orderID.String())
+	s.wsHub.BroadcastMessage("ORDER_STATUS_UPDATED", order)
+	log.Printf("📡 [Backend] Evento broadcast 'ORDER_UPDATED' y 'ORDER_STATUS_UPDATED' emitido para orden %s", orderID.String())
 
 	s.wsHub.BroadcastToRole("cajero", "PAYMENT_VERIFICATION_PENDING", map[string]interface{}{
 		"order_id":     order.ID.String(),

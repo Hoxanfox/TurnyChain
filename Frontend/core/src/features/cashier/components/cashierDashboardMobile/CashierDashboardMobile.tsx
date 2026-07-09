@@ -6,18 +6,18 @@ import { useNavigate } from 'react-router-dom';
 import type { Order } from '../../../../types/orders';
 import type { FilterStatus, PaymentMethodFilter, SortBy } from '../cashierDashboardShared/CashierFilters';
 import { StatisticsCard } from '../cashierDashboardShared/StatisticsCard';
-import { QuickActionsBar } from '../cashierDashboardShared/QuickActionsBar';
 import type { CashierNotification, CashierStatistics } from '../../types/cashierDashboardTypes';
 import { Notification } from '../../../../components/Notification';
 import { CashierMobileHeader } from './components/CashierMobileHeader';
-import { CashierMobileTabs } from './components/CashierMobileTabs';
 import { CashierMobileLoading } from './components/CashierMobileLoading';
 import { CashierMobileError } from './components/CashierMobileError';
-import { CashierMobileContent } from './components/CashierMobileContent';
-import { WaiterApprovedStatsPanel } from './components/waiterStats/WaiterApprovedStatsPanel';
 import { useCashierMobileDerivedData } from './hooks/useCashierMobileDerivedData';
-import { useCashierMobilePagination } from './hooks/useCashierMobilePagination';
 import { CashRegisterModal } from './components/cashRegister/CashRegisterModal';
+import { CashierMobileSidebar } from './components/CashierMobileSidebar';
+import { StatusTablesModal } from './components/StatusTablesModal';
+import { TableMapOverviewCard } from './components/TableMapOverviewCard';
+import { TablePaginationModal } from './components/TablePaginationModal';
+import { LayoutEditorModal } from '../layoutEditor/LayoutEditorModal';
 
 const FilterModal = React.lazy(() => import('../cashierDashboardShared/FilterModal').then((mod) => ({
   default: mod.FilterModal,
@@ -37,7 +37,6 @@ const QuickTablePickerModal = React.lazy(() => import('../cashierDashboardShared
 const OrderDetailModal = React.lazy(() => import('../../../shared/orders/components/OrderDetailModal'));
 
 interface CashierDashboardMobileProps {
-  // Estado
   showStats: boolean;
   filterStatus: FilterStatus;
   paymentMethodFilter: PaymentMethodFilter;
@@ -45,19 +44,13 @@ interface CashierDashboardMobileProps {
   waiterQuery: string;
   orderIdQuery: string;
   sortBy: SortBy;
-
-  // Datos
   statistics: CashierStatistics;
   ordersByTable: Record<number, Order[]>;
   pendingVerificationCount: number;
   pendingBlockchainCount: number;
   isLoading: boolean;
   hasFailed?: boolean;
-
-  // Notificaciones
   notification: CashierNotification | null;
-
-  // Handlers
   onToggleStats: () => void;
   onFilterStatusChange: (status: FilterStatus) => void;
   onPaymentMethodFilterChange: (method: PaymentMethodFilter) => void;
@@ -140,45 +133,34 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
   const [showQuickTablePicker, setShowQuickTablePicker] = useState(false);
   const [showCashRegisterModal, setShowCashRegisterModal] = useState(false);
   const [selectedTableNumber, setSelectedTableNumber] = useState<number | null>(null);
-  const [focusedOrderId, setFocusedOrderId] = useState<string | null>(null);
   const [selectedOrderIdForDetail, setSelectedOrderIdForDetail] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'tables' | 'urgent' | 'waiter-stats'>('tables');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  
+  // Modals for Map Navigation and Header Bulbs
+  const [isPaginationModalOpen, setIsPaginationModalOpen] = useState(false);
+  const [activeStatusModal, setActiveStatusModal] = useState<'por_cobrar' | 'pagadas' | 'por_verificar' | null>(null);
+  
+  // Layout Editor
+  const [isLayoutEditorOpen, setIsLayoutEditorOpen] = useState(false);
 
   useEffect(() => {
     if (!shortcutTarget || shortcutNonce === 0) return;
-    setViewMode('tables');
     setSelectedTableNumber(shortcutTarget.tableNumber);
-    setFocusedOrderId(shortcutTarget.orderId);
   }, [shortcutNonce, shortcutTarget]);
 
   const {
-    allOrders,
     waiterOptions,
-    urgentOrders,
-    deliveredOrders,
-    paidOrders,
     statsForCard,
     sortedTableNumbers,
+    porCobrarTables,
+    pagadasTables,
+    porVerificarTables,
   } = useCashierMobileDerivedData({
     ordersByTable,
     statistics,
     pendingVerificationCount,
     isPorCobrarStatus,
   });
-
-  const {
-    visibleTableNumbers,
-    visibleUrgentOrders,
-    hasMoreTables,
-    hasMoreUrgent,
-    loadMoreTables,
-    loadMoreUrgent,
-  } = useCashierMobilePagination(sortedTableNumbers, urgentOrders);
-
-  const handleQuickFilterByStatus = (status: 'por_verificar' | 'entregado' | 'pagado') => {
-    onFilterStatusChange(status);
-    setViewMode('tables');
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 pb-24">
@@ -192,73 +174,78 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
         />
       )}
 
-      <CashierMobileHeader
-        activeOrdersCount={allOrders.length}
+      <CashierMobileSidebar
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
         quickTablesCount={sortedTableNumbers.length}
+        pendingBlockchainCount={pendingBlockchainCount}
         orderIdQuery={orderIdQuery}
         waiterQuery={waiterQuery}
-        pendingVerificationCount={pendingVerificationCount}
-        pendingBlockchainCount={pendingBlockchainCount}
-        onOpenQuickTablePicker={() => setShowQuickTablePicker(true)}
         onOpenOrderIdSearch={() => setShowOrderIdModal(true)}
         onOpenWaiterPicker={() => setShowWaiterPicker(true)}
         onToggleStats={onToggleStats}
-        onOpenPrintSettings={onOpenPrintSettings}
-        onOpenBlockchainModal={onOpenBlockchainModal}
+        onOpenQuickTablePicker={() => setShowQuickTablePicker(true)}
+        onOpenCashRegister={() => setShowCashRegisterModal(true)}
         onOpenFilters={() => setShowFilterModal(true)}
         onOpenHistory={() => navigate('/cashier/history')}
         onOpenMetrics={() => navigate('/cashier/metrics')}
         onExportReport={onExportReport}
-        onViewUrgent={() => setViewMode('urgent')}
-        onOpenCashRegister={() => setShowCashRegisterModal(true)}
+        onOpenPrintSettings={onOpenPrintSettings}
+        onOpenBlockchainModal={onOpenBlockchainModal}
         onOpenBrebPanel={onOpenBrebPanel}
+        onOpenLayoutEditor={() => setIsLayoutEditorOpen(true)}
+      />
+
+      <CashierMobileHeader
+        porCobrarCount={porCobrarTables.length}
+        pagadasCount={pagadasTables.length}
+        porVerificarCount={porVerificarTables.length}
+        onOpenSidebar={() => setIsSidebarOpen(true)}
+        onOpenPorCobrar={() => setActiveStatusModal('por_cobrar')}
+        onOpenPagadas={() => setActiveStatusModal('pagadas')}
+        onOpenPorVerificar={() => setActiveStatusModal('por_verificar')}
         hasWsNotification={hasWsNotification}
       />
 
-      <CashierMobileTabs
-        viewMode={viewMode}
-        tablesCount={sortedTableNumbers.length}
-        urgentCount={urgentOrders.length}
-        onChange={setViewMode}
-      />
-
-      {/* Estadísticas */}
+      {/* Estadísticas en formato Modal */}
       {showStats && (
-        <div className="p-4">
-          <StatisticsCard stats={statsForCard} />
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-slate-50 w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-3xl animate-slide-up sm:animate-in sm:fade-in sm:zoom-in-95 duration-300 shadow-2xl relative">
+            <button 
+              onClick={onToggleStats}
+              className="absolute top-4 right-4 z-10 w-10 h-10 flex items-center justify-center bg-white border border-slate-200 hover:bg-slate-100 text-slate-500 rounded-full transition-all shadow-sm active:scale-95"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            <div className="p-2 sm:p-6">
+              {/* Contenedor sin fondo blanco para que no choque con el fondo de StatisticsCard */}
+              <StatisticsCard stats={statsForCard} />
+            </div>
+          </div>
         </div>
       )}
 
-      {viewMode === 'waiter-stats' ? (
-        <WaiterApprovedStatsPanel />
-      ) : isLoading ? (
+      {/* Body: Solo muestra el mapa resumen */}
+      {isLoading ? (
         <CashierMobileLoading />
       ) : hasFailed ? (
         <CashierMobileError onRetry={onRetryLoadOrders} />
       ) : (
-        <CashierMobileContent
-          viewMode={viewMode}
-          tableNumbers={visibleTableNumbers}
-          ordersByTable={ordersByTable}
-          urgentOrders={visibleUrgentOrders}
-          onViewOrders={setSelectedTableNumber}
-          onConfirmPayment={onConfirmPayment}
-          onRejectPayment={onRejectPayment}
-          onViewDetail={(orderId) => setSelectedOrderIdForDetail(orderId)}
-          hasMoreTables={hasMoreTables}
-          hasMoreUrgent={hasMoreUrgent}
-          onLoadMoreTables={loadMoreTables}
-          onLoadMoreUrgent={loadMoreUrgent}
-        />
+        <div className="p-4">
+          <TableMapOverviewCard 
+            tableNumbers={sortedTableNumbers}
+            porCobrarTables={porCobrarTables}
+            pagadasTables={pagadasTables}
+            porVerificarTables={porVerificarTables}
+            onSelectTable={(tableNum) => setSelectedTableNumber(tableNum)}
+            onOpenPagination={() => setIsPaginationModalOpen(true)}
+            onOpenSearchId={() => setShowOrderIdModal(true)}
+            onOpenSearchWaiter={() => setShowWaiterPicker(true)}
+          />
+        </div>
       )}
-
-      {/* Barra de acciones rápidas */}
-      <QuickActionsBar
-        pendingCount={urgentOrders.length}
-        deliveredCount={deliveredOrders.length}
-        paidCount={paidOrders.length}
-        onFilterByStatus={handleQuickFilterByStatus}
-      />
 
       <Suspense fallback={null}>
         <FilterModal
@@ -298,9 +285,10 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
             if (!normalized) return;
             onWaiterQueryChange(normalized);
             navigate(`/cashier/search/waiter/${encodeURIComponent(normalized)}`);
+            setShowWaiterPicker(false);
           }}
-          onClear={() => onWaiterQueryChange('')}
           onClose={() => setShowWaiterPicker(false)}
+          onClear={() => onWaiterQueryChange('')}
         />
 
         <QuickTablePickerModal
@@ -308,34 +296,33 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
           tableNumbers={sortedTableNumbers}
           selectedTable={selectedTableNumber}
           onSelectTable={(tableNumber) => {
-            setViewMode('tables');
-            setFocusedOrderId(null);
+            setShowQuickTablePicker(false);
             setSelectedTableNumber(tableNumber);
           }}
           onClose={() => setShowQuickTablePicker(false)}
         />
 
-        <TableOrdersModal
-          isOpen={selectedTableNumber !== null}
-          onClose={() => {
-            setSelectedTableNumber(null);
-            setFocusedOrderId(null);
-          }}
-          tableNumber={selectedTableNumber}
-          orders={selectedTableNumber ? ordersByTable[selectedTableNumber] || [] : []}
-          highlightOrderId={focusedOrderId}
-          onStatusChange={onStatusChange}
-          onConfirmPayment={onConfirmPayment}
-          onRejectPayment={onRejectPayment}
-          onViewDetail={(orderId) => setSelectedOrderIdForDetail(orderId)}
-          onPrintCommand={onPrintCommand}
-          onPrintFullCommand={onPrintFullCommand}
-          onPreviewTickets={onPreviewTickets}
-          onOpenCheckout={onOpenCheckout}
-          onOpenCheckoutGroup={onOpenCheckoutGroup}
-          onRetryPrint={onRetryPrint}
-          onCancelOrder={(orderId) => onStatusChange(orderId, 'cancelado')}
-        />
+        {selectedTableNumber && (
+          <TableOrdersModal
+            isOpen={true}
+            tableNumber={selectedTableNumber}
+            orders={ordersByTable[selectedTableNumber] || []}
+            onClose={() => {
+              setSelectedTableNumber(null);
+            }}
+            onStatusChange={onStatusChange}
+            onCancelOrder={(orderId) => onStatusChange(orderId, 'cancelado')}
+            onConfirmPayment={onConfirmPayment}
+            onRejectPayment={onRejectPayment}
+            onPrintCommand={onPrintCommand}
+            onPrintFullCommand={onPrintFullCommand}
+            onPreviewTickets={onPreviewTickets}
+            onOpenCheckout={(orderId, total) => onOpenCheckout(orderId, total, selectedTableNumber)}
+            onOpenCheckoutGroup={(ordersInfo, total) => onOpenCheckoutGroup(ordersInfo, total, selectedTableNumber)}
+            onRetryPrint={onRetryPrint}
+            onViewDetail={(orderId) => setSelectedOrderIdForDetail(orderId)}
+          />
+        )}
 
         {selectedOrderIdForDetail && (
           <OrderDetailModal
@@ -352,6 +339,43 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
           onClose={() => setShowCashRegisterModal(false)}
         />
       )}
+
+      <TablePaginationModal
+        isOpen={isPaginationModalOpen}
+        onClose={() => setIsPaginationModalOpen(false)}
+        tableNumbers={sortedTableNumbers}
+        ordersByTable={ordersByTable}
+        onViewOrders={setSelectedTableNumber}
+      />
+
+      <StatusTablesModal
+        isOpen={activeStatusModal !== null}
+        onClose={() => setActiveStatusModal(null)}
+        title={
+          activeStatusModal === 'por_cobrar' ? 'Mesas Por Cobrar' :
+          activeStatusModal === 'pagadas' ? 'Mesas Pagadas' :
+          'Mesas Por Verificar'
+        }
+        tableNumbers={
+          activeStatusModal === 'por_cobrar' ? porCobrarTables :
+          activeStatusModal === 'pagadas' ? pagadasTables :
+          activeStatusModal === 'por_verificar' ? porVerificarTables : []
+        }
+        ordersByTable={ordersByTable}
+        onViewOrders={(tableNum) => {
+          setSelectedTableNumber(tableNum);
+        }}
+        headerColorClass={
+          activeStatusModal === 'por_cobrar' ? 'bg-blue-600' :
+          activeStatusModal === 'pagadas' ? 'bg-emerald-600' :
+          'bg-orange-600'
+        }
+      />
+
+      <LayoutEditorModal
+        isOpen={isLayoutEditorOpen}
+        onClose={() => setIsLayoutEditorOpen(false)}
+      />
     </div>
   );
 };

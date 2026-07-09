@@ -97,7 +97,7 @@ func main() {
 	printerService := service.NewPrinterService(printerRepo)
 	backupService := service.NewBackupService(db)
 	cashRegisterService := service.NewCashRegisterService(cashRegisterRepo)
-	settingService := service.NewSettingService(settingRepo)
+	settingService := service.NewSettingService(settingRepo, wsHub)
 	bankTransferService := service.NewBankTransferService(bankTransferRepo)
 
 	// Handlers

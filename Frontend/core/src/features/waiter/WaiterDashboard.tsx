@@ -742,8 +742,8 @@ const WaiterDashboard: React.FC = () => {
               )}
             </button>
 
-            {/* Botón de Pánico (Solo para Meseros) */}
-            {user?.role === 'mesero' && (
+            {/* Botón de Pánico (Meseros y Cajeros) */}
+            {(user?.role === 'mesero' || user?.role === 'cajero') && (
               <button 
                 onClick={() => setShowPanicModal(true)}
                 className="w-9 h-9 bg-red-500/80 rounded-full flex items-center justify-center hover:bg-red-600 transition-colors shadow-sm text-white border border-red-300"

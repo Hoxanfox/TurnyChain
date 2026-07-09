@@ -58,6 +58,14 @@ CREATE TABLE "tables" (
   "is_active" boolean NOT NULL DEFAULT true
 );
 
+-- Tabla genérica para configuración (Ej. Layout de mesas)
+CREATE TABLE "settings" (
+  "key" varchar(50) PRIMARY KEY,
+  "value" jsonb NOT NULL,
+  "updated_at" timestamptz NOT NULL DEFAULT (now())
+);
+
+
 -- Tablas para el sistema de estaciones e impresoras (CREAR PRIMERO)
 CREATE TABLE "stations" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),

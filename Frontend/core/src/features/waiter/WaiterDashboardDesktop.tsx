@@ -664,7 +664,7 @@ const WaiterDashboardDesktop: React.FC<WaiterDashboardDesktopProps> = ({ sendMes
             >
               <FaQrcode className="text-white text-lg" />
             </button>
-            {user?.role === 'mesero' && (
+            {(user?.role === 'mesero' || user?.role === 'cajero') && (
               <button 
                 onClick={() => setShowPanicModal(true)}
                 className="w-9 h-9 bg-red-500/80 rounded-full flex items-center justify-center hover:bg-red-600 transition-colors shadow-sm border border-red-300"

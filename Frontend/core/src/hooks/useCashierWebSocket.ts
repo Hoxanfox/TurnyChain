@@ -111,6 +111,14 @@ export const useCashierWebSocket = (
           }
           break;
 
+        case 'setting_updated':
+          console.log('⚙️ [Cajero] Configuración actualizada:', message.payload);
+          // Emitir un evento global para que componentes como el LayoutEditor puedan reaccionar
+          window.dispatchEvent(new MessageEvent('ws_setting_updated', {
+            data: JSON.stringify(message)
+          }));
+          break;
+
         default:
           console.log('📬 [Cajero] Evento no manejado:', message.type);
       }

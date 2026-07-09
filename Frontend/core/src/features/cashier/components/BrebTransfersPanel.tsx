@@ -165,13 +165,17 @@ const BrebTransfersPanel: React.FC<BrebTransfersPanelProps> = ({ isOpen, onClose
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-y-0 right-0 w-96 bg-white shadow-2xl z-50 flex flex-col transform transition-transform animate-slide-in-right">
-      <div className="bg-indigo-900 text-white p-4 flex justify-between items-center shadow-md shrink-0">
-        <h2 className="text-lg font-bold">📲 Transferencias</h2>
-        <button onClick={onClose} className="p-1 bg-indigo-800 rounded-full hover:bg-indigo-700 transition">
-          <MdClose size={24} />
-        </button>
-      </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in" onClick={onClose}>
+      <div 
+        className="bg-white shadow-2xl w-full max-w-md max-h-[90vh] rounded-2xl flex flex-col overflow-hidden"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="bg-indigo-900 text-white p-4 flex justify-between items-center shrink-0">
+          <h2 className="text-lg font-bold flex items-center gap-2"><span>📲</span> Transferencias</h2>
+          <button onClick={onClose} className="p-1.5 bg-indigo-800/80 rounded-full hover:bg-indigo-700 transition-colors">
+            <MdClose size={24} />
+          </button>
+        </div>
 
       <div className="bg-white px-4 py-3 border-b border-gray-200 flex gap-3 shrink-0 shadow-sm">
         <button 
@@ -260,6 +264,7 @@ const BrebTransfersPanel: React.FC<BrebTransfersPanelProps> = ({ isOpen, onClose
           </div>
         )}
       </div>
+    </div>
     </div>
   );
 };

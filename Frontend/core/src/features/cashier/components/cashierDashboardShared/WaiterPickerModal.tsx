@@ -26,22 +26,25 @@ export const WaiterPickerModal: React.FC<WaiterPickerModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-end sm:items-center justify-center">
-      <div className="bg-white w-full sm:max-w-3xl sm:rounded-2xl rounded-t-2xl shadow-2xl border border-indigo-100 overflow-hidden">
-        <div className="bg-gradient-to-r from-indigo-600 to-blue-600 text-white p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-bold">Seleccionar Mesero</h2>
-              <p className="text-xs text-indigo-100">Seleccion rapida de comandas por mesero</p>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in fade-in duration-200">
+      <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={onClose}></div>
+      
+      <div className="relative bg-white w-full max-w-3xl rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+        <div className="p-6 pb-2 border-b border-slate-100 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
             </div>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-white hover:bg-opacity-20 rounded-full transition-colors"
-              aria-label="Cerrar selector de mesero"
-            >
-              ✕
-            </button>
+            <div>
+              <h2 className="text-xl font-black text-slate-800">Seleccionar Mesero</h2>
+              <p className="text-sm font-medium text-slate-500">Selección rápida de comandas activas</p>
+            </div>
           </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 active:scale-95 transition-all">
+            ✕
+          </button>
         </div>
 
         <div className="p-4">
@@ -58,17 +61,17 @@ export const WaiterPickerModal: React.FC<WaiterPickerModalProps> = ({
                       onSelectWaiter(waiter.name);
                       onClose();
                     }}
-                    className={`rounded-2xl p-3 transition-all border text-left ${
+                    className={`rounded-2xl p-4 transition-all border-2 text-left active:scale-95 flex flex-col gap-1 ${
                       isSelected
-                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-md scale-[1.02]'
-                        : 'bg-white text-gray-800 border-gray-200 hover:border-indigo-300 hover:bg-indigo-50'
+                        ? 'bg-indigo-50 border-indigo-600 text-indigo-900 shadow-sm'
+                        : 'bg-white text-slate-700 border-slate-200 hover:border-indigo-300 hover:shadow-md'
                     }`}
                   >
-                    <p className="text-[11px] uppercase tracking-wide opacity-80">Mesero</p>
-                    <p className="text-base font-extrabold mt-1 truncate" title={waiter.name}>{waiter.name}</p>
-                    <div className="mt-2 flex items-center justify-between text-xs opacity-90">
-                      <span>Comandas: {waiter.ordersCount}</span>
-                      <span>Mesas: {waiter.tablesCount}</span>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Mesero</p>
+                    <p className="text-lg font-black truncate" title={waiter.name}>{waiter.name}</p>
+                    <div className="mt-2 flex items-center justify-between text-xs font-semibold text-slate-500 bg-slate-50 p-2 rounded-xl">
+                      <span className="flex items-center gap-1">🧾 {waiter.ordersCount} cmd</span>
+                      <span className="flex items-center gap-1">🪑 {waiter.tablesCount} m</span>
                     </div>
                   </button>
                 );
@@ -76,16 +79,16 @@ export const WaiterPickerModal: React.FC<WaiterPickerModalProps> = ({
             </div>
           )}
 
-          <div className="mt-4 flex items-center justify-between text-xs text-gray-500">
+          <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between text-sm font-semibold text-slate-500">
             <span>{waiters.length} mesero(s) disponible(s)</span>
             <button
               onClick={() => {
                 onClear();
                 onClose();
               }}
-              className="px-3 py-1.5 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold"
+              className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 active:scale-95 transition-all"
             >
-              Limpiar seleccion
+              Limpiar selección
             </button>
           </div>
         </div>

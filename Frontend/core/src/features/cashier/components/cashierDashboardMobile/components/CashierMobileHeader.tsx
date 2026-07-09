@@ -1,248 +1,129 @@
 import React, { useState } from 'react';
+import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import LogoutButton from '../../../../../components/LogoutButton';
+import { logout } from '../../../../../features/auth/authSlice';
+import type { AppDispatch } from '../../../../../app/store';
 
 interface CashierMobileHeaderProps {
-  activeOrdersCount: number;
-  quickTablesCount: number;
-  orderIdQuery: string;
-  waiterQuery: string;
-  pendingVerificationCount: number;
-  pendingBlockchainCount: number;
-  onOpenQuickTablePicker: () => void;
-  onOpenOrderIdSearch: () => void;
-  onOpenWaiterPicker: () => void;
-  onToggleStats: () => void;
-  onOpenPrintSettings: () => void;
-  onOpenBlockchainModal: () => void;
-  onOpenFilters: () => void;
-  onOpenHistory: () => void;
-  onOpenMetrics: () => void;
-  onExportReport: () => void;
-  onViewUrgent: () => void;
-  onOpenCashRegister: () => void;
-  onOpenBrebPanel: () => void;
+  porCobrarCount: number;
+  pagadasCount: number;
+  porVerificarCount: number;
+  onOpenSidebar: () => void;
+  onOpenPorCobrar: () => void;
+  onOpenPagadas: () => void;
+  onOpenPorVerificar: () => void;
   hasWsNotification?: boolean;
 }
 
 export const CashierMobileHeader: React.FC<CashierMobileHeaderProps> = ({
-  activeOrdersCount,
-  quickTablesCount,
-  orderIdQuery,
-  waiterQuery,
-  pendingVerificationCount,
-  pendingBlockchainCount,
-  onOpenQuickTablePicker,
-  onOpenOrderIdSearch,
-  onOpenWaiterPicker,
-  onToggleStats,
-  onOpenPrintSettings,
-  onOpenBlockchainModal,
-  onOpenFilters,
-  onOpenHistory,
-  onOpenMetrics,
-  onExportReport,
-  onViewUrgent,
-  onOpenCashRegister,
-  onOpenBrebPanel,
+  porCobrarCount,
+  pagadasCount,
+  porVerificarCount,
+  onOpenSidebar,
+  onOpenPorCobrar,
+  onOpenPagadas,
+  onOpenPorVerificar,
   hasWsNotification = false,
 }) => {
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
-  const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false);
+
+  const handleLogout = () => {
+    dispatch(logout());
+    navigate('/login');
+  };
 
   return (
-    <div className="sticky top-0 z-40 bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg">
-      <div className="p-4">
-        <div className="flex items-center justify-between mb-3 gap-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="text-3xl flex-shrink-0">💰</span>
-            <div className="min-w-0">
-              <h1 className="text-2xl font-bold truncate">Caja</h1>
-              <p className="text-sm opacity-90 truncate">{activeOrdersCount} ordenes activas</p>
-            </div>
-          </div>
-          <div className="flex gap-2 flex-shrink-0 flex-wrap justify-end items-center">
-            <div className="relative">
-              <button
-                onClick={() => setIsActionsMenuOpen((prev) => !prev)}
-                className="p-3 min-w-[48px] min-h-[48px] justify-center bg-white bg-opacity-20 rounded-xl hover:bg-opacity-30 transition-all flex items-center gap-1 active:scale-95 relative"
-                title="Abrir acciones"
-              >
-                <span className="text-xl">☰</span>
-                {(orderIdQuery.trim() || waiterQuery.trim()) && (
-                  <span className="absolute -top-1 -left-1 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
-                    !
-                  </span>
-                )}
-                {hasWsNotification && (
-                  <span className="absolute -top-2 -right-2 text-xl animate-[spin_0.5s_linear_infinite] drop-shadow-md text-yellow-500" title="Nueva notificación">🔔</span>
-                )}
-              </button>
+    <div className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-200 shadow-sm text-slate-800">
+      <div className="px-4 py-3 flex items-center justify-between relative">
+        {/* Lado izquierdo: Botón Menú */}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onOpenSidebar}
+            className="p-2 -ml-2 text-slate-600 hover:bg-slate-100 hover:text-slate-900 rounded-xl transition-colors relative active:scale-95"
+            title="Abrir menú"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+            {hasWsNotification && (
+              <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-indigo-500 border-2 border-white rounded-full animate-pulse"></span>
+            )}
+          </button>
+        </div>
 
-              {isActionsMenuOpen && (
-                <div className="absolute right-0 mt-2 w-64 rounded-xl bg-white shadow-2xl border border-indigo-100 overflow-hidden z-50">
-                  <div className="bg-gray-50 border-b border-gray-200 px-3 py-2">
-                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Búsquedas y Filtros</p>
-                  </div>
-                  <button
-                    onClick={() => {
-                      onOpenOrderIdSearch();
-                      setIsActionsMenuOpen(false);
-                    }}
-                    className="w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 font-semibold flex justify-between items-center"
-                  >
-                    <span>🔍 Buscar por Orden</span>
-                    {orderIdQuery.trim() && <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full">Activo</span>}
-                  </button>
-                  <button
-                    onClick={() => {
-                      onOpenWaiterPicker();
-                      setIsActionsMenuOpen(false);
-                    }}
-                    className="w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 font-semibold border-t border-gray-100 flex justify-between items-center"
-                  >
-                    <span>👤 Buscar por Mesero</span>
-                    {waiterQuery.trim() && <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full">Activo</span>}
-                  </button>
-                  <button
-                    onClick={() => {
-                      onToggleStats();
-                      setIsActionsMenuOpen(false);
-                    }}
-                    className="w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 font-semibold border-t border-gray-100"
-                  >
-                    <span>📊 Ver Estadísticas Rápidas</span>
-                  </button>
-                  
-                  <div className="bg-gray-50 border-y border-gray-200 px-3 py-2 mt-1">
-                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Herramientas</p>
-                  </div>
-                  <button
-                    onClick={() => {
-                      onOpenCashRegister();
-                      setIsActionsMenuOpen(false);
-                    }}
-                    className="w-full text-left px-4 py-3 text-green-700 hover:bg-green-50 font-semibold border-b border-gray-100 flex justify-between items-center"
-                  >
-                    <span>🏪 Control de Caja</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      onOpenQuickTablePicker();
-                      setIsActionsMenuOpen(false);
-                    }}
-                    className="w-full text-left px-4 py-3 text-blue-700 hover:bg-blue-50 font-semibold border-b border-gray-100 flex justify-between items-center"
-                  >
-                    <span>🪑 Mesas</span>
-                    {quickTablesCount > 0 && (
-                      <span className="bg-blue-500 text-white text-[10px] px-2 py-0.5 rounded-full">{quickTablesCount}</span>
-                    )}
-                  </button>
-                  <button
-                    onClick={() => {
-                      navigate('/cashier/take-order');
-                      setIsActionsMenuOpen(false);
-                    }}
-                    className="w-full text-left px-4 py-3 text-emerald-700 hover:bg-emerald-50 font-semibold border-b border-gray-100"
-                  >
-                    📝 Tomar Comanda
-                  </button>
-                  <button
-                    onClick={() => {
-                      onOpenBrebPanel();
-                      setIsActionsMenuOpen(false);
-                    }}
-                    className="w-full text-left px-4 py-3 text-indigo-700 hover:bg-indigo-50 font-semibold border-b border-gray-100 flex justify-between items-center"
-                  >
-                    <span>📲 Transferencias Nequi</span>
-                    {hasWsNotification && (
-                      <span className="text-xl animate-[spin_0.5s_linear_infinite] drop-shadow-md text-yellow-500" title="Nueva transferencia">🔔</span>
-                    )}
-                  </button>
-                  <button
-                    onClick={() => {
-                      onOpenPrintSettings();
-                      setIsActionsMenuOpen(false);
-                    }}
-                    className="w-full text-left px-4 py-3 text-indigo-700 hover:bg-indigo-50 font-semibold"
-                  >
-                    🖨️ Configurar impresion
-                  </button>
-                  <button
-                    onClick={() => {
-                      onOpenBlockchainModal();
-                      setIsActionsMenuOpen(false);
-                    }}
-                    className="w-full text-left px-4 py-3 text-indigo-700 hover:bg-indigo-50 font-semibold border-t border-gray-100 flex justify-between items-center"
-                  >
-                    <span>🔗 Estado Blockchain</span>
-                    {pendingBlockchainCount > 0 && (
-                      <span className="bg-indigo-500 text-white text-[10px] px-2 py-0.5 rounded-full animate-pulse">{pendingBlockchainCount}</span>
-                    )}
-                  </button>
-                  <button
-                    onClick={() => {
-                      onOpenFilters();
-                      setIsActionsMenuOpen(false);
-                    }}
-                    className="w-full text-left px-4 py-3 text-blue-700 hover:bg-blue-50 font-semibold border-t border-gray-100"
-                  >
-                    🔧 Filtros avanzados
-                  </button>
-                  <button
-                    onClick={() => {
-                      onOpenHistory();
-                      setIsActionsMenuOpen(false);
-                    }}
-                    className="w-full text-left px-4 py-3 text-purple-700 hover:bg-purple-50 font-semibold border-t border-gray-100"
-                  >
-                    🧾 Historial facturas
-                  </button>
-                  <button
-                    onClick={() => {
-                      onOpenMetrics();
-                      setIsActionsMenuOpen(false);
-                    }}
-                    className="w-full text-left px-4 py-3 text-amber-700 hover:bg-amber-50 font-semibold border-t border-gray-100"
-                  >
-                    📈 Metricas del negocio
-                  </button>
-                  <button
-                    onClick={() => {
-                      onExportReport();
-                      setIsActionsMenuOpen(false);
-                    }}
-                    className="w-full text-left px-4 py-3 text-emerald-700 hover:bg-emerald-50 font-semibold border-t border-gray-100"
-                  >
-                    📥 Exportar reporte
-                  </button>
-                  <div className="px-3 py-2 border-t border-gray-100 bg-gray-50">
-                    <div className="bg-white rounded-lg p-1">
-                      <LogoutButton />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+        {/* Centro: Título Minimalista */}
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">🏪</span>
+            <h1 className="text-lg font-black tracking-tight text-slate-800">Caja</h1>
+          </div>
+          <div className="flex items-center gap-2 mt-1">
+            <button 
+              onClick={onOpenPorCobrar}
+              className="flex items-center justify-center w-8 h-6 rounded-full bg-blue-100 border border-blue-300 text-blue-700 text-xs font-bold hover:bg-blue-200 transition-colors shadow-sm"
+              title="Mesas Por Cobrar"
+            >
+              {porCobrarCount}
+            </button>
+            <button 
+              onClick={onOpenPagadas}
+              className="flex items-center justify-center w-8 h-6 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-700 text-xs font-bold hover:bg-emerald-200 transition-colors shadow-sm"
+              title="Mesas Pagadas"
+            >
+              {pagadasCount}
+            </button>
+            <button 
+              onClick={onOpenPorVerificar}
+              className="flex items-center justify-center w-8 h-6 rounded-full bg-orange-100 border border-orange-300 text-orange-700 text-xs font-bold hover:bg-orange-200 transition-colors shadow-sm"
+              title="Mesas Por Verificar"
+            >
+              {porVerificarCount}
+            </button>
           </div>
         </div>
 
-        {pendingVerificationCount > 0 && (
-          <div className="bg-red-500 bg-opacity-90 rounded-xl p-3 animate-pulse">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-2xl">⚠️</span>
-                <span className="font-bold">{pendingVerificationCount} pagos por verificar</span>
+        {/* Lado derecho: Perfil */}
+        <div className="flex items-center gap-2 relative">
+          <button 
+            onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+            className="w-10 h-10 rounded-full bg-indigo-50 border-2 border-indigo-100 flex items-center justify-center text-indigo-600 hover:bg-indigo-100 hover:border-indigo-200 transition-all active:scale-95 overflow-hidden"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+            </svg>
+          </button>
+
+          {/* Menú de perfil dropdown */}
+          {isProfileMenuOpen && (
+            <>
+              {/* Backdrop invisible para cerrar */}
+              <div 
+                className="fixed inset-0 z-40" 
+                onClick={() => setIsProfileMenuOpen(false)}
+              ></div>
+              
+              <div className="absolute top-full right-0 mt-2 w-56 bg-white rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] border border-slate-100 overflow-hidden z-50 animate-fade-in origin-top-right">
+                <div className="p-4 bg-slate-50 border-b border-slate-100">
+                  <p className="text-sm font-bold text-slate-800">Cajero Activo</p>
+                  <p className="text-xs text-slate-500 mt-0.5">Turno en progreso</p>
+                </div>
+                <div className="p-2">
+                  <button 
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50 rounded-xl transition-colors"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                    Finalizar Turno
+                  </button>
+                </div>
               </div>
-              <button
-                onClick={onViewUrgent}
-                className="px-3 py-1 bg-white text-red-600 rounded-lg font-semibold hover:bg-red-50 transition-colors"
-              >
-                Ver
-              </button>
-            </div>
-          </div>
-        )}
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
