@@ -4,6 +4,8 @@ import { useSelector } from 'react-redux';
 import type { RootState } from '../../../app/store';
 import ClockPickerModal from '../../waiter/slides/components/ClockPickerModal';
 
+const API_URL = import.meta.env.VITE_API_URL || '/api';
+
 interface BankTransfer {
   id: string;
   sender: string;
@@ -33,7 +35,7 @@ const BrebTransfersPanel: React.FC<BrebTransfersPanelProps> = ({ isOpen, onClose
     if (!token) return;
     try {
       setLoading(true);
-      const res = await fetch(`http://localhost:8080/api/bank-transfers/recent?page=${pageNum}&limit=${LIMIT}`, {
+      const res = await fetch(`${API_URL}/bank-transfers/recent?page=${pageNum}&limit=${LIMIT}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -87,7 +89,7 @@ const BrebTransfersPanel: React.FC<BrebTransfersPanelProps> = ({ isOpen, onClose
       const endTime = new Date(hourDate);
       endTime.setHours(endTime.getHours() + 1);
       
-      const res = await fetch(`http://localhost:8080/api/bank-transfers/search?start_time=${startTime.toISOString()}&end_time=${endTime.toISOString()}&page=1&limit=100`, {
+      const res = await fetch(`${API_URL}/bank-transfers/search?start_time=${startTime.toISOString()}&end_time=${endTime.toISOString()}&page=1&limit=100`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {

@@ -3,7 +3,7 @@ import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import type { RestaurantLayout } from '../../../../types/layout';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 export function useTableLayout() {
   const [layout, setLayout] = useState<RestaurantLayout>({ nodes: [] });
