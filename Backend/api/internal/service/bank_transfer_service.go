@@ -13,7 +13,7 @@ type BankTransferService interface {
 	GetPaginatedRecent(offset, limit int) ([]domain.BankTransfer, int, error)
 	GetUnusedByAmount(amount float64) ([]domain.BankTransfer, error)
 	MarkAsUsed(transferID string, orderID string) error
-	SearchTransfers(startTime, endTime time.Time, offset, limit int) ([]domain.BankTransfer, int, error)
+	SearchTransfers(startTime, endTime time.Time, amount *float64, offset, limit int) ([]domain.BankTransfer, int, error)
 }
 
 type bankTransferService struct {
@@ -51,7 +51,7 @@ func (s *bankTransferService) MarkAsUsed(transferID string, orderID string) erro
 	return s.repo.MarkAsUsed(transferID, orderID)
 }
 
-func (s *bankTransferService) SearchTransfers(startTime, endTime time.Time, offset, limit int) ([]domain.BankTransfer, int, error) {
-	return s.repo.SearchTransfers(startTime, endTime, offset, limit)
+func (s *bankTransferService) SearchTransfers(startTime, endTime time.Time, amount *float64, offset, limit int) ([]domain.BankTransfer, int, error) {
+	return s.repo.SearchTransfers(startTime, endTime, amount, offset, limit)
 }
 

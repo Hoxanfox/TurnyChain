@@ -24,7 +24,7 @@ const MonitoringManagement: React.FC = () => {
       {/* iframe container */}
       <div className="w-full h-[800px] bg-slate-950">
         <iframe
-          src="http://localhost:3000/d/backend-metrics/backend-metrics?orgId=1&kiosk&refresh=5s"
+          src={`${window.location.protocol}//${window.location.hostname}:3000/d/backend-metrics/backend-metrics?orgId=1&kiosk&refresh=5s`}
           width="100%"
           height="100%"
           frameBorder="0"

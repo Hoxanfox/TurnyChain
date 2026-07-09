@@ -323,6 +323,39 @@ func (r *orderRepository) GetOrders(filters map[string]interface{}) ([]domain.Or
 		}
 	}
 
+	// 5. Cargar transferencias vinculadas
+	transfersQuery := `
+		SELECT order_id, id, sender, amount, bank_name, timestamp, is_used
+		FROM bank_transfers
+		WHERE order_id = ANY($1)
+		ORDER BY timestamp ASC`
+	transferRows, err := r.db.Query(transfersQuery, pq.Array(orderIDs))
+	if err != nil {
+		return nil, err
+	}
+	defer transferRows.Close()
+
+	for transferRows.Next() {
+		var bt domain.BankTransfer
+		var orderID uuid.UUID
+		var bankName sql.NullString
+		if err := transferRows.Scan(&orderID, &bt.ID, &bt.Sender, &bt.Amount, &bankName, &bt.Timestamp, &bt.IsUsed); err != nil {
+			return nil, err
+		}
+		if bankName.Valid {
+			bt.BankName = bankName.String
+		}
+		
+		colombiaZone := time.FixedZone("UTC-5", -5*3600)
+		bt.Timestamp = bt.Timestamp.In(colombiaZone)
+		
+		orderIDStr := orderID.String()
+		bt.OrderID = &orderIDStr
+		if order, ok := ordersMap[orderID]; ok {
+			order.LinkedTransfers = append(order.LinkedTransfers, bt)
+		}
+	}
+
 	finalOrders := make([]domain.Order, 0, len(ordersMap))
 	for _, order := range ordersMap {
 		finalOrders = append(finalOrders, *order)
@@ -446,6 +479,35 @@ func (r *orderRepository) loadOrderPayments(orderID uuid.UUID) ([]domain.Payment
 	return payments, nil
 }
 
+func (r *orderRepository) loadOrderLinkedTransfers(orderID uuid.UUID) ([]domain.BankTransfer, error) {
+	query := `SELECT id, sender, amount, bank_name, timestamp, is_used FROM bank_transfers WHERE order_id = $1 ORDER BY timestamp ASC`
+	rows, err := r.db.Query(query, orderID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var transfers []domain.BankTransfer
+	for rows.Next() {
+		var bt domain.BankTransfer
+		var bankName sql.NullString
+		if err := rows.Scan(&bt.ID, &bt.Sender, &bt.Amount, &bankName, &bt.Timestamp, &bt.IsUsed); err != nil {
+			return nil, err
+		}
+		if bankName.Valid {
+			bt.BankName = bankName.String
+		}
+		
+		colombiaZone := time.FixedZone("UTC-5", -5*3600)
+		bt.Timestamp = bt.Timestamp.In(colombiaZone)
+		
+		orderIDStr := orderID.String()
+		bt.OrderID = &orderIDStr
+		transfers = append(transfers, bt)
+	}
+	return transfers, nil
+}
+
 func (r *orderRepository) GetOrderByID(orderID uuid.UUID) (*domain.Order, error) {
 	order := &domain.Order{}
 	orderQuery := `SELECT o.id, o.parent_order_id, o.waiter_id, u.username as waiter_name, o.cashier_id, o.table_number, o.status, o.total, o.order_type, o.customer_name, o.delivery_address, o.delivery_phone, o.delivery_notes, o.payment_method, o.payment_proof_path, o.blockchain_tx_hash, o.print_status, o.print_attempts, o.last_print_error, o.printed_at, o.last_print_attempt_at, o.created_at, o.updated_at 
@@ -538,6 +600,13 @@ func (r *orderRepository) GetOrderByID(orderID uuid.UUID) (*domain.Order, error)
 		return nil, err
 	}
 	order.Payments = payments
+
+	// Cargar transferencias vinculadas
+	transfers, err := r.loadOrderLinkedTransfers(orderID)
+	if err != nil {
+		return nil, err
+	}
+	order.LinkedTransfers = transfers
 
 	return order, nil
 }

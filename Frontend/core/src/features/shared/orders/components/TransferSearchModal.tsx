@@ -35,15 +35,16 @@ const TransferSearchModal: React.FC<TransferSearchModalProps> = ({
     if (!token) return;
     try {
       setLoading(true);
-      // Rango: desde 30 minutos antes de la creación de la orden hasta 1 hora después
+      // Rango: desde 1 hora antes de la creación de la orden hasta 1 hora después
       const orderDate = new Date(orderCreatedAt);
-      const startDate = new Date(orderDate.getTime() - 30 * 60 * 1000); // -30 minutes
+      const startDate = new Date(orderDate.getTime() - 60 * 60 * 1000); // -1 hour
       const endDate = new Date(orderDate.getTime() + 60 * 60 * 1000); // +1 hour
 
       const res = await searchBankTransfers(
         token,
         startDate.toISOString(),
         endDate.toISOString(),
+        undefined,
         pageNumber,
         limit
       );
@@ -93,7 +94,7 @@ const TransferSearchModal: React.FC<TransferSearchModalProps> = ({
         </div>
 
         <div className="p-4 bg-indigo-50 border-b border-indigo-100 text-sm text-indigo-800">
-          Mostrando transferencias realizadas desde <strong>30 minutos antes</strong> hasta <strong>1 hora después</strong> de la creación de la orden.
+          Mostrando transferencias realizadas desde <strong>1 hora antes</strong> hasta <strong>1 hora después</strong> de la creación de la orden.
         </div>
 
         <div className="p-4 flex-1 overflow-y-auto max-h-[60vh] bg-slate-50">

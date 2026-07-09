@@ -66,10 +66,11 @@ type Order struct {
 	DeliveryPhone   *string `json:"delivery_phone,omitempty" db:"delivery_phone"`
 	DeliveryNotes   *string `json:"delivery_notes,omitempty" db:"delivery_notes"`
 	// Nuevos campos para el flujo de pago con evidencia
-	PaymentMethod    *string   `json:"payment_method,omitempty" db:"payment_method"`
-	PaymentProofPath *string   `json:"payment_proof_path,omitempty" db:"payment_proof_path"`
-	Payments         []Payment `json:"payments,omitempty"` // Arreglo de pagos múltiples (Split Payments)
-	BlockchainTxHash *string   `json:"blockchain_tx_hash,omitempty" db:"blockchain_tx_hash"`
+	PaymentMethod    *string        `json:"payment_method,omitempty" db:"payment_method"`
+	PaymentProofPath *string        `json:"payment_proof_path,omitempty" db:"payment_proof_path"`
+	Payments         []Payment      `json:"payments,omitempty"` // Arreglo de pagos múltiples (Split Payments)
+	LinkedTransfers  []BankTransfer `json:"linked_transfers,omitempty" db:"-"` // Transferencias bancarias asociadas
+	BlockchainTxHash *string        `json:"blockchain_tx_hash,omitempty" db:"blockchain_tx_hash"`
 	// Estado de impresión de comandas
 	PrintStatus        string     `json:"print_status" db:"print_status"`
 	PrintAttempts      int        `json:"print_attempts" db:"print_attempts"`

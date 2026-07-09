@@ -2,6 +2,7 @@ package handler
 
 import (
 	"log"
+	"strconv"
 	"time"
 
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/service"
@@ -116,12 +117,22 @@ func (h *BankTransferHandler) SearchTransfers(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid end_time format, expected RFC3339"})
 	}
 
+	amountStr := c.Query("amount")
+	var amount *float64
+	if amountStr != "" {
+		// attempt to parse amount
+		parsedAmount, errAmount := strconv.ParseFloat(amountStr, 64)
+		if errAmount == nil {
+			amount = &parsedAmount
+		}
+	}
+
 	offset := (page - 1) * limit
 	if offset < 0 {
 		offset = 0
 	}
 
-	transfers, total, err := h.service.SearchTransfers(startTime, endTime, offset, limit)
+	transfers, total, err := h.service.SearchTransfers(startTime, endTime, amount, offset, limit)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not search transfers"})
 	}

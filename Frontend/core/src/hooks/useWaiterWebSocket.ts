@@ -142,6 +142,18 @@ export const useWaiterWebSocket = (
           }));
           break;
 
+        case 'BREB_TRANSFER_RECEIVED':
+          console.log('📲 [Mesero] Nueva transferencia recibida:', message.payload);
+          playNotificationSound();
+          if (onNotificationRef.current) {
+            onNotificationRef.current({
+              title: '📲 Nueva Transferencia BREB',
+              message: `Se ha recibido una transferencia por $${message.payload.amount || ''} de ${message.payload.sender || 'Nequi'}`,
+              type: 'success'
+            });
+          }
+          break;
+
         default:
           console.log('📬 [Mesero] Evento:', message.type);
       }

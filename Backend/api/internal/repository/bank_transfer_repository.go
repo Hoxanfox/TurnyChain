@@ -12,7 +12,7 @@ type BankTransferRepository interface {
 	GetPaginatedRecent(offset, limit int) ([]domain.BankTransfer, int, error)
 	MarkAsUsed(transferID string, orderID string) error
 	GetUnusedByAmount(amount float64) ([]domain.BankTransfer, error)
-	SearchTransfers(startTime, endTime time.Time, offset, limit int) ([]domain.BankTransfer, int, error)
+	SearchTransfers(startTime, endTime time.Time, amount *float64, offset, limit int) ([]domain.BankTransfer, int, error)
 }
 
 type bankTransferRepository struct {
@@ -127,23 +127,47 @@ func (r *bankTransferRepository) GetUnusedByAmount(amount float64) ([]domain.Ban
 	return transfers, nil
 }
 
-func (r *bankTransferRepository) SearchTransfers(startTime, endTime time.Time, offset, limit int) ([]domain.BankTransfer, int, error) {
-	// Query total count
+func (r *bankTransferRepository) SearchTransfers(startTime, endTime time.Time, amount *float64, offset, limit int) ([]domain.BankTransfer, int, error) {
 	var total int
-	countQuery := `SELECT COUNT(*) FROM bank_transfers WHERE timestamp >= $1 AND timestamp <= $2`
-	if err := r.db.QueryRow(countQuery, startTime, endTime).Scan(&total); err != nil {
+	var countQuery string
+	var countArgs []interface{}
+
+	if amount != nil {
+		countQuery = `SELECT COUNT(*) FROM bank_transfers WHERE timestamp >= $1 AND timestamp <= $2 AND amount = $3`
+		countArgs = []interface{}{startTime, endTime, *amount}
+	} else {
+		countQuery = `SELECT COUNT(*) FROM bank_transfers WHERE timestamp >= $1 AND timestamp <= $2`
+		countArgs = []interface{}{startTime, endTime}
+	}
+
+	if err := r.db.QueryRow(countQuery, countArgs...).Scan(&total); err != nil {
 		return nil, 0, err
 	}
 
-	// Query paginated data
-	query := `
-		SELECT id, sender, amount, bank_name, timestamp, is_used, order_id, raw_text
-		FROM bank_transfers
-		WHERE timestamp >= $1 AND timestamp <= $2
-		ORDER BY timestamp DESC
-		LIMIT $3 OFFSET $4
-	`
-	rows, err := r.db.Query(query, startTime, endTime, limit, offset)
+	var query string
+	var queryArgs []interface{}
+
+	if amount != nil {
+		query = `
+			SELECT id, sender, amount, bank_name, timestamp, is_used, order_id, raw_text
+			FROM bank_transfers
+			WHERE timestamp >= $1 AND timestamp <= $2 AND amount = $3
+			ORDER BY timestamp DESC
+			LIMIT $4 OFFSET $5
+		`
+		queryArgs = []interface{}{startTime, endTime, *amount, limit, offset}
+	} else {
+		query = `
+			SELECT id, sender, amount, bank_name, timestamp, is_used, order_id, raw_text
+			FROM bank_transfers
+			WHERE timestamp >= $1 AND timestamp <= $2
+			ORDER BY timestamp DESC
+			LIMIT $3 OFFSET $4
+		`
+		queryArgs = []interface{}{startTime, endTime, limit, offset}
+	}
+
+	rows, err := r.db.Query(query, queryArgs...)
 	if err != nil {
 		return nil, 0, err
 	}

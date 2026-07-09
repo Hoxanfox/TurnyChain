@@ -102,6 +102,13 @@ export const useCashierWebSocket = (
         case 'BREB_TRANSFER_RECEIVED':
           console.log('📲 [Cajero] Nueva transferencia recibida:', message.payload);
           playNotificationSound();
+          if (onNotificationRef.current) {
+            onNotificationRef.current({
+              title: '📲 Nueva Transferencia BREB',
+              message: `Se ha recibido una transferencia por $${message.payload.amount || ''} de ${message.payload.sender || 'Nequi'}`,
+              type: 'success'
+            });
+          }
           break;
 
         default:

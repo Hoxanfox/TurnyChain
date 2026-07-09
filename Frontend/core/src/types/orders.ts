@@ -76,7 +76,17 @@ export interface Order {
   printed_at?: string;
   last_print_attempt_at?: string;
   edit_history?: EditHistoryEntry[]; // Historial de ediciones
+  linked_transfers?: BankTransfer[]; // Transferencias vinculadas
   blockchain_tx_hash?: string; // Hash de la transacción de blockchain
+}
+
+export interface BankTransfer {
+  id: string;
+  sender: string;
+  amount: number;
+  bank_name: string;
+  timestamp: string;
+  is_used: boolean;
 }
 
 // ============================================

@@ -157,6 +157,43 @@ const PaymentInfoSection: React.FC<PaymentInfoSectionProps> = ({ order }) => {
               )}
             </div>
           )}
+
+          {/* TRANSFERENCIAS BANCARIAS VINCULADAS */}
+          {order.linked_transfers && order.linked_transfers.length > 0 && (
+            <div className="mt-6 border-t border-slate-200 pt-6">
+              <div className="flex items-center gap-2 mb-4">
+                <span className="text-sm font-bold text-indigo-600 uppercase tracking-wider">
+                  Notificaciones BREB Vinculadas ({order.linked_transfers.length})
+                </span>
+                <div className="flex-1 h-px bg-indigo-100"></div>
+              </div>
+              <div className="grid gap-3">
+                {order.linked_transfers.map((lt, idx) => (
+                  <div key={idx} className="bg-indigo-50/50 p-4 rounded-xl border border-indigo-200 shadow-sm flex flex-col sm:flex-row justify-between sm:items-center gap-4 hover:bg-indigo-50 transition-colors">
+                    <div className="flex items-center gap-4">
+                      <div className="bg-indigo-100 text-indigo-700 p-3 rounded-full flex-shrink-0">
+                        <span className="text-xl">📱</span>
+                      </div>
+                      <div>
+                        <p className="font-bold text-indigo-900 text-base">De: {lt.sender} <span className="opacity-80">({lt.bank_name || 'Bancolombia/Nequi'})</span></p>
+                        <p className="text-xs text-indigo-500 font-medium">
+                          {new Date(lt.timestamp).toLocaleString('es-ES', {
+                            dateStyle: 'short',
+                            timeStyle: 'short'
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-end">
+                      <span className="font-black text-indigo-800 text-lg tabular-nums">
+                        {formatMoney(lt.amount)}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

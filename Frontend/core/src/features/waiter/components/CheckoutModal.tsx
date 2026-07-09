@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { MdClose, MdAttachMoney, MdPhoneAndroid, MdCameraAlt, MdDelete, MdAdd, MdImage } from 'react-icons/md';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../../../app/store';
-import { uploadSplitPayments, updateOrderStatus } from '../../shared/orders/api/ordersAPI.ts';
+import { uploadSplitPayments, updateOrderStatus, searchBankTransfers, linkBankTransfer } from '../../shared/orders/api/ordersAPI.ts';
 import type { PaymentInput } from '../../shared/orders/api/ordersAPI.ts';
 import { compressImage, validateImageFile } from '../../../utils/imageUtils';
 
@@ -26,7 +26,8 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const isGlobalCheckout = groupOrderInfos && groupOrderInfos.length > 1;
 
   // Estados
-  const [payments, setPayments] = useState<PaymentInput[]>([]);
+  type LocalPaymentInput = PaymentInput & { transferToLink?: any };
+  const [payments, setPayments] = useState<LocalPaymentInput[]>([]);
   const [paymentState, setPaymentState] = useState<PaymentState>('summary');
   const [currentMethod, setCurrentMethod] = useState<'efectivo' | 'transferencia'>('efectivo');
   const [currentAmount, setCurrentAmount] = useState<number | ''>('');
@@ -34,6 +35,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [currentPreviewUrl, setCurrentPreviewUrl] = useState<string | null>(null);
 
   const [matchingTransfers, setMatchingTransfers] = useState<any[]>([]);
+  const [selectedTransferForCurrentPayment, setSelectedTransferForCurrentPayment] = useState<any>(null);
   const [isSearchingTransfers, setIsSearchingTransfers] = useState(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -55,6 +57,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
     setCurrentAmount(remaining > 0 ? remaining : '');
     setCurrentProofImage(null);
     setCurrentPreviewUrl(null);
+    setSelectedTransferForCurrentPayment(null);
     setError(null);
     
     if (method === 'transferencia') {
@@ -78,20 +81,28 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
     if (!token || amountToMatch <= 0) return;
     try {
       setIsSearchingTransfers(true);
-      const res = await fetch('http://localhost:8080/api/bank-transfers/recent', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const json = await res.json();
-        const unusedMatch = (json.data || []).filter((t: any) => {
-          if (t.is_used || t.amount !== amountToMatch) return false;
-          if (orderCreatedAt) {
-            const transferTime = new Date(t.timestamp).getTime();
-            const orderTime = new Date(orderCreatedAt).getTime();
-            if (transferTime < orderTime) return false;
-          }
-          return true;
-        });
+      let startDate = new Date();
+      let endDate = new Date();
+      if (orderCreatedAt) {
+        const orderDate = new Date(orderCreatedAt);
+        startDate = new Date(orderDate.getTime() - 60 * 60 * 1000);
+        endDate = new Date(orderDate.getTime() + 60 * 60 * 1000);
+      } else {
+        startDate = new Date(Date.now() - 60 * 60 * 1000);
+        endDate = new Date(Date.now() + 60 * 60 * 1000);
+      }
+      
+      const res = await searchBankTransfers(
+        token,
+        startDate.toISOString(),
+        endDate.toISOString(),
+        Math.round(amountToMatch),
+        1,
+        20
+      );
+      
+      if (res && res.data) {
+        const unusedMatch = res.data.filter(t => !t.is_used);
         setMatchingTransfers(unusedMatch);
       }
     } catch (err) {
@@ -99,6 +110,14 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
     } finally {
       setIsSearchingTransfers(false);
     }
+  };
+
+  const handleLinkBrebTransfer = (t: any) => {
+    setSelectedTransferForCurrentPayment(t);
+  };
+
+  const handleUnlinkBrebTransfer = () => {
+    setSelectedTransferForCurrentPayment(null);
   };
 
   const handleCancelAdding = () => {
@@ -163,7 +182,12 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
       return;
     }
 
-    setPayments([...payments, { method: currentMethod, amount: amt, file: currentProofImage }]);
+    setPayments([...payments, { 
+      method: currentMethod, 
+      amount: amt, 
+      file: currentProofImage,
+      transferToLink: selectedTransferForCurrentPayment
+    }]);
     setPaymentState('summary');
   };
 
@@ -226,6 +250,18 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
             await updateOrderStatus(orderId, 'pagado', token);
           }
         }
+
+        // Vincular transferencias de los pagos
+        for (const p of payments) {
+          if (p.transferToLink) {
+            try {
+              await linkBankTransfer(token, p.transferToLink.id, orderId);
+            } catch (err) {
+              console.error(`Error al vincular transferencia ${p.transferToLink.id}:`, err);
+            }
+          }
+        }
+
         onSuccess();
     } catch (err: any) {
       setError(
@@ -307,6 +343,11 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                           <p className="font-bold text-gray-800 capitalize">{p.method}</p>
                           {p.method === 'transferencia' && p.file && (
                             <p className="text-xs text-gray-500">📷 Comprobante adjunto</p>
+                          )}
+                          {p.transferToLink && (
+                            <p className="text-xs text-indigo-600 font-semibold mt-1">
+                              🔗 Notificación Vinculada: <br/>{p.transferToLink.sender} ({p.transferToLink.bank_name || 'Bancolombia/Nequi'})
+                            </p>
                           )}
                         </div>
                       </div>
@@ -426,18 +467,43 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     </div>
                     {isSearchingTransfers ? (
                       <p className="text-xs text-gray-500">Buscando transferencias por {formatMoney(Number(currentAmount))}...</p>
+                    ) : selectedTransferForCurrentPayment ? (
+                      <div className="p-3 rounded-lg border-2 border-indigo-400 bg-indigo-50 shadow-sm transition-all animate-fade-in">
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="font-bold text-indigo-800">✅ Notificación Vinculada</span>
+                          <span className="text-xs text-indigo-600">{new Date(selectedTransferForCurrentPayment.timestamp).toLocaleTimeString()}</span>
+                        </div>
+                        <p className="text-sm text-indigo-900 mb-2">
+                          De: {selectedTransferForCurrentPayment.sender} <span className="font-bold opacity-80">({selectedTransferForCurrentPayment.bank_name || 'Bancolombia/Nequi'})</span>
+                        </p>
+                        <button
+                          onClick={handleUnlinkBrebTransfer}
+                          className="w-full bg-white border border-indigo-200 hover:bg-indigo-100 text-indigo-700 font-bold py-1.5 rounded-lg text-sm transition-colors"
+                        >
+                          Cambiar / Desvincular
+                        </button>
+                      </div>
                     ) : matchingTransfers.length > 0 ? (
                       <div className="space-y-2">
                         {matchingTransfers.map((t) => (
                           <div 
                             key={t.id} 
-                            className="p-3 rounded-lg border bg-indigo-50 border-indigo-200 shadow-sm"
+                            className="p-3 rounded-lg border bg-gray-50 border-gray-200 shadow-sm hover:border-indigo-300 transition-colors"
                           >
                             <div className="flex justify-between items-center">
-                              <span className="font-bold text-indigo-700">¡Llegó pago de {formatMoney(t.amount)}!</span>
+                              <span className="font-bold text-gray-700">Llegó pago de {formatMoney(t.amount)}</span>
                               <span className="text-xs text-gray-500">{new Date(t.timestamp).toLocaleTimeString()}</span>
                             </div>
-                            <p className="text-sm text-gray-700">De: {t.sender}</p>
+                            <p className="text-sm text-gray-600">
+                              De: {t.sender} <span className="font-bold opacity-80">({t.bank_name || 'Bancolombia/Nequi'})</span>
+                            </p>
+                            <button
+                              onClick={() => handleLinkBrebTransfer(t)}
+                              disabled={isSearchingTransfers || isSubmitting}
+                              className="mt-2 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-1.5 rounded-lg text-sm transition-colors"
+                            >
+                              Vincular Notificación
+                            </button>
                           </div>
                         ))}
                       </div>

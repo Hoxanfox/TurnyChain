@@ -270,12 +270,13 @@ export const searchBankTransfers = async (
   token: string, 
   startTime: string, 
   endTime: string, 
+  amount?: number,
   page: number = 1, 
   limit: number = 10
 ): Promise<BankTransferSearchResponse> => {
   const config = {
     headers: { Authorization: `Bearer ${token}` },
-    params: { start_time: startTime, end_time: endTime, page, limit }
+    params: { start_time: startTime, end_time: endTime, page, limit, ...(amount ? { amount } : {}) }
   };
   const response = await axios.get('/api/bank-transfers/search', config);
   return response.data;
