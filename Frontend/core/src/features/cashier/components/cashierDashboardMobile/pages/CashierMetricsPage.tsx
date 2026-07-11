@@ -54,8 +54,51 @@ const CashierMetricsPage: React.FC = () => {
     setWaiterMonth(newMonth);
     const searchParams = new URLSearchParams(window.location.search);
     searchParams.set('month', newMonth);
+    searchParams.delete('day');
+    searchParams.delete('from');
+    searchParams.delete('to');
     window.history.replaceState(null, '', `?${searchParams.toString()}`);
   };
+
+  const handleQuickFilter = (type: 'today' | 'week' | 'month') => {
+    const searchParams = new URLSearchParams(window.location.search);
+    searchParams.delete('day');
+    searchParams.delete('month');
+    searchParams.delete('from');
+    searchParams.delete('to');
+
+    const today = new Date();
+    
+    if (type === 'today') {
+      const todayStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+      searchParams.set('day', todayStr);
+    } else if (type === 'month') {
+      const monthStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
+      searchParams.set('month', monthStr);
+    } else if (type === 'week') {
+      const startOfWeek = new Date(today);
+      startOfWeek.setDate(today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1)); // Lunes
+      const endOfWeek = new Date(startOfWeek);
+      endOfWeek.setDate(startOfWeek.getDate() + 6); // Domingo
+      
+      const startStr = startOfWeek.getFullYear() + '-' + String(startOfWeek.getMonth() + 1).padStart(2, '0') + '-' + String(startOfWeek.getDate()).padStart(2, '0');
+      const endStr = endOfWeek.getFullYear() + '-' + String(endOfWeek.getMonth() + 1).padStart(2, '0') + '-' + String(endOfWeek.getDate()).padStart(2, '0');
+      
+      searchParams.set('from', startStr);
+      searchParams.set('to', endStr);
+    }
+
+    // Force navigation/re-render by replacing state and emitting a custom event or reloading data
+    window.history.replaceState(null, '', `?${searchParams.toString()}`);
+    
+    // Forzar recarga en el hook de productos
+    setTimeout(() => {
+      loadProductData();
+    }, 50);
+  };
+
+  const searchParams = new URLSearchParams(window.location.search);
+  const activeProductFilter = searchParams.has('day') ? 'today' : searchParams.has('from') ? 'week' : 'month';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-rose-50 p-4 pb-20">
@@ -103,21 +146,46 @@ const CashierMetricsPage: React.FC = () => {
             </div>
 
             {/* Filter */}
-            <div className="flex items-center gap-3 bg-white p-2 rounded-2xl border border-slate-200 shadow-sm">
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-2">Periodo</label>
-              <input
-                type="month"
-                value={waiterMonth}
-                onChange={(event) => handleMonthChange(event.target.value)}
-                className="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-              />
-              <button
-                onClick={() => loadWaiterData()}
-                className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 transition text-slate-600"
-                title="Actualizar"
-              >
-                🔄
-              </button>
+            <div className="flex items-center gap-3 bg-white p-2 rounded-2xl border border-slate-200 shadow-sm overflow-x-auto whitespace-nowrap">
+              {activeTab === 'waiters' ? (
+                <>
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-2">Mes</label>
+                  <input
+                    type="month"
+                    value={waiterMonth}
+                    onChange={(event) => handleMonthChange(event.target.value)}
+                    className="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  />
+                  <button
+                    onClick={() => loadWaiterData()}
+                    className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 transition text-slate-600"
+                    title="Actualizar"
+                  >
+                    🔄
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => handleQuickFilter('today')}
+                    className={`px-4 py-1.5 rounded-xl text-sm font-bold transition-all ${activeProductFilter === 'today' ? 'bg-rose-100 text-rose-700' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}
+                  >
+                    Hoy
+                  </button>
+                  <button
+                    onClick={() => handleQuickFilter('week')}
+                    className={`px-4 py-1.5 rounded-xl text-sm font-bold transition-all ${activeProductFilter === 'week' ? 'bg-rose-100 text-rose-700' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}
+                  >
+                    Esta Semana
+                  </button>
+                  <button
+                    onClick={() => handleQuickFilter('month')}
+                    className={`px-4 py-1.5 rounded-xl text-sm font-bold transition-all ${activeProductFilter === 'month' ? 'bg-rose-100 text-rose-700' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}
+                  >
+                    Este Mes
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </header>
