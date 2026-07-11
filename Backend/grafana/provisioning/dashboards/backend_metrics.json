@@ -16,7 +16,7 @@
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
   "id": null,
-  "uid": "backend-metrics",
+  "uid": "system-health",
   "links": [],
   "liveNow": false,
   "panels": [
@@ -379,6 +379,6 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "Backend Metrics",
+  "title": "System Health",
   "version": 1
 }
