@@ -234,52 +234,47 @@ export const TableOrdersModal: React.FC<TableOrdersModalProps> = ({
             <div className="flex gap-2">
               <button
                 onClick={() => setFilterTab('all')}
-                className={`flex-1 px-4 py-2 rounded-lg font-semibold transition-all ${
-                  filterTab === 'all'
-                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
+                className={`flex-1 px-4 py-2 rounded-lg font-semibold transition-all ${filterTab === 'all'
+                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
               >
                 📊 Todas ({orders.length})
               </button>
               <button
                 onClick={() => setFilterTab('to_collect')}
-                className={`flex-1 px-4 py-2 rounded-lg font-semibold transition-all ${
-                  filterTab === 'to_collect'
-                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
+                className={`flex-1 px-4 py-2 rounded-lg font-semibold transition-all ${filterTab === 'to_collect'
+                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
               >
                 🧾 Por Cobrar ({toCollectCount})
               </button>
               <button
                 onClick={() => setFilterTab('pending')}
-                className={`flex-1 px-4 py-2 rounded-lg font-semibold transition-all ${
-                  filterTab === 'pending'
-                    ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-md'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
+                className={`flex-1 px-4 py-2 rounded-lg font-semibold transition-all ${filterTab === 'pending'
+                  ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-md'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
               >
                 ⚠️ Por Verificar ({pendingCount})
               </button>
               <button
                 onClick={() => setFilterTab('paid')}
-                className={`flex-1 px-4 py-2 rounded-lg font-semibold transition-all ${
-                  filterTab === 'paid'
-                    ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white shadow-md'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
+                className={`flex-1 px-4 py-2 rounded-lg font-semibold transition-all ${filterTab === 'paid'
+                  ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white shadow-md'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
               >
                 💰 Pagadas ({paidCount})
               </button>
               {cancelledCount > 0 && (
                 <button
                   onClick={() => setFilterTab('cancelled')}
-                  className={`flex-1 px-4 py-2 rounded-lg font-semibold transition-all ${
-                    filterTab === 'cancelled'
-                      ? 'bg-gradient-to-r from-red-600 to-rose-600 text-white shadow-md'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
+                  className={`flex-1 px-4 py-2 rounded-lg font-semibold transition-all ${filterTab === 'cancelled'
+                    ? 'bg-gradient-to-r from-red-600 to-rose-600 text-white shadow-md'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
                 >
                   ❌ Canceladas ({cancelledCount})
                 </button>
@@ -301,15 +296,14 @@ export const TableOrdersModal: React.FC<TableOrdersModalProps> = ({
                 {groupedFilteredOrders.map((group, groupIndex) => (
                   <div
                     key={group.root.id}
-                    className={`rounded-xl border p-3 ${
-                      group.isLinkedGroup
-                        ? groupIndex % 2 === 0
-                          ? 'bg-slate-50 border-slate-300 shadow-sm'
-                          : 'bg-slate-100 border-slate-400 shadow-sm'
-                        : groupIndex % 2 === 0
+                    className={`rounded-xl border p-3 ${group.isLinkedGroup
+                      ? groupIndex % 2 === 0
+                        ? 'bg-slate-50 border-slate-300 shadow-sm'
+                        : 'bg-slate-100 border-slate-400 shadow-sm'
+                      : groupIndex % 2 === 0
                         ? 'bg-emerald-50/60 border-emerald-200 shadow-sm'
                         : 'bg-cyan-50/60 border-cyan-200 shadow-sm'
-                    } ${groupIndex % 2 === 0 ? 'border-2 border-dashed' : 'border-solid'}`}
+                      } ${groupIndex % 2 === 0 ? 'border-2 border-dashed' : 'border-solid'}`}
                   >
                     {group.isLinkedGroup && (
                       <div className="mb-3 px-1">
@@ -404,8 +398,8 @@ export const TableOrdersModal: React.FC<TableOrdersModalProps> = ({
                           const toneClass = isChild
                             ? 'bg-violet-50 border-violet-300 border-l-4 border-l-violet-500'
                             : isParentWithChildren
-                            ? 'bg-sky-50 border-sky-300 border-l-4 border-l-sky-500'
-                            : 'bg-emerald-50 border-emerald-300 border-l-4 border-l-emerald-500';
+                              ? 'bg-sky-50 border-sky-300 border-l-4 border-l-sky-500'
+                              : 'bg-emerald-50 border-emerald-300 border-l-4 border-l-emerald-500';
 
                           return (
                             <div
@@ -417,185 +411,185 @@ export const TableOrdersModal: React.FC<TableOrdersModalProps> = ({
                                 <span className="absolute -left-3 top-7 h-[2px] w-3 rounded-full bg-indigo-200" />
                               )}
                               <div className={`rounded-xl border p-2 shadow-sm ${toneClass} ${memberIndex % 2 === 0 ? 'border-2 border-dashed' : 'border-solid'}`}>
-                              <div className="mb-2">
-                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-semibold bg-white/80 text-slate-700 border border-slate-200">
-                                  {memberIndex === 0 ? 'Comanda padre' : `Comanda hija ${memberIndex}`}
-                                </span>
-                              </div>
-                              <OrderGridView
-                                orders={[member]}
-                                highlightOrderId={highlightOrderId}
-                                renderActions={(order) => (
-                        <div className="space-y-2">
-                    {(() => {
-                      const statusVisual = getStatusVisual(order.status);
-                      const childCount = childCountMap[order.id] || 0;
-                      const hasGroupContext = !!order.parent_order_id || childCount > 0;
-                      return (
-                        <div className="space-y-2">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full border text-xs font-semibold ${statusVisual.className}`}>
-                              <span>{statusVisual.icon}</span>
-                              <span>{statusVisual.label}</span>
-                            </span>
-                            {order.parent_order_id && (
-                              <span className="px-2 py-1 rounded-full text-[11px] font-semibold bg-indigo-100 text-indigo-800">
-                                ↳ Adicional de {order.parent_order_id.slice(0, 8).toUpperCase()}
-                              </span>
-                            )}
-                            {childCount > 0 && (
-                              <span className="px-2 py-1 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800">
-                                🔗 {childCount} adicional(es)
-                              </span>
-                            )}
-                            {!hasGroupContext && (
-                              <span className="px-2 py-1 rounded-full text-[11px] font-semibold bg-gray-100 text-gray-600">
-                                Comanda individual
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })()}
+                                <div className="mb-2">
+                                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-semibold bg-white/80 text-slate-700 border border-slate-200">
+                                    {memberIndex === 0 ? 'Comanda padre' : `Comanda hija ${memberIndex}`}
+                                  </span>
+                                </div>
+                                <OrderGridView
+                                  orders={[member]}
+                                  highlightOrderId={highlightOrderId}
+                                  renderActions={(order) => (
+                                    <div className="space-y-2">
+                                      {(() => {
+                                        const statusVisual = getStatusVisual(order.status);
+                                        const childCount = childCountMap[order.id] || 0;
+                                        const hasGroupContext = !!order.parent_order_id || childCount > 0;
+                                        return (
+                                          <div className="space-y-2">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                              <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full border text-xs font-semibold ${statusVisual.className}`}>
+                                                <span>{statusVisual.icon}</span>
+                                                <span>{statusVisual.label}</span>
+                                              </span>
+                                              {order.parent_order_id && (
+                                                <span className="px-2 py-1 rounded-full text-[11px] font-semibold bg-indigo-100 text-indigo-800">
+                                                  ↳ Adicional de {order.parent_order_id.slice(0, 8).toUpperCase()}
+                                                </span>
+                                              )}
+                                              {childCount > 0 && (
+                                                <span className="px-2 py-1 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800">
+                                                  🔗 {childCount} adicional(es)
+                                                </span>
+                                              )}
+                                              {!hasGroupContext && (
+                                                <span className="px-2 py-1 rounded-full text-[11px] font-semibold bg-gray-100 text-gray-600">
+                                                  Comanda individual
+                                                </span>
+                                              )}
+                                            </div>
+                                          </div>
+                                        );
+                                      })()}
 
-                    {order.status === 'por_verificar' ? (
-                      <>
-                        <button
-                          onClick={() => setSelectedProofOrder({ order, relatedOrders: group.members })}
-                          className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
-                        >
-                          <span className="text-xl">🔍</span>
-                          <span>Ver Comprobante</span>
-                        </button>
-                        <div className="grid grid-cols-2 gap-2">
-                          <button
-                            onClick={() => onConfirmPayment(order.id)}
-                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold shadow-md transition-all"
-                          >
-                            ✓ Confirmar
-                          </button>
-                          <button
-                            onClick={() => onRejectPayment(order.id)}
-                            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold shadow-md transition-all"
-                          >
-                            ✕ Rechazar
-                          </button>
-                        </div>
-                        <button
-                          onClick={() => onViewDetail(order.id)}
-                          className="w-full px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
-                        >
-                          <span className="text-lg">📋</span>
-                          <span>Ver Detalle Completo</span>
-                        </button>
-                        <button
-                          onClick={() => handlePrintByStation(order.id)}
-                          className="w-full px-4 py-2 bg-white border border-purple-200 text-purple-700 rounded-xl hover:bg-purple-50 font-semibold"
-                        >
-                          🖨️ Imprimir por Estaciones (incluye Caja)
-                        </button>
-                      </>
-                    ) : order.status === 'pagado' ? (
-                      <>
-                        <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-4 py-3 rounded-xl text-center font-semibold">
-                          ✓ Pagado Completamente
-                        </div>
-                        <div className="grid grid-cols-1 gap-2">
-                          <button
-                            onClick={() => onViewDetail(order.id)}
-                            className="px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
-                          >
-                            <span className="text-xl">📋</span>
-                            <span>Ver Detalle</span>
-                          </button>
+                                      {order.status === 'por_verificar' ? (
+                                        <>
+                                          <button
+                                            onClick={() => setSelectedProofOrder({ order, relatedOrders: group.members })}
+                                            className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                                          >
+                                            <span className="text-xl">🔍</span>
+                                            <span>Ver Comprobante</span>
+                                          </button>
+                                          <div className="grid grid-cols-2 gap-2">
+                                            <button
+                                              onClick={() => onConfirmPayment(order.id)}
+                                              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold shadow-md transition-all"
+                                            >
+                                              ✓ Confirmar
+                                            </button>
+                                            <button
+                                              onClick={() => onRejectPayment(order.id)}
+                                              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold shadow-md transition-all"
+                                            >
+                                              ✕ Rechazar
+                                            </button>
+                                          </div>
+                                          <button
+                                            onClick={() => onViewDetail(order.id)}
+                                            className="w-full px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                                          >
+                                            <span className="text-lg">📋</span>
+                                            <span>Ver Detalle Completo</span>
+                                          </button>
+                                          <button
+                                            onClick={() => handlePrintByStation(order.id)}
+                                            className="w-full px-4 py-2 bg-white border border-purple-200 text-purple-700 rounded-xl hover:bg-purple-50 font-semibold"
+                                          >
+                                            🖨️ Imprimir por Estaciones (incluye Caja)
+                                          </button>
+                                        </>
+                                      ) : order.status === 'pagado' ? (
+                                        <>
+                                          <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-4 py-3 rounded-xl text-center font-semibold">
+                                            ✓ Pagado Completamente
+                                          </div>
+                                          <div className="grid grid-cols-1 gap-2">
+                                            <button
+                                              onClick={() => onViewDetail(order.id)}
+                                              className="px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                                            >
+                                              <span className="text-xl">📋</span>
+                                              <span>Ver Detalle</span>
+                                            </button>
 
-                          <button
-                            onClick={() => handlePrintByStation(order.id)}
-                            className="px-4 py-2 bg-white border border-purple-200 text-purple-700 rounded-xl hover:bg-purple-50 font-semibold"
-                          >
-                            🖨️ Imprimir por Estaciones (incluye Caja)
-                          </button>
-                        </div>
-                      </>
-                    ) : order.status === 'cancelado' ? (
-                      <div className="space-y-2">
-                        <div className="bg-gradient-to-r from-red-500 to-rose-600 text-white px-4 py-3 rounded-xl text-center font-semibold">
-                          ❌ Orden Cancelada
-                        </div>
-                        <button
-                          onClick={() => onViewDetail(order.id)}
-                          className="w-full px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
-                        >
-                          <span className="text-lg">📋</span>
-                          <span>Ver Detalle Completo</span>
-                        </button>
-                      </div>
-                    ) : isPorCobrarStatus(order.status) ? (
-                      <div className="space-y-2">
-                        <button
-                          onClick={() => onOpenCheckout(order.id, order.total, order.table_number)}
-                          className="w-full px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 font-semibold shadow-md transition-all"
-                        >
-                          💰 Cobrar y Marcar Pagado
-                        </button>
-                        <button
-                          onClick={() => onViewDetail(order.id)}
-                          className="w-full px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
-                        >
-                          <span className="text-lg">📋</span>
-                          <span>Ver Detalle Completo</span>
-                        </button>
-                        <button
-                          onClick={() => handlePrintByStation(order.id)}
-                          className="w-full px-4 py-2 bg-white border border-purple-200 text-purple-700 rounded-xl hover:bg-purple-50 font-semibold"
-                        >
-                          🖨️ Imprimir por Estaciones (incluye Caja)
-                        </button>
-                        <button
-                          onClick={() => handleCancelOrder(order.id)}
-                          className="w-full px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-xl font-semibold transition-all border border-red-200"
-                        >
-                          ❌ Cancelar Orden
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        <select
-                          onChange={(e) => onStatusChange(order.id, e.target.value)}
-                          value={order.status}
-                          className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-semibold text-gray-800 bg-white"
-                        >
-                          <option value="pendiente_aprobacion">⏳ Pendiente</option>
-                          <option value="recibido">📥 Recibido</option>
-                          <option value="en_preparacion">👨‍🍳 En Preparación</option>
-                          <option value="listo_para_servir">🍽️ Listo para Servir</option>
-                          <option value="entregado">✅ Entregado</option>
-                          <option value="pagado">💰 Pagado</option>
-                        </select>
-                        <button
-                          onClick={() => onViewDetail(order.id)}
-                          className="w-full px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
-                        >
-                          <span className="text-lg">📋</span>
-                          <span>Ver Detalle Completo</span>
-                        </button>
-                        <button
-                          onClick={() => handlePrintByStation(order.id)}
-                          className="w-full px-4 py-2 bg-white border border-purple-200 text-purple-700 rounded-xl hover:bg-purple-50 font-semibold"
-                        >
-                          🖨️ Imprimir por Estaciones (incluye Caja)
-                        </button>
-                        <button
-                          onClick={() => handleCancelOrder(order.id)}
-                          className="w-full px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-xl font-semibold transition-all border border-red-200"
-                        >
-                          ❌ Cancelar Orden
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                                )}
-                              />
+                                            <button
+                                              onClick={() => handlePrintByStation(order.id)}
+                                              className="px-4 py-2 bg-white border border-purple-200 text-purple-700 rounded-xl hover:bg-purple-50 font-semibold"
+                                            >
+                                              🖨️ Imprimir por Estaciones (incluye Caja)
+                                            </button>
+                                          </div>
+                                        </>
+                                      ) : order.status === 'cancelado' ? (
+                                        <div className="space-y-2">
+                                          <div className="bg-gradient-to-r from-red-500 to-rose-600 text-white px-4 py-3 rounded-xl text-center font-semibold">
+                                            ❌ Orden Cancelada
+                                          </div>
+                                          <button
+                                            onClick={() => onViewDetail(order.id)}
+                                            className="w-full px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                                          >
+                                            <span className="text-lg">📋</span>
+                                            <span>Ver Detalle Completo</span>
+                                          </button>
+                                        </div>
+                                      ) : isPorCobrarStatus(order.status) ? (
+                                        <div className="space-y-2">
+                                          <button
+                                            onClick={() => onOpenCheckout(order.id, order.total, order.table_number)}
+                                            className="w-full px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 font-semibold shadow-md transition-all"
+                                          >
+                                            💰 Cobrar y Marcar Pagado
+                                          </button>
+                                          <button
+                                            onClick={() => onViewDetail(order.id)}
+                                            className="w-full px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                                          >
+                                            <span className="text-lg">📋</span>
+                                            <span>Ver Detalle Completo</span>
+                                          </button>
+                                          <button
+                                            onClick={() => handlePrintByStation(order.id)}
+                                            className="w-full px-4 py-2 bg-white border border-purple-200 text-purple-700 rounded-xl hover:bg-purple-50 font-semibold"
+                                          >
+                                            🖨️ Imprimir por Estaciones (incluye Caja)
+                                          </button>
+                                          <button
+                                            onClick={() => handleCancelOrder(order.id)}
+                                            className="w-full px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-xl font-semibold transition-all border border-red-200"
+                                          >
+                                            ❌ Cancelar Orden
+                                          </button>
+                                        </div>
+                                      ) : (
+                                        <div className="space-y-2">
+                                          <select
+                                            onChange={(e) => onStatusChange(order.id, e.target.value)}
+                                            value={order.status}
+                                            className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-semibold text-gray-800 bg-white"
+                                          >
+                                            <option value="pendiente_aprobacion">⏳ Pendiente</option>
+                                            <option value="recibido">📥 Recibido</option>
+                                            <option value="en_preparacion">👨‍🍳 En Preparación</option>
+                                            <option value="listo_para_servir">🍽️ Listo para Servir</option>
+                                            <option value="entregado">✅ Entregado</option>
+                                            <option value="pagado">💰 Pagado</option>
+                                          </select>
+                                          <button
+                                            onClick={() => onViewDetail(order.id)}
+                                            className="w-full px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                                          >
+                                            <span className="text-lg">📋</span>
+                                            <span>Ver Detalle Completo</span>
+                                          </button>
+                                          <button
+                                            onClick={() => handlePrintByStation(order.id)}
+                                            className="w-full px-4 py-2 bg-white border border-purple-200 text-purple-700 rounded-xl hover:bg-purple-50 font-semibold"
+                                          >
+                                            🖨️ Imprimir por Estaciones (incluye Caja)
+                                          </button>
+                                          <button
+                                            onClick={() => handleCancelOrder(order.id)}
+                                            className="w-full px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-xl font-semibold transition-all border border-red-200"
+                                          >
+                                            ❌ Cancelar Orden
+                                          </button>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                />
                               </div>
                             </div>
                           );
@@ -608,174 +602,174 @@ export const TableOrdersModal: React.FC<TableOrdersModalProps> = ({
                           highlightOrderId={highlightOrderId}
                           renderActions={(order) => (
                             <div className="space-y-2">
-                    {(() => {
-                      const statusVisual = getStatusVisual(order.status);
-                      const childCount = childCountMap[order.id] || 0;
-                      const hasGroupContext = !!order.parent_order_id || childCount > 0;
-                      return (
-                        <div className="space-y-2">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full border text-xs font-semibold ${statusVisual.className}`}>
-                              <span>{statusVisual.icon}</span>
-                              <span>{statusVisual.label}</span>
-                            </span>
-                            {order.parent_order_id && (
-                              <span className="px-2 py-1 rounded-full text-[11px] font-semibold bg-indigo-100 text-indigo-800">
-                                ↳ Adicional de {order.parent_order_id.slice(0, 8).toUpperCase()}
-                              </span>
-                            )}
-                            {childCount > 0 && (
-                              <span className="px-2 py-1 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800">
-                                🔗 {childCount} adicional(es)
-                              </span>
-                            )}
-                            {!hasGroupContext && (
-                              <span className="px-2 py-1 rounded-full text-[11px] font-semibold bg-gray-100 text-gray-600">
-                                Comanda individual
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })()}
+                              {(() => {
+                                const statusVisual = getStatusVisual(order.status);
+                                const childCount = childCountMap[order.id] || 0;
+                                const hasGroupContext = !!order.parent_order_id || childCount > 0;
+                                return (
+                                  <div className="space-y-2">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full border text-xs font-semibold ${statusVisual.className}`}>
+                                        <span>{statusVisual.icon}</span>
+                                        <span>{statusVisual.label}</span>
+                                      </span>
+                                      {order.parent_order_id && (
+                                        <span className="px-2 py-1 rounded-full text-[11px] font-semibold bg-indigo-100 text-indigo-800">
+                                          ↳ Adicional de {order.parent_order_id.slice(0, 8).toUpperCase()}
+                                        </span>
+                                      )}
+                                      {childCount > 0 && (
+                                        <span className="px-2 py-1 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800">
+                                          🔗 {childCount} adicional(es)
+                                        </span>
+                                      )}
+                                      {!hasGroupContext && (
+                                        <span className="px-2 py-1 rounded-full text-[11px] font-semibold bg-gray-100 text-gray-600">
+                                          Comanda individual
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })()}
 
-                    {order.status === 'por_verificar' ? (
-                      <>
-                        <button
-                          onClick={() => setSelectedProofOrder({ order, relatedOrders: group.members })}
-                          className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
-                        >
-                          <span className="text-xl">🔍</span>
-                          <span>Ver Comprobante</span>
-                        </button>
-                        <div className="grid grid-cols-2 gap-2">
-                          <button
-                            onClick={() => onConfirmPayment(order.id)}
-                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold shadow-md transition-all"
-                          >
-                            ✓ Confirmar
-                          </button>
-                          <button
-                            onClick={() => onRejectPayment(order.id)}
-                            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold shadow-md transition-all"
-                          >
-                            ✕ Rechazar
-                          </button>
-                        </div>
-                        <button
-                          onClick={() => onViewDetail(order.id)}
-                          className="w-full px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
-                        >
-                          <span className="text-lg">📋</span>
-                          <span>Ver Detalle Completo</span>
-                        </button>
-                        <button
-                          onClick={() => handlePrintByStation(order.id)}
-                          className="w-full px-4 py-2 bg-white border border-purple-200 text-purple-700 rounded-xl hover:bg-purple-50 font-semibold"
-                        >
-                          🖨️ Imprimir por Estaciones (incluye Caja)
-                        </button>
-                      </>
-                    ) : order.status === 'pagado' ? (
-                      <>
-                        <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-4 py-3 rounded-xl text-center font-semibold">
-                          ✓ Pagado Completamente
-                        </div>
-                        <div className="grid grid-cols-1 gap-2">
-                          <button
-                            onClick={() => onViewDetail(order.id)}
-                            className="px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
-                          >
-                            <span className="text-xl">📋</span>
-                            <span>Ver Detalle</span>
-                          </button>
+                              {order.status === 'por_verificar' ? (
+                                <>
+                                  <button
+                                    onClick={() => setSelectedProofOrder({ order, relatedOrders: group.members })}
+                                    className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                                  >
+                                    <span className="text-xl">🔍</span>
+                                    <span>Ver Comprobante</span>
+                                  </button>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <button
+                                      onClick={() => onConfirmPayment(order.id)}
+                                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold shadow-md transition-all"
+                                    >
+                                      ✓ Confirmar
+                                    </button>
+                                    <button
+                                      onClick={() => onRejectPayment(order.id)}
+                                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold shadow-md transition-all"
+                                    >
+                                      ✕ Rechazar
+                                    </button>
+                                  </div>
+                                  <button
+                                    onClick={() => onViewDetail(order.id)}
+                                    className="w-full px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                                  >
+                                    <span className="text-lg">📋</span>
+                                    <span>Ver Detalle Completo</span>
+                                  </button>
+                                  <button
+                                    onClick={() => handlePrintByStation(order.id)}
+                                    className="w-full px-4 py-2 bg-white border border-purple-200 text-purple-700 rounded-xl hover:bg-purple-50 font-semibold"
+                                  >
+                                    🖨️ Imprimir por Estaciones (incluye Caja)
+                                  </button>
+                                </>
+                              ) : order.status === 'pagado' ? (
+                                <>
+                                  <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-4 py-3 rounded-xl text-center font-semibold">
+                                    ✓ Pagado Completamente
+                                  </div>
+                                  <div className="grid grid-cols-1 gap-2">
+                                    <button
+                                      onClick={() => onViewDetail(order.id)}
+                                      className="px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                                    >
+                                      <span className="text-xl">📋</span>
+                                      <span>Ver Detalle</span>
+                                    </button>
 
-                          <button
-                            onClick={() => handlePrintByStation(order.id)}
-                            className="px-4 py-2 bg-white border border-purple-200 text-purple-700 rounded-xl hover:bg-purple-50 font-semibold"
-                          >
-                            🖨️ Imprimir por Estaciones (incluye Caja)
-                          </button>
-                        </div>
-                      </>
-                    ) : order.status === 'cancelado' ? (
-                      <div className="space-y-2">
-                        <div className="bg-gradient-to-r from-red-500 to-rose-600 text-white px-4 py-3 rounded-xl text-center font-semibold">
-                          ❌ Orden Cancelada
-                        </div>
-                        <button
-                          onClick={() => onViewDetail(order.id)}
-                          className="w-full px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
-                        >
-                          <span className="text-lg">📋</span>
-                          <span>Ver Detalle Completo</span>
-                        </button>
-                      </div>
-                    ) : isPorCobrarStatus(order.status) ? (
-                      <div className="space-y-2">
-                        <button
-                          onClick={() => onOpenCheckout(order.id, order.total, order.table_number)}
-                          className="w-full px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 font-semibold shadow-md transition-all"
-                        >
-                          💰 Cobrar y Marcar Pagado
-                        </button>
-                        <button
-                          onClick={() => onViewDetail(order.id)}
-                          className="w-full px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
-                        >
-                          <span className="text-lg">📋</span>
-                          <span>Ver Detalle Completo</span>
-                        </button>
-                        <button
-                          onClick={() => handlePrintByStation(order.id)}
-                          className="w-full px-4 py-2 bg-white border border-purple-200 text-purple-700 rounded-xl hover:bg-purple-50 font-semibold"
-                        >
-                          🖨️ Imprimir por Estaciones (incluye Caja)
-                        </button>
-                        <button
-                          onClick={() => handleCancelOrder(order.id)}
-                          className="w-full px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-xl font-semibold transition-all border border-red-200"
-                        >
-                          ❌ Cancelar Orden
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        <select
-                          onChange={(e) => onStatusChange(order.id, e.target.value)}
-                          value={order.status}
-                          className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-semibold text-gray-800 bg-white"
-                        >
-                          <option value="pendiente_aprobacion">⏳ Pendiente</option>
-                          <option value="recibido">📥 Recibido</option>
-                          <option value="en_preparacion">👨‍🍳 En Preparación</option>
-                          <option value="listo_para_servir">🍽️ Listo para Servir</option>
-                          <option value="entregado">✅ Entregado</option>
-                          <option value="pagado">💰 Pagado</option>
-                        </select>
-                        <button
-                          onClick={() => onViewDetail(order.id)}
-                          className="w-full px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
-                        >
-                          <span className="text-lg">📋</span>
-                          <span>Ver Detalle Completo</span>
-                        </button>
-                        <button
-                          onClick={() => handlePrintByStation(order.id)}
-                          className="w-full px-4 py-2 bg-white border border-purple-200 text-purple-700 rounded-xl hover:bg-purple-50 font-semibold"
-                        >
-                          🖨️ Imprimir por Estaciones (incluye Caja)
-                        </button>
-                        <button
-                          onClick={() => handleCancelOrder(order.id)}
-                          className="w-full px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-xl font-semibold transition-all border border-red-200"
-                        >
-                          ❌ Cancelar Orden
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                                )}
+                                    <button
+                                      onClick={() => handlePrintByStation(order.id)}
+                                      className="px-4 py-2 bg-white border border-purple-200 text-purple-700 rounded-xl hover:bg-purple-50 font-semibold"
+                                    >
+                                      🖨️ Imprimir por Estaciones (incluye Caja)
+                                    </button>
+                                  </div>
+                                </>
+                              ) : order.status === 'cancelado' ? (
+                                <div className="space-y-2">
+                                  <div className="bg-gradient-to-r from-red-500 to-rose-600 text-white px-4 py-3 rounded-xl text-center font-semibold">
+                                    ❌ Orden Cancelada
+                                  </div>
+                                  <button
+                                    onClick={() => onViewDetail(order.id)}
+                                    className="w-full px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                                  >
+                                    <span className="text-lg">📋</span>
+                                    <span>Ver Detalle Completo</span>
+                                  </button>
+                                </div>
+                              ) : isPorCobrarStatus(order.status) ? (
+                                <div className="space-y-2">
+                                  <button
+                                    onClick={() => onOpenCheckout(order.id, order.total, order.table_number)}
+                                    className="w-full px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 font-semibold shadow-md transition-all"
+                                  >
+                                    💰 Cobrar y Marcar Pagado
+                                  </button>
+                                  <button
+                                    onClick={() => onViewDetail(order.id)}
+                                    className="w-full px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                                  >
+                                    <span className="text-lg">📋</span>
+                                    <span>Ver Detalle Completo</span>
+                                  </button>
+                                  <button
+                                    onClick={() => handlePrintByStation(order.id)}
+                                    className="w-full px-4 py-2 bg-white border border-purple-200 text-purple-700 rounded-xl hover:bg-purple-50 font-semibold"
+                                  >
+                                    🖨️ Imprimir por Estaciones (incluye Caja)
+                                  </button>
+                                  <button
+                                    onClick={() => handleCancelOrder(order.id)}
+                                    className="w-full px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-xl font-semibold transition-all border border-red-200"
+                                  >
+                                    ❌ Cancelar Orden
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="space-y-2">
+                                  <select
+                                    onChange={(e) => onStatusChange(order.id, e.target.value)}
+                                    value={order.status}
+                                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-semibold text-gray-800 bg-white"
+                                  >
+                                    <option value="pendiente_aprobacion">⏳ Pendiente</option>
+                                    <option value="recibido">📥 Recibido</option>
+                                    <option value="en_preparacion">👨‍🍳 En Preparación</option>
+                                    <option value="listo_para_servir">🍽️ Listo para Servir</option>
+                                    <option value="entregado">✅ Entregado</option>
+                                    <option value="pagado">💰 Pagado</option>
+                                  </select>
+                                  <button
+                                    onClick={() => onViewDetail(order.id)}
+                                    className="w-full px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                                  >
+                                    <span className="text-lg">📋</span>
+                                    <span>Ver Detalle Completo</span>
+                                  </button>
+                                  <button
+                                    onClick={() => handlePrintByStation(order.id)}
+                                    className="w-full px-4 py-2 bg-white border border-purple-200 text-purple-700 rounded-xl hover:bg-purple-50 font-semibold"
+                                  >
+                                    🖨️ Imprimir por Estaciones (incluye Caja)
+                                  </button>
+                                  <button
+                                    onClick={() => handleCancelOrder(order.id)}
+                                    className="w-full px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-xl font-semibold transition-all border border-red-200"
+                                  >
+                                    ❌ Cancelar Orden
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         />
                       </div>
                     )}

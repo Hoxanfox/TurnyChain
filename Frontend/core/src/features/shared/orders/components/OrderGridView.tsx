@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import type { Order } from '../../../../types/orders.ts';
 import { formatMoney } from '../../../../utils/formatUtils.ts';
 
@@ -20,6 +20,45 @@ interface OrderGridViewProps {
 }
 
 const OrderGridView: React.FC<OrderGridViewProps> = ({ orders, renderActions, highlightOrderId = null }) => {
+  const highlightRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (highlightOrderId && highlightRef.current) {
+      let attempts = 0;
+      const timer = setInterval(() => {
+        if (!highlightRef.current) return;
+        const target = highlightRef.current;
+        
+        let parent = target.parentElement;
+        while (parent && parent.tagName !== 'BODY') {
+          const style = window.getComputedStyle(parent);
+          if (style.overflowY === 'auto' || style.overflowY === 'scroll') {
+            break;
+          }
+          parent = parent.parentElement;
+        }
+
+        if (parent && parent.tagName !== 'BODY') {
+          const targetRect = target.getBoundingClientRect();
+          const parentRect = parent.getBoundingClientRect();
+          
+          parent.scrollTo({
+            top: parent.scrollTop + (targetRect.top - parentRect.top) - (parentRect.height / 2) + (targetRect.height / 2),
+            behavior: 'smooth'
+          });
+          clearInterval(timer);
+        } else {
+          target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          clearInterval(timer);
+        }
+
+        attempts++;
+        if (attempts > 30) clearInterval(timer); // 3 segundos max
+      }, 100);
+      return () => clearInterval(timer);
+    }
+  }, [highlightOrderId, orders]);
+
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4" style={{ colorScheme: 'light' }}>
       {Array.isArray(orders) &&
@@ -27,8 +66,11 @@ const OrderGridView: React.FC<OrderGridViewProps> = ({ orders, renderActions, hi
           <div
             key={order.id}
             id={`order-card-${order.id}`}
-            className={`bg-white p-4 rounded-lg shadow-md border border-gray-200 relative text-gray-900 transition-all ${
-              highlightOrderId === order.id ? 'ring-4 ring-amber-300 border-amber-400 shadow-xl' : ''
+            ref={highlightOrderId === order.id ? highlightRef : null}
+            className={`p-4 rounded-lg shadow-md border relative text-gray-900 transition-all duration-300 ${
+              highlightOrderId === order.id 
+                ? 'bg-amber-50 ring-4 ring-amber-400 border-amber-500 shadow-xl shadow-amber-200/50 scale-[1.02] z-10' 
+                : 'bg-white border-gray-200 hover:border-gray-300'
             }`}
           >
             {order.payment_method && (

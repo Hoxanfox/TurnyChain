@@ -133,6 +133,7 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
   const [showQuickTablePicker, setShowQuickTablePicker] = useState(false);
   const [showCashRegisterModal, setShowCashRegisterModal] = useState(false);
   const [selectedTableNumber, setSelectedTableNumber] = useState<number | null>(null);
+  const [focusedOrderId, setFocusedOrderId] = useState<string | null>(null);
   const [selectedOrderIdForDetail, setSelectedOrderIdForDetail] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
@@ -146,6 +147,7 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
   useEffect(() => {
     if (!shortcutTarget || shortcutNonce === 0) return;
     setSelectedTableNumber(shortcutTarget.tableNumber);
+    setFocusedOrderId(shortcutTarget.orderId);
   }, [shortcutNonce, shortcutTarget]);
 
   const {
@@ -307,8 +309,10 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
             isOpen={true}
             tableNumber={selectedTableNumber}
             orders={ordersByTable[selectedTableNumber] || []}
+            highlightOrderId={focusedOrderId}
             onClose={() => {
               setSelectedTableNumber(null);
+              setFocusedOrderId(null);
             }}
             onStatusChange={onStatusChange}
             onCancelOrder={(orderId) => onStatusChange(orderId, 'cancelado')}
