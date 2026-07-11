@@ -101,7 +101,7 @@ services:
       - GF_AUTH_DISABLE_LOGIN_FORM=true
       # Configurar Nginx Reverse Proxy /grafana
       - GF_SERVER_DOMAIN=localhost
-      - GF_SERVER_ROOT_URL=%(protocol)s://%(domain)s:%(http_port)s/grafana/
+      - GF_SERVER_ROOT_URL=/grafana/
       - GF_SERVER_SERVE_FROM_SUB_PATH=true
     volumes:
       - ./Backend/grafana/provisioning:/etc/grafana/provisioning
