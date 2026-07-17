@@ -383,8 +383,8 @@ func (r *orderRepository) GetWaiterApprovedStats(start time.Time, end time.Time,
 		FROM orders o
 		LEFT JOIN users u ON o.waiter_id = u.id
 		WHERE o.status = 'pagado'
-		  AND o.updated_at >= $3
-		  AND o.updated_at < $4
+		  AND o.created_at >= $3
+		  AND o.created_at < $4
 		GROUP BY period, o.waiter_id, u.username
 		ORDER BY period DESC, approved_count DESC
 	`
@@ -1266,8 +1266,8 @@ func (r *orderRepository) GetProductSalesStats(start time.Time, end time.Time) (
 		JOIN menu_items m ON oi.menu_item_id = m.id
 		LEFT JOIN categories c ON m.category_id = c.id
 		WHERE o.status = 'pagado'
-		  AND o.updated_at >= $1
-		  AND o.updated_at < $2
+		  AND o.created_at >= $1
+		  AND o.created_at < $2
 		GROUP BY oi.menu_item_id, m.name, c.name
 		ORDER BY total_quantity DESC
 	`

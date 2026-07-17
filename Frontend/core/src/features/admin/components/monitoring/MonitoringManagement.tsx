@@ -24,7 +24,7 @@ const MonitoringManagement: React.FC = () => {
       {/* iframe container */}
       <div className="w-full h-[800px] bg-slate-950">
         <iframe
-          src="/grafana/d/backend-metrics/backend-metrics?orgId=1&kiosk&refresh=5s"
+          src="/grafana/d/system-health?orgId=1&kiosk&refresh=5s"
           width="100%"
           height="100%"
           frameBorder="0"

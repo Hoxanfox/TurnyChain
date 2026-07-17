@@ -150,6 +150,49 @@ export const ProductMetricsChart: React.FC<ProductMetricsChartProps> = ({ metric
           </ResponsiveContainer>
         </div>
       </div>
+
+      {/* Top Productos por Categoría */}
+      <div className="bg-white p-4 sm:p-6 rounded-3xl shadow-sm border border-slate-100">
+        <div className="mb-6 text-center sm:text-left">
+          <p className="text-[10px] uppercase tracking-[0.2em] text-blue-500 font-bold">Por Categoría</p>
+          <h3 className="text-lg font-bold text-slate-800">Top Productos de Cada Categoría</h3>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {categoryData.map(cat => {
+            const catProducts = metrics
+              .filter(m => m.category_name === cat.name)
+              .sort((a, b) => b.total_quantity - a.total_quantity)
+              .slice(0, 5); // top 5 per category
+
+            return (
+              <div key={cat.name} className="border border-slate-100 rounded-2xl p-4 bg-slate-50/50">
+                <h4 className="font-bold text-slate-700 mb-3 flex items-center justify-between">
+                  {cat.name}
+                  <span className="text-xs font-semibold text-slate-400">{cat.value} vendidas</span>
+                </h4>
+                <div className="space-y-3">
+                  {catProducts.map((p, i) => (
+                    <div key={p.product_id} className="flex justify-between items-center bg-white p-2.5 rounded-xl border border-slate-100 shadow-sm">
+                      <div className="flex items-center gap-3">
+                        <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">
+                          {i + 1}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-slate-800 text-sm leading-tight">{p.product_name}</p>
+                          <p className="text-xs font-medium text-emerald-600 mt-0.5">{formatMoneyAxis(p.total_revenue)}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-black text-slate-700 text-sm">{p.total_quantity} <span className="text-xs text-slate-400 font-normal">uds</span></p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 };
