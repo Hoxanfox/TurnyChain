@@ -3,6 +3,7 @@ import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { logout } from '../../../../../features/auth/authSlice';
 import type { AppDispatch } from '../../../../../app/store';
+import { useAttendanceAlert } from '../../../hooks/useAttendanceAlert';
 
 interface CashierMobileHeaderProps {
   porCobrarCount: number;
@@ -12,6 +13,7 @@ interface CashierMobileHeaderProps {
   onOpenPorCobrar: () => void;
   onOpenPagadas: () => void;
   onOpenPorVerificar: () => void;
+  onOpenAttendanceModal?: () => void;
   hasWsNotification?: boolean;
 }
 
@@ -23,11 +25,15 @@ export const CashierMobileHeader: React.FC<CashierMobileHeaderProps> = ({
   onOpenPorCobrar,
   onOpenPagadas,
   onOpenPorVerificar,
+  onOpenAttendanceModal,
   hasWsNotification = false,
 }) => {
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
+
+  const { unmarkedAttendanceCount } = useAttendanceAlert(!!onOpenAttendanceModal);
+  const showAttendanceAlert = unmarkedAttendanceCount > 0;
 
   const handleLogout = () => {
     dispatch(logout());
@@ -53,7 +59,7 @@ export const CashierMobileHeader: React.FC<CashierMobileHeaderProps> = ({
           </button>
         </div>
 
-        {/* Centro: Título Minimalista */}
+        {/* Centro: Título Minimalista y Contadores */}
         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
           <div className="flex items-center gap-2">
             <span className="text-xl">🏪</span>
@@ -81,6 +87,26 @@ export const CashierMobileHeader: React.FC<CashierMobileHeaderProps> = ({
             >
               {porVerificarCount}
             </button>
+            
+            {onOpenAttendanceModal && (
+              <>
+                <div className="w-px h-5 bg-slate-300 mx-1"></div>
+                <button 
+                  onClick={onOpenAttendanceModal}
+                  className={`flex items-center justify-center h-6 px-2 rounded-full border text-xs font-bold transition-colors shadow-sm gap-1 ${
+                    showAttendanceAlert 
+                      ? 'bg-red-100 border-red-300 text-red-700 animate-pulse' 
+                      : 'bg-slate-100 border-slate-200 text-slate-500'
+                  }`}
+                  title="Asistencias del Día"
+                >
+                  <span>📒</span>
+                  {showAttendanceAlert && (
+                    <span>{unmarkedAttendanceCount}</span>
+                  )}
+                </button>
+              </>
+            )}
           </div>
         </div>
 
@@ -98,28 +124,20 @@ export const CashierMobileHeader: React.FC<CashierMobileHeaderProps> = ({
           {/* Menú de perfil dropdown */}
           {isProfileMenuOpen && (
             <>
-              {/* Backdrop invisible para cerrar */}
               <div 
-                className="fixed inset-0 z-40" 
+                className="fixed inset-0 z-40"
                 onClick={() => setIsProfileMenuOpen(false)}
               ></div>
-              
-              <div className="absolute top-full right-0 mt-2 w-56 bg-white rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] border border-slate-100 overflow-hidden z-50 animate-fade-in origin-top-right">
-                <div className="p-4 bg-slate-50 border-b border-slate-100">
-                  <p className="text-sm font-bold text-slate-800">Cajero Activo</p>
-                  <p className="text-xs text-slate-500 mt-0.5">Turno en progreso</p>
-                </div>
-                <div className="p-2">
-                  <button 
-                    onClick={handleLogout}
-                    className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50 rounded-xl transition-colors"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                    </svg>
-                    Finalizar Turno
-                  </button>
-                </div>
+              <div className="absolute right-0 top-12 w-48 bg-white rounded-xl shadow-xl border border-slate-100 z-50 overflow-hidden py-1 animate-in fade-in slide-in-from-top-2">
+                <button
+                  onClick={handleLogout}
+                  className="w-full text-left px-4 py-3 text-red-600 font-semibold hover:bg-red-50 flex items-center gap-2 transition-colors"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
+                  Cerrar Sesión
+                </button>
               </div>
             </>
           )}

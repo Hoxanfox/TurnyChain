@@ -51,6 +51,9 @@ const CashierDashboard: React.FC = () => {
       setNotification(options);
     },
     (message) => {
+      if (message.type === 'ATTENDANCE_UPDATED') {
+        window.dispatchEvent(new Event('attendance_updated'));
+      }
       if (message.type === 'BREB_TRANSFER_RECEIVED' || message.type === 'BREB_TRANSFER_USED') {
         setLastBrebMessage(message);
         if (message.type === 'BREB_TRANSFER_RECEIVED') {

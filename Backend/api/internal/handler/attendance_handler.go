@@ -1,19 +1,29 @@
 package handler
 
 import (
+
 	"time"
 
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/service"
+	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/websocket"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 )
 
 type AttendanceHandler struct {
 	service service.AttendanceService
+	hub     *websocket.Hub
 }
 
-func NewAttendanceHandler(s service.AttendanceService) *AttendanceHandler {
-	return &AttendanceHandler{service: s}
+func NewAttendanceHandler(s service.AttendanceService, hub *websocket.Hub) *AttendanceHandler {
+	return &AttendanceHandler{service: s, hub: hub}
+}
+
+func (h *AttendanceHandler) broadcastAttendanceUpdate() {
+	if h.hub == nil {
+		return
+	}
+	h.hub.BroadcastMessage("ATTENDANCE_UPDATED", nil)
 }
 
 func (h *AttendanceHandler) RegisterAttendance(c *fiber.Ctx) error {
@@ -43,6 +53,8 @@ func (h *AttendanceHandler) RegisterAttendance(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to register attendance"})
 	}
+
+	go h.broadcastAttendanceUpdate()
 
 	return c.Status(fiber.StatusCreated).JSON(record)
 }
@@ -74,6 +86,8 @@ func (h *AttendanceHandler) UpdateTodayArrival(c *fiber.Ctx) error {
 	if err := h.service.UpdateTodayArrival(payload.EmployeeID, t); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update arrival time"})
 	}
+
+	go h.broadcastAttendanceUpdate()
 
 	return c.JSON(fiber.Map{"message": "Arrival time updated successfully"})
 }

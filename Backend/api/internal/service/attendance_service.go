@@ -65,7 +65,7 @@ func (s *attendanceService) GetTodayAttendanceStatus() ([]domain.EmployeeAttenda
 			if _, exists := firstEntradaMap[rec.EmployeeID]; !exists {
 				firstEntradaMap[rec.EmployeeID] = rec.Timestamp.Format(time.RFC3339)
 			}
-		} else if rec.Action == "SALIDA" {
+		} else if rec.Action == "SALIDA" || rec.Action == "RESET" || rec.Action == "FALTA" {
 			delete(firstEntradaMap, rec.EmployeeID)
 		}
 	}
@@ -74,7 +74,11 @@ func (s *attendanceService) GetTodayAttendanceStatus() ([]domain.EmployeeAttenda
 	for _, emp := range employees {
 		status := "SALIDA" // Default status if no records today or ever
 		if val, ok := latestStatusMap[emp.ID]; ok {
-			status = val
+			if val == "RESET" {
+				status = "SALIDA"
+			} else {
+				status = val
+			}
 		}
 
 		var arrTime *string

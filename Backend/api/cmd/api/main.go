@@ -126,7 +126,7 @@ func main() {
 	settingHandler := handler.NewSettingHandler(settingService)
 	bankTransferHandler := handler.NewBankTransferHandler(bankTransferService, wsHub)
 	employeeHandler := handler.NewEmployeeHandler(employeeService)
-	attendanceHandler := handler.NewAttendanceHandler(attendanceService)
+	attendanceHandler := handler.NewAttendanceHandler(attendanceService, wsHub)
 
 	// Iniciar IMAP Service en background
 	imapService := service.NewImapService(settingService, bankTransferHandler)

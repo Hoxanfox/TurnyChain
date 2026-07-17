@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import LogoutButton from '../../../../components/LogoutButton';
+import { useAttendanceAlert } from '../../hooks/useAttendanceAlert';
 
 interface CashierHeaderProps {
   pendingVerificationCount: number;
@@ -47,6 +48,9 @@ export const CashierHeader: React.FC<CashierHeaderProps> = ({
 }) => {
   const navigate = useNavigate();
   const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false);
+  const { unmarkedAttendanceCount } = useAttendanceAlert(!!onOpenAttendanceModal);
+
+  const showAttendanceAlert = unmarkedAttendanceCount > 0;
 
   return (
     <div className="bg-gradient-to-r from-purple-600 via-pink-600 to-blue-600 rounded-lg shadow-xl p-6 mb-6">
@@ -135,6 +139,21 @@ export const CashierHeader: React.FC<CashierHeaderProps> = ({
           >
             📊 {showStats ? 'Ocultar' : 'Mostrar'} Stats
           </button>
+          
+          {onOpenAttendanceModal && (
+            <button
+              onClick={onOpenAttendanceModal}
+              className="relative px-4 py-2 bg-white text-cyan-700 rounded-lg hover:bg-cyan-50 transition-all font-semibold shadow-lg hover:shadow-xl transform hover:scale-105"
+              title="Cuaderno Asistencias"
+            >
+              📒 Asistencias
+              {showAttendanceAlert && (
+                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full h-5 min-w-[1.25rem] px-1.5 flex items-center justify-center animate-bounce shadow-md">
+                  {unmarkedAttendanceCount}
+                </span>
+              )}
+            </button>
+          )}
           <div className="relative">
             <button
               onClick={() => setIsActionsMenuOpen((prev) => !prev)}
@@ -209,17 +228,7 @@ export const CashierHeader: React.FC<CashierHeaderProps> = ({
                     🚦 Monitoreo impresión
                   </button>
                 )}
-                {onOpenAttendanceModal && (
-                  <button
-                    onClick={() => {
-                      onOpenAttendanceModal();
-                      setIsActionsMenuOpen(false);
-                    }}
-                    className="w-full text-left px-4 py-3 text-cyan-700 hover:bg-cyan-50 font-semibold border-t border-gray-100"
-                  >
-                    📒 Cuaderno Asistencias
-                  </button>
-                )}
+
                 <button
                   onClick={() => {
                     onExportReport();

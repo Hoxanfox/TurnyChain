@@ -209,6 +209,7 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
         onOpenPorCobrar={() => setActiveStatusModal('por_cobrar')}
         onOpenPagadas={() => setActiveStatusModal('pagadas')}
         onOpenPorVerificar={() => setActiveStatusModal('por_verificar')}
+        onOpenAttendanceModal={() => setIsAttendanceModalOpen(true)}
         hasWsNotification={hasWsNotification}
       />
 

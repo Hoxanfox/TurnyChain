@@ -340,7 +340,7 @@ export const AttendanceNotebookModal: React.FC<AttendanceNotebookModalProps> = (
                   >
                     <div className="flex items-center gap-4">
                       <div className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold text-white shrink-0 ${
-                        emp.current_state === 'ENTRADA' ? 'bg-emerald-500' : 'bg-gray-400'
+                        emp.current_state === 'ENTRADA' ? 'bg-emerald-500' : emp.current_state === 'FALTA' ? 'bg-red-500' : 'bg-gray-400'
                       }`}>
                         {emp.name.charAt(0).toUpperCase()}
                       </div>
@@ -352,9 +352,9 @@ export const AttendanceNotebookModal: React.FC<AttendanceNotebookModalProps> = (
                           </span>
                           <span>•</span>
                           <span className={`font-semibold ${
-                            emp.current_state === 'ENTRADA' ? 'text-emerald-600' : 'text-gray-500'
+                            emp.current_state === 'ENTRADA' ? 'text-emerald-600' : emp.current_state === 'FALTA' ? 'text-red-600' : 'text-gray-500'
                           }`}>
-                            {emp.current_state === 'ENTRADA' ? 'Asistió' : 'Ausente / Sin marcar'}
+                            {emp.current_state === 'ENTRADA' ? 'Asistió' : emp.current_state === 'FALTA' ? 'Falta (No Llegó)' : 'Sin marcar'}
                           </span>
                           
                           {/* Hora de llegada y Edición */}
@@ -402,18 +402,41 @@ export const AttendanceNotebookModal: React.FC<AttendanceNotebookModalProps> = (
                     </div>
 
                     <div className="flex items-center gap-2 sm:shrink-0 mt-3 sm:mt-0">
-                      <button
-                        onClick={() => handleAction(emp.id, 'ENTRADA')}
-                        disabled={emp.current_state === 'ENTRADA'}
-                        className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-bold text-sm transition-colors ${
-                          emp.current_state === 'ENTRADA'
-                            ? 'bg-emerald-100 text-emerald-700 opacity-50 cursor-not-allowed'
-                            : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:shadow-sm'
-                        }`}
-                      >
-                        <CheckCircle2 className="w-4 h-4" />
-                        <span>Entrada</span>
-                      </button>
+                      {emp.current_state === 'FALTA' ? (
+                        <button
+                          onClick={() => handleAction(emp.id, 'RESET')}
+                          className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-bold text-sm transition-colors bg-gray-100 text-gray-700 hover:bg-gray-200 hover:shadow-sm"
+                        >
+                          <X className="w-4 h-4" />
+                          <span>Deshacer Falta</span>
+                        </button>
+                      ) : emp.current_state === 'ENTRADA' ? (
+                        <button
+                          onClick={() => handleAction(emp.id, 'RESET')}
+                          className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-bold text-sm transition-colors bg-gray-100 text-gray-700 hover:bg-gray-200 hover:shadow-sm"
+                        >
+                          <X className="w-4 h-4" />
+                          <span>Deshacer Asistencia</span>
+                        </button>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => handleAction(emp.id, 'FALTA')}
+                            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-bold text-sm transition-colors bg-red-50 text-red-600 hover:bg-red-100 hover:shadow-sm"
+                          >
+                            <X className="w-4 h-4" />
+                            <span>No Llegó</span>
+                          </button>
+
+                          <button
+                            onClick={() => handleAction(emp.id, 'ENTRADA')}
+                            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-bold text-sm transition-colors bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:shadow-sm"
+                          >
+                            <CheckCircle2 className="w-4 h-4" />
+                            <span>Entrada</span>
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
                 ))
