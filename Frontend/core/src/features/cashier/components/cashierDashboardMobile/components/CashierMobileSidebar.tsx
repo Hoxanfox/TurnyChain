@@ -21,6 +21,7 @@ interface CashierMobileSidebarProps {
   onOpenBlockchainModal: () => void;
   onOpenBrebPanel: () => void;
   onOpenLayoutEditor: () => void;
+  onOpenAttendanceModal: () => void;
 }
 
 export const CashierMobileSidebar: React.FC<CashierMobileSidebarProps> = ({
@@ -43,6 +44,7 @@ export const CashierMobileSidebar: React.FC<CashierMobileSidebarProps> = ({
   onOpenBlockchainModal,
   onOpenBrebPanel,
   onOpenLayoutEditor,
+  onOpenAttendanceModal,
 }) => {
   const navigate = useNavigate();
 
@@ -98,6 +100,7 @@ export const CashierMobileSidebar: React.FC<CashierMobileSidebarProps> = ({
               <SidebarItem icon="🏪" text="Control de Caja" onClick={() => { onOpenCashRegister(); onClose(); }} customColor="text-emerald-700 hover:bg-emerald-50" iconBg="bg-emerald-100" />
               <SidebarItem icon="🪑" text="Mesas Activas" badge={quickTablesCount} onClick={() => { onOpenQuickTablePicker(); onClose(); }} customColor="text-blue-700 hover:bg-blue-50" iconBg="bg-blue-100" />
               <SidebarItem icon="📝" text="Tomar Comanda" onClick={() => { navigate('/cashier/take-order'); onClose(); }} customColor="text-teal-700 hover:bg-teal-50" iconBg="bg-teal-100" />
+              <SidebarItem icon="📒" text="Cuaderno Asistencias" onClick={() => { onOpenAttendanceModal(); onClose(); }} customColor="text-cyan-700 hover:bg-cyan-50" iconBg="bg-cyan-100" />
               <SidebarItem icon="📱" text="Notificaciones BREB" onClick={() => { onOpenBrebPanel(); onClose(); }} customColor="text-indigo-700 hover:bg-indigo-50" iconBg="bg-indigo-100" />
               <SidebarItem icon="🗺️" text="Editar Plano de Mesas" onClick={() => { onOpenLayoutEditor(); onClose(); }} customColor="text-amber-700 hover:bg-amber-50" iconBg="bg-amber-100" />
             </div>

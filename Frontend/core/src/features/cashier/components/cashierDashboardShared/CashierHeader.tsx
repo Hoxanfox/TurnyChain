@@ -21,6 +21,7 @@ interface CashierHeaderProps {
   onOpenWaiterSearch?: () => void;
   quickTablesCount?: number;
   onOpenQuickTableSelect?: () => void;
+  onOpenAttendanceModal?: () => void;
 }
 
 export const CashierHeader: React.FC<CashierHeaderProps> = ({
@@ -42,6 +43,7 @@ export const CashierHeader: React.FC<CashierHeaderProps> = ({
   onOpenWaiterSearch,
   quickTablesCount = 0,
   onOpenQuickTableSelect,
+  onOpenAttendanceModal,
 }) => {
   const navigate = useNavigate();
   const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false);
@@ -205,6 +207,17 @@ export const CashierHeader: React.FC<CashierHeaderProps> = ({
                     className="w-full text-left px-4 py-3 text-violet-700 hover:bg-violet-50 font-semibold border-t border-gray-100"
                   >
                     🚦 Monitoreo impresión
+                  </button>
+                )}
+                {onOpenAttendanceModal && (
+                  <button
+                    onClick={() => {
+                      onOpenAttendanceModal();
+                      setIsActionsMenuOpen(false);
+                    }}
+                    className="w-full text-left px-4 py-3 text-cyan-700 hover:bg-cyan-50 font-semibold border-t border-gray-100"
+                  >
+                    📒 Cuaderno Asistencias
                   </button>
                 )}
                 <button

@@ -50,6 +50,9 @@ func main() {
 	if err := applyOrderPaymentsMigration(db); err != nil {
 		log.Fatalf("Error aplicando migraciones de order_payments: %v", err)
 	}
+	if err := applyEmployeeAttendanceMigrations(db); err != nil {
+		log.Fatalf("Error aplicando migraciones de asistencia: %v", err)
+	}
 
 	wsHub := wshub.NewHub()
 	go wsHub.Run()
@@ -80,6 +83,8 @@ func main() {
 	cashRegisterRepo := repository.NewCashRegisterRepository(db)
 	settingRepo := repository.NewSettingRepository(db)
 	bankTransferRepo := repository.NewBankTransferRepository(db)
+	employeeRepo := repository.NewEmployeeRepository(db)
+	attendanceRepo := repository.NewAttendanceRepository(db)
 
 	// Servicios
 	userService := service.NewUserService(userRepo, sessionRepo)
@@ -99,6 +104,8 @@ func main() {
 	cashRegisterService := service.NewCashRegisterService(cashRegisterRepo)
 	settingService := service.NewSettingService(settingRepo, wsHub)
 	bankTransferService := service.NewBankTransferService(bankTransferRepo)
+	employeeService := service.NewEmployeeService(employeeRepo)
+	attendanceService := service.NewAttendanceService(attendanceRepo, employeeRepo)
 
 	// Handlers
 	userHandler := handler.NewUserHandler(userService)
@@ -118,6 +125,8 @@ func main() {
 	cashRegisterHandler := handler.NewCashRegisterHandler(cashRegisterService)
 	settingHandler := handler.NewSettingHandler(settingService)
 	bankTransferHandler := handler.NewBankTransferHandler(bankTransferService, wsHub)
+	employeeHandler := handler.NewEmployeeHandler(employeeService)
+	attendanceHandler := handler.NewAttendanceHandler(attendanceService)
 
 	// Iniciar IMAP Service en background
 	imapService := service.NewImapService(settingService, bankTransferHandler)
@@ -174,7 +183,7 @@ func main() {
 	app.Static("/api/static", uploadsDir)
 
 	// Setup router and pass the cash register repository to setup the middleware
-	router.SetupRoutes(app, authHandler, userHandler, menuHandler, orderHandler, invoiceHandler, tableHandler, categoryHandler, ingredientHandler, accompanimentHandler, wsHandler, stationHandler, printerHandler, kitchenTicketHandler, backupHandler, cashRegisterHandler, settingHandler, bankTransferHandler, sessionRepo, cashRegisterRepo)
+	router.SetupRoutes(app, authHandler, userHandler, menuHandler, orderHandler, invoiceHandler, tableHandler, categoryHandler, ingredientHandler, accompanimentHandler, wsHandler, stationHandler, printerHandler, kitchenTicketHandler, backupHandler, cashRegisterHandler, settingHandler, bankTransferHandler, sessionRepo, cashRegisterRepo, employeeHandler, attendanceHandler)
 
 	// Alias explícitos para compatibilidad de rutas de impresión de cocina.
 	app.Post("/api/orders/:orderId/kitchen-tickets/print/caja", middleware.Protected(sessionRepo), kitchenTicketHandler.PrintGlobalCashTicket)
@@ -326,5 +335,34 @@ func applyCashRegisterMigrations(db *sql.DB) error {
 	}
 
 	log.Println("Migraciones de caja verificadas: cash_register_sessions, cash_register_expenses")
+	return nil
+}
+
+func applyEmployeeAttendanceMigrations(db *sql.DB) error {
+	statements := []string{
+		`CREATE TABLE IF NOT EXISTS employees (
+			id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+			name varchar(255) NOT NULL,
+			role varchar(100) NOT NULL,
+			is_active boolean NOT NULL DEFAULT true,
+			created_at timestamptz NOT NULL DEFAULT now()
+		)`,
+		`CREATE TABLE IF NOT EXISTS attendance_records (
+			id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+			employee_id uuid NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+			action varchar(50) NOT NULL,
+			timestamp timestamptz NOT NULL DEFAULT now()
+		)`,
+		`CREATE INDEX IF NOT EXISTS attendance_employee_id_idx ON attendance_records (employee_id)`,
+		`CREATE INDEX IF NOT EXISTS attendance_timestamp_idx ON attendance_records (timestamp)`,
+	}
+
+	for _, stmt := range statements {
+		if _, err := db.Exec(stmt); err != nil {
+			return err
+		}
+	}
+
+	log.Println("Migraciones de asistencia verificadas: employees, attendance_records")
 	return nil
 }

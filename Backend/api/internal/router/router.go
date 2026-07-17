@@ -11,7 +11,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *handler.UserHandler, menuHandler *handler.MenuHandler, orderHandler *handler.OrderHandler, invoiceHandler *handler.InvoiceHandler, tableHandler *handler.TableHandler, categoryHandler *handler.CategoryHandler, ingredientHandler *handler.IngredientHandler, accompanimentHandler *handler.AccompanimentHandler, wsHandler *handler.WebSocketHandler, stationHandler *handler.StationHandler, printerHandler *handler.PrinterHandler, kitchenTicketHandler *handler.KitchenTicketHandler, backupHandler *handler.BackupHandler, cashRegisterHandler *handler.CashRegisterHandler, settingHandler *handler.SettingHandler, bankTransferHandler *handler.BankTransferHandler, sessionRepo repository.SessionRepository, cashRegisterRepo repository.CashRegisterRepository) {
+func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *handler.UserHandler, menuHandler *handler.MenuHandler, orderHandler *handler.OrderHandler, invoiceHandler *handler.InvoiceHandler, tableHandler *handler.TableHandler, categoryHandler *handler.CategoryHandler, ingredientHandler *handler.IngredientHandler, accompanimentHandler *handler.AccompanimentHandler, wsHandler *handler.WebSocketHandler, stationHandler *handler.StationHandler, printerHandler *handler.PrinterHandler, kitchenTicketHandler *handler.KitchenTicketHandler, backupHandler *handler.BackupHandler, cashRegisterHandler *handler.CashRegisterHandler, settingHandler *handler.SettingHandler, bankTransferHandler *handler.BankTransferHandler, sessionRepo repository.SessionRepository, cashRegisterRepo repository.CashRegisterRepository, employeeHandler *handler.EmployeeHandler, attendanceHandler *handler.AttendanceHandler) {
 	// Ruta pública para WebSockets
 	app.Get("/ws", websocket.New(wsHandler.HandleConnection))
 
@@ -49,6 +49,20 @@ func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *
 	users.Put("/:id", userHandler.UpdateUser)
 	users.Put("/:id/password", userHandler.UpdateUserPassword)
 	users.Delete("/:id", userHandler.DeleteUser)
+
+	// Rutas de Empleados
+	employees := protected.Group("/employees")
+	employees.Post("/", employeeHandler.CreateEmployee)
+	employees.Get("/", employeeHandler.GetEmployees)
+	employees.Put("/:id", employeeHandler.UpdateEmployee)
+	employees.Delete("/:id", employeeHandler.DeleteEmployee)
+
+	// Rutas de Asistencia
+	attendance := protected.Group("/attendance")
+	attendance.Post("/", attendanceHandler.RegisterAttendance)
+	attendance.Get("/today", attendanceHandler.GetTodayAttendanceStatus)
+	attendance.Put("/today", attendanceHandler.UpdateTodayArrival)
+	attendance.Get("/report", attendanceHandler.GetAttendanceReport)
 
 	// Rutas de Menú
 	menu := protected.Group("/menu")

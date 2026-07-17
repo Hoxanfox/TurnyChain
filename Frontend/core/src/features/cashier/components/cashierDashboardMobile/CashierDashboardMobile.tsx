@@ -18,6 +18,7 @@ import { StatusTablesModal } from './components/StatusTablesModal';
 import { TableMapOverviewCard } from './components/TableMapOverviewCard';
 import { TablePaginationModal } from './components/TablePaginationModal';
 import { LayoutEditorModal } from '../layoutEditor/LayoutEditorModal';
+import { AttendanceNotebookModal } from '../cashierDashboardShared/AttendanceNotebookModal';
 
 const FilterModal = React.lazy(() => import('../cashierDashboardShared/FilterModal').then((mod) => ({
   default: mod.FilterModal,
@@ -143,6 +144,7 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
   
   // Layout Editor
   const [isLayoutEditorOpen, setIsLayoutEditorOpen] = useState(false);
+  const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
 
   useEffect(() => {
     if (!shortcutTarget || shortcutNonce === 0) return;
@@ -196,6 +198,7 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
         onOpenBlockchainModal={onOpenBlockchainModal}
         onOpenBrebPanel={onOpenBrebPanel}
         onOpenLayoutEditor={() => setIsLayoutEditorOpen(true)}
+        onOpenAttendanceModal={() => setIsAttendanceModalOpen(true)}
       />
 
       <CashierMobileHeader
@@ -379,6 +382,11 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
       <LayoutEditorModal
         isOpen={isLayoutEditorOpen}
         onClose={() => setIsLayoutEditorOpen(false)}
+      />
+
+      <AttendanceNotebookModal
+        isOpen={isAttendanceModalOpen}
+        onClose={() => setIsAttendanceModalOpen(false)}
       />
     </div>
   );

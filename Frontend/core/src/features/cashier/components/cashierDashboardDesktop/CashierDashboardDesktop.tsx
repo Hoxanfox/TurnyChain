@@ -19,6 +19,7 @@ import { QuickProofView } from '../cashierDashboardShared/QuickProofView';
 import type { CashierNotification, CashierStatistics } from '../../types/cashierDashboardTypes';
 import { Notification } from '../../../../components/Notification';
 import OrderDetailModal from '../../../shared/orders/components/OrderDetailModal';
+import { AttendanceNotebookModal } from '../cashierDashboardShared/AttendanceNotebookModal';
 
 interface CashierDashboardDesktopProps {
   // Estado
@@ -128,6 +129,7 @@ export const CashierDashboardDesktop: React.FC<CashierDashboardDesktopProps> = (
   const [isOrderSearchModalOpen, setIsOrderSearchModalOpen] = useState(false);
   const [isWaiterPickerOpen, setIsWaiterPickerOpen] = useState(false);
   const [isQuickTablePickerOpen, setIsQuickTablePickerOpen] = useState(false);
+  const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
   const [openPrintMonitorSignal, setOpenPrintMonitorSignal] = useState(0);
 
   const isPorCobrarStatus = (status: string) => status === 'entregado' || status === 'pendiente_aprobacion';
@@ -288,6 +290,7 @@ export const CashierDashboardDesktop: React.FC<CashierDashboardDesktopProps> = (
           onOpenMetrics={() => navigate('/cashier/metrics')}
           quickTablesCount={tableNumbers.length}
           onOpenQuickTableSelect={() => setIsQuickTablePickerOpen(true)}
+          onOpenAttendanceModal={() => setIsAttendanceModalOpen(true)}
         />
 
         {/* Estadísticas */}
@@ -567,6 +570,11 @@ export const CashierDashboardDesktop: React.FC<CashierDashboardDesktopProps> = (
             setIsTableModalOpen(true);
           }}
           onClose={() => setIsQuickTablePickerOpen(false)}
+        />
+
+        <AttendanceNotebookModal
+          isOpen={isAttendanceModalOpen}
+          onClose={() => setIsAttendanceModalOpen(false)}
         />
       </div>
     </div>
