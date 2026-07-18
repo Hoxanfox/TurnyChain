@@ -34,8 +34,14 @@ const AttendanceAdminManagement: React.FC = () => {
 
   const handleAction = async (employeeId: string, action: string) => {
     try {
-      // Create date at noon for the selected date to avoid timezone shifts
-      const timestamp = new Date(`${selectedDate}T12:00:00Z`).toISOString();
+      // Create a timestamp using the current time but applied to the selected date.
+      // This ensures that sequential clicks generate sequential timestamps,
+      // and actions made today get the actual current time.
+      const now = new Date();
+      const [year, month, day] = selectedDate.split('-');
+      now.setFullYear(parseInt(year), parseInt(month) - 1, parseInt(day));
+      const timestamp = now.toISOString();
+
       await attendanceApi.registerAttendance(employeeId, action, timestamp);
       await loadAttendance(); // Re-sync with backend
     } catch (err) {

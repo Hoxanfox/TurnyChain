@@ -63,6 +63,21 @@ export const AttendanceNotebookModal: React.FC<AttendanceNotebookModalProps> = (
     }
   }, [isOpen, isUnlocked, showHistory]);
 
+  useEffect(() => {
+    const handleWsUpdate = () => {
+      if (isOpen && isUnlocked) {
+        if (showHistory) {
+          loadHistory();
+        } else {
+          loadEmployees();
+        }
+      }
+    };
+
+    window.addEventListener('attendance_updated', handleWsUpdate);
+    return () => window.removeEventListener('attendance_updated', handleWsUpdate);
+  }, [isOpen, isUnlocked, showHistory]);
+
   const loadEmployees = async () => {
     setIsLoading(true);
     try {
