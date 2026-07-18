@@ -3,7 +3,7 @@
 // =================================================================
 import React, { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { FaUsers, FaClipboardList, FaTable, FaUtensils, FaTags, FaLeaf, FaBreadSlice, FaChevronDown, FaChevronUp, FaPrint, FaDatabase } from 'react-icons/fa';
+import { FaUsers, FaClipboardList, FaTable, FaUtensils, FaTags, FaLeaf, FaBreadSlice, FaChevronDown, FaChevronUp, FaPrint, FaDatabase, FaCalendarCheck } from 'react-icons/fa';
 import { useIsDesktop } from '../../hooks/useMediaQuery';
 import LogoutButton from '../../components/LogoutButton';
 import StatisticsCards from './components/StatisticsCards';
@@ -20,12 +20,13 @@ import BackupManagement from './components/backup/BackupManagement';
 import SettingsManagement from './components/settings/SettingsManagement';
 import MonitoringManagement from './components/monitoring/MonitoringManagement.tsx';
 import EmployeeManagement from './components/employees/EmployeeManagement';
+import AttendanceAdminManagement from './components/attendance/AttendanceAdminManagement';
 import DataExchangeButton from './components/shared/DataExchangeButton';
 import { clearBackendErrors } from './api/backendLogsSlice.ts';
 import type { RootState } from '../../app/store';
 import { FaCog, FaChartBar, FaUserTie } from 'react-icons/fa';
 
-type AdminTab = 'users' | 'employees' | 'orders' | 'tables' | 'menu' | 'categories' | 'ingredients' | 'accompaniments' | 'stations' | 'printers' | 'backup' | 'settings' | 'monitoring';
+type AdminTab = 'users' | 'employees' | 'attendance' | 'orders' | 'tables' | 'menu' | 'categories' | 'ingredients' | 'accompaniments' | 'stations' | 'printers' | 'backup' | 'settings' | 'monitoring';
 
 interface TabConfig {
   id: AdminTab;
@@ -51,6 +52,7 @@ const AdminDashboard: React.FC = () => {
   const tabs: TabConfig[] = [
     { id: 'users', label: 'Usuarios', icon: FaUsers, color: 'blue' },
     { id: 'employees', label: 'Empleados', icon: FaUserTie, color: 'cyan' },
+    { id: 'attendance', label: 'Asistencias', icon: FaCalendarCheck, color: 'emerald' },
     { id: 'orders', label: 'Órdenes', icon: FaClipboardList, color: 'green' },
     { id: 'tables', label: 'Mesas', icon: FaTable, color: 'purple' },
     { id: 'menu', label: 'Menú', icon: FaUtensils, color: 'red' },
@@ -203,6 +205,7 @@ const AdminDashboard: React.FC = () => {
           <div className="animate-fadeIn">
             {activeTab === 'users' && <UserManagement />}
             {activeTab === 'employees' && <EmployeeManagement />}
+            {activeTab === 'attendance' && <AttendanceAdminManagement />}
             {activeTab === 'orders' && <OrderManagement />}
             {activeTab === 'tables' && <TableManagement />}
             {activeTab === 'menu' && <MenuManagement />}

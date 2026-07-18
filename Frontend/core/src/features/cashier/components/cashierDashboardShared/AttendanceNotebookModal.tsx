@@ -101,13 +101,9 @@ export const AttendanceNotebookModal: React.FC<AttendanceNotebookModalProps> = (
   const handleAction = async (employeeId: string, action: string) => {
     try {
       await attendanceApi.registerAttendance(employeeId, action);
-      if (action === 'ENTRADA') {
-        loadEmployees();
-      } else {
-        setEmployees(prev =>
-          prev.map(emp => (emp.id === employeeId ? { ...emp, current_state: action, arrival_time: null } : emp))
-        );
-      }
+      // Siempre recargamos los datos para mantener el estado 100% sincronizado con el backend,
+      // evitando inconsistencias al cambiar rápidamente de FALTA a RESET y a ENTRADA.
+      await loadEmployees();
     } catch (err) {
       console.error('Error registering attendance', err);
     }

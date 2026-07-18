@@ -4,6 +4,7 @@ import (
 
 	"time"
 
+	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/domain"
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/service"
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/websocket"
 	"github.com/gofiber/fiber/v2"
@@ -60,7 +61,20 @@ func (h *AttendanceHandler) RegisterAttendance(c *fiber.Ctx) error {
 }
 
 func (h *AttendanceHandler) GetTodayAttendanceStatus(c *fiber.Ctx) error {
-	status, err := h.service.GetTodayAttendanceStatus()
+	dateStr := c.Query("date")
+	var status []domain.EmployeeAttendance
+	var err error
+
+	if dateStr != "" {
+		d, parseErr := time.Parse("2006-01-02", dateStr)
+		if parseErr != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid date format, expected YYYY-MM-DD"})
+		}
+		status, err = h.service.GetAttendanceStatusByDate(d)
+	} else {
+		status, err = h.service.GetTodayAttendanceStatus()
+	}
+
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to get attendance status"})
 	}

@@ -48,8 +48,9 @@ export const attendanceApi = {
     return response.data;
   },
 
-  getTodayStatus: async (): Promise<EmployeeAttendance[]> => {
-    const response = await axios.get(`${API_URL}/attendance/today`, getAuthHeaders());
+  getTodayStatus: async (date?: string): Promise<EmployeeAttendance[]> => {
+    const url = date ? `${API_URL}/attendance/today?date=${date}` : `${API_URL}/attendance/today`;
+    const response = await axios.get(url, getAuthHeaders());
     return response.data;
   },
 

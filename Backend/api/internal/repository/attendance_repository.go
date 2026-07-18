@@ -11,6 +11,7 @@ type AttendanceRepository interface {
 	CreateRecord(record *domain.AttendanceRecord) (*domain.AttendanceRecord, error)
 	GetRecordsByEmployee(employeeID uuid.UUID, date time.Time) ([]domain.AttendanceRecord, error)
 	GetTodayRecords() ([]domain.AttendanceRecord, error)
+	GetRecordsByDate(date time.Time) ([]domain.AttendanceRecord, error)
 	GetRecordsByDateRange(start, end time.Time) ([]domain.AttendanceRecord, error)
 	UpdateTodayArrival(employeeID uuid.UUID, newTime time.Time) error
 }
@@ -80,9 +81,30 @@ func (r *attendanceRepository) GetTodayRecords() ([]domain.AttendanceRecord, err
 	return records, nil
 }
 
+func (r *attendanceRepository) GetRecordsByDate(date time.Time) ([]domain.AttendanceRecord, error) {
+	startOfDay := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, date.Location())
+	endOfDay := startOfDay.Add(24 * time.Hour)
+
+	query := "SELECT id, employee_id, action, timestamp FROM attendance_records WHERE timestamp >= $1 AND timestamp < $2 ORDER BY timestamp ASC"
+	rows, err := r.db.Query(query, startOfDay, endOfDay)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	records := make([]domain.AttendanceRecord, 0)
+	for rows.Next() {
+		var rec domain.AttendanceRecord
+		if err := rows.Scan(&rec.ID, &rec.EmployeeID, &rec.Action, &rec.Timestamp); err != nil {
+			return nil, err
+		}
+		records = append(records, rec)
+	}
+	return records, nil
+}
+
 func (r *attendanceRepository) UpdateTodayArrival(employeeID uuid.UUID, newTime time.Time) error {
-	now := time.Now()
-	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	startOfDay := time.Date(newTime.Year(), newTime.Month(), newTime.Day(), 0, 0, 0, 0, newTime.Location())
 	endOfDay := startOfDay.Add(24 * time.Hour)
 
 	query := `

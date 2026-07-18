@@ -11,6 +11,7 @@ import (
 type AttendanceService interface {
 	RegisterAttendance(employeeID uuid.UUID, action string, customTime *time.Time) (*domain.AttendanceRecord, error)
 	GetTodayAttendanceStatus() ([]domain.EmployeeAttendance, error)
+	GetAttendanceStatusByDate(date time.Time) ([]domain.EmployeeAttendance, error)
 	GetAttendanceReport(start, end time.Time) ([]domain.AttendanceReport, error)
 	UpdateTodayArrival(employeeID uuid.UUID, customTime time.Time) error
 }
@@ -45,12 +46,16 @@ func (s *attendanceService) RegisterAttendance(employeeID uuid.UUID, action stri
 }
 
 func (s *attendanceService) GetTodayAttendanceStatus() ([]domain.EmployeeAttendance, error) {
+	return s.GetAttendanceStatusByDate(time.Now())
+}
+
+func (s *attendanceService) GetAttendanceStatusByDate(date time.Time) ([]domain.EmployeeAttendance, error) {
 	employees, err := s.employeeRepo.GetEmployees()
 	if err != nil {
 		return nil, err
 	}
 
-	todayRecords, err := s.attendanceRepo.GetTodayRecords()
+	todayRecords, err := s.attendanceRepo.GetRecordsByDate(date)
 	if err != nil {
 		return nil, err
 	}
