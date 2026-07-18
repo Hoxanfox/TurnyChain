@@ -104,7 +104,8 @@ func (r *attendanceRepository) GetRecordsByDate(date time.Time) ([]domain.Attend
 }
 
 func (r *attendanceRepository) UpdateTodayArrival(employeeID uuid.UUID, newTime time.Time) error {
-	startOfDay := time.Date(newTime.Year(), newTime.Month(), newTime.Day(), 0, 0, 0, 0, newTime.Location())
+	localTime := newTime.Local()
+	startOfDay := time.Date(localTime.Year(), localTime.Month(), localTime.Day(), 0, 0, 0, 0, localTime.Location())
 	endOfDay := startOfDay.Add(24 * time.Hour)
 
 	query := `

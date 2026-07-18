@@ -204,7 +204,7 @@ const AttendanceAdminManagement: React.FC = () => {
                             {formatTimeStr(emp.arrival_time)}
                             <button 
                               onClick={() => startEditingTime(emp)}
-                              className="ml-2 text-emerald-400 hover:text-emerald-600 transition-colors opacity-0 group-hover:opacity-100"
+                              className="ml-2 text-emerald-500 hover:text-emerald-700 transition-colors"
                               title="Editar Hora"
                             >
                               <FaEdit size={14} />
