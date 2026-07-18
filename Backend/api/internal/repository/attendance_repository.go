@@ -104,21 +104,17 @@ func (r *attendanceRepository) GetRecordsByDate(date time.Time) ([]domain.Attend
 }
 
 func (r *attendanceRepository) UpdateTodayArrival(employeeID uuid.UUID, newTime time.Time) error {
-	localTime := newTime.Local()
-	startOfDay := time.Date(localTime.Year(), localTime.Month(), localTime.Day(), 0, 0, 0, 0, localTime.Location())
-	endOfDay := startOfDay.Add(24 * time.Hour)
-
 	query := `
 		UPDATE attendance_records
 		SET timestamp = $1
 		WHERE id = (
 			SELECT id FROM attendance_records
-			WHERE employee_id = $2 AND action = 'ENTRADA' AND timestamp >= $3 AND timestamp < $4
+			WHERE employee_id = $2 AND action = 'ENTRADA'
 			ORDER BY timestamp DESC
 			LIMIT 1
 		)
 	`
-	_, err := r.db.Exec(query, newTime, employeeID, startOfDay, endOfDay)
+	_, err := r.db.Exec(query, newTime, employeeID)
 	return err
 }
 
