@@ -82,7 +82,8 @@ func (r *attendanceRepository) GetTodayRecords() ([]domain.AttendanceRecord, err
 }
 
 func (r *attendanceRepository) GetRecordsByDate(date time.Time) ([]domain.AttendanceRecord, error) {
-	startOfDay := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, date.Location())
+	// Always use local timezone for day boundaries
+	startOfDay := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.Local)
 	endOfDay := startOfDay.Add(24 * time.Hour)
 
 	query := "SELECT id, employee_id, action, timestamp FROM attendance_records WHERE timestamp >= $1 AND timestamp < $2 ORDER BY timestamp ASC"
