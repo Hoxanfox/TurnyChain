@@ -114,7 +114,7 @@ func (r *attendanceRepository) UpdateTodayArrival(employeeID uuid.UUID, newTime 
 		WHERE id = (
 			SELECT id FROM attendance_records
 			WHERE employee_id = $2 AND action = 'ENTRADA' AND timestamp >= $3 AND timestamp < $4
-			ORDER BY timestamp ASC
+			ORDER BY timestamp DESC
 			LIMIT 1
 		)
 	`
