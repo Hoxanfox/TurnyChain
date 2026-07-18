@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { attendanceApi, type EmployeeAttendance } from '../../../../cashier/api/attendanceApi';
+import { attendanceApi, type EmployeeAttendance } from '../../../cashier/api/attendanceApi';
 import { FaCalendarAlt, FaCheck, FaTimes, FaUndo, FaClock, FaEdit, FaSave } from 'react-icons/fa';
 
 const AttendanceAdminManagement: React.FC = () => {
