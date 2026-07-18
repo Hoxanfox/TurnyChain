@@ -118,8 +118,9 @@ func (s *attendanceService) GetAttendanceReport(start, end time.Time) ([]domain.
 	}
 
 	type dailyTracking struct {
-		Arrival   *string
-		Departure *string
+		LatestAction string
+		Arrival      *string
+		Departure    *string
 	}
 	tracking := make(map[uuid.UUID]map[string]*dailyTracking)
 
@@ -140,6 +141,8 @@ func (s *attendanceService) GetAttendanceReport(start, end time.Time) ([]domain.
 			empTrack[dateStr] = dayTrack
 		}
 
+		dayTrack.LatestAction = rec.Action
+
 		if rec.Action == "ENTRADA" {
 			if dayTrack.Arrival == nil {
 				t := rec.Timestamp.Format(time.RFC3339)
@@ -148,6 +151,9 @@ func (s *attendanceService) GetAttendanceReport(start, end time.Time) ([]domain.
 		} else if rec.Action == "SALIDA" {
 			t := rec.Timestamp.Format(time.RFC3339)
 			dayTrack.Departure = &t
+		} else if rec.Action == "RESET" || rec.Action == "FALTA" {
+			dayTrack.Arrival = nil
+			dayTrack.Departure = nil
 		}
 	}
 
@@ -157,7 +163,7 @@ func (s *attendanceService) GetAttendanceReport(start, end time.Time) ([]domain.
 		dailyRecords := make([]domain.DailyAttendance, 0, len(empTrack))
 		
 		for dateStr, dt := range empTrack {
-			if dt.Arrival != nil {
+			if dt.Arrival != nil && dt.LatestAction != "FALTA" && dt.LatestAction != "RESET" {
 				dailyRecords = append(dailyRecords, domain.DailyAttendance{
 					Date:          dateStr,
 					ArrivalTime:   dt.Arrival,
