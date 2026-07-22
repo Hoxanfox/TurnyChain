@@ -161,57 +161,46 @@ func (p *ESCPOSPrinter) buildTicketContent(ticket domain.KitchenTicket) string {
 		builder.WriteString(p.line("-", 42))
 		builder.WriteString(CMD_LINE_FEED)
 
+		builder.WriteString(CMD_ALIGN_CENTER)
 		builder.WriteString(CMD_DOUBLE_ON)
 		builder.WriteString(CMD_BOLD_ON)
 
-		// 2. Cantidad y Nombre del Item (con su respectivo salto de línea)
+		// 2. Cantidad y Nombre del Item
 		builder.WriteString(fmt.Sprintf("%dx %s", item.Quantity, item.MenuItemName))
 		builder.WriteString(CMD_LINE_FEED)
 
-		// 3. Precios justo debajo
+		// 3. Precios
 		unitPrice := formatPriceShort(item.Price)
 		subtotal := formatPriceShort(item.Price * item.Quantity)
-		builder.WriteString(fmt.Sprintf("   $%s c/u -> $%s", unitPrice, subtotal))
+		builder.WriteString(fmt.Sprintf("$%s c/u -> $%s", unitPrice, subtotal))
 
 		builder.WriteString(CMD_BOLD_OFF)
 		builder.WriteString(CMD_DOUBLE_OFF)
 		builder.WriteString(CMD_LINE_FEED)
 
-		// 4. Customizaciones y Notas (si existen)
+		// 4. Customizaciones y Notas
 		hasMods := item.Notes != "" || (item.Customizations != nil && (len(item.Customizations.ActiveIngredients) > 0 || len(item.Customizations.SelectedAccompaniments) > 0))
 		if hasMods {
-			builder.WriteString(CMD_LINE_FEED)
-			builder.WriteString(CMD_ALIGN_CENTER)
 			builder.WriteString(CMD_INVERT_ON)
 			builder.WriteString(CMD_BOLD_ON)
-			builder.WriteString(CMD_DOUBLE_ON)
 			builder.WriteString(" >>> MODIFICADO <<< ")
-			builder.WriteString(CMD_DOUBLE_OFF)
 			builder.WriteString(CMD_BOLD_OFF)
 			builder.WriteString(CMD_INVERT_OFF)
-			builder.WriteString(CMD_ALIGN_LEFT)
-			builder.WriteString(CMD_LINE_FEED)
 			builder.WriteString(CMD_LINE_FEED)
 		}
 
 		if item.IsTakeout {
-			builder.WriteString(CMD_LINE_FEED)
-			builder.WriteString(CMD_ALIGN_CENTER)
 			builder.WriteString(CMD_INVERT_ON)
 			builder.WriteString(CMD_BOLD_ON)
-			builder.WriteString(CMD_DOUBLE_ON)
 			builder.WriteString(" >>> PARA LLEVAR <<< ")
-			builder.WriteString(CMD_DOUBLE_OFF)
 			builder.WriteString(CMD_BOLD_OFF)
 			builder.WriteString(CMD_INVERT_OFF)
-			builder.WriteString(CMD_ALIGN_LEFT)
-			builder.WriteString(CMD_LINE_FEED)
 			builder.WriteString(CMD_LINE_FEED)
 		}
 
 		if item.Customizations != nil {
 			if len(item.Customizations.ActiveIngredients) > 0 {
-				builder.WriteString("   CON: ")
+				builder.WriteString("CON: ")
 				ings := []string{}
 				for _, ing := range item.Customizations.ActiveIngredients {
 					ings = append(ings, ing.Name)
@@ -219,7 +208,7 @@ func (p *ESCPOSPrinter) buildTicketContent(ticket domain.KitchenTicket) string {
 				builder.WriteString(strings.Join(ings, ", ") + CMD_LINE_FEED)
 			}
 			if len(item.Customizations.SelectedAccompaniments) > 0 {
-				builder.WriteString("   ACOMP: ")
+				builder.WriteString("ACOMP: ")
 				accs := []string{}
 				for _, acc := range item.Customizations.SelectedAccompaniments {
 					accs = append(accs, acc.Name)
@@ -229,16 +218,11 @@ func (p *ESCPOSPrinter) buildTicketContent(ticket domain.KitchenTicket) string {
 		}
 
 		if item.Notes != "" {
-			builder.WriteString(CMD_UNDERLINE_ON + "   NOTA: " + item.Notes + CMD_UNDERLINE_OFF + CMD_LINE_FEED)
+			builder.WriteString(CMD_UNDERLINE_ON + "NOTA: " + item.Notes + CMD_UNDERLINE_OFF + CMD_LINE_FEED)
 		}
-
-		// 5. Línea inferior divisoria por ítem
-		builder.WriteString(p.line("-", 42))
-		builder.WriteString(CMD_LINE_FEED)
-
-		// Un pequeño espacio extra entre ítems para que respire el diseño
-		builder.WriteString(CMD_LINE_FEED)
 	}
+
+	builder.WriteString(CMD_ALIGN_LEFT)
 
 	// === TOTAL PARA CAJA ===
 	// Si la estación contiene "CAJA", calculamos el total de los items presentes en este ticket
