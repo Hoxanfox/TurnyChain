@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/domain"
+	"golang.org/x/text/encoding/charmap"
 )
 
 // Comandos ESC/POS básicos
@@ -18,8 +19,9 @@ const (
 	ESC = "\x1b"
 	GS  = "\x1d"
 
-	// Inicialización
-	CMD_INIT = ESC + "@"
+	// Inicialización y Codepage
+	CMD_INIT          = ESC + "@"
+	CMD_CODEPAGE_1252 = ESC + "t" + "\x10" // Latin 1 (Windows-1252)
 
 	// Alineación
 	CMD_ALIGN_LEFT   = ESC + "a" + "\x00"
@@ -33,6 +35,10 @@ const (
 	CMD_DOUBLE_OFF    = GS + "!" + "\x00"
 	CMD_UNDERLINE_ON  = ESC + "-" + "\x01"
 	CMD_UNDERLINE_OFF = ESC + "-" + "\x00"
+
+	// Colores / Invertido
+	CMD_INVERT_ON  = GS + "B" + "\x01"
+	CMD_INVERT_OFF = GS + "B" + "\x00"
 
 	// Corte de papel
 	CMD_CUT_FULL    = GS + "V" + "\x00"
@@ -99,6 +105,7 @@ func (p *ESCPOSPrinter) buildTicketContent(ticket domain.KitchenTicket) string {
 
 	// Inicializar impresora
 	builder.WriteString(CMD_INIT)
+	builder.WriteString(CMD_CODEPAGE_1252)
 
 	// === ENCABEZADO ===
 	builder.WriteString(CMD_ALIGN_CENTER)
@@ -137,7 +144,7 @@ func (p *ESCPOSPrinter) buildTicketContent(ticket domain.KitchenTicket) string {
 	builder.WriteString(CMD_ALIGN_CENTER)
 	// Convertir la hora a zona horaria de Colombia antes de formatear
 	colombiaTime := toColombiaTime(ticket.CreatedAt)
-	builder.WriteString(fmt.Sprintf("Hora: %s", colombiaTime.Format("15:04:05")))
+	builder.WriteString(fmt.Sprintf("Fecha: %s", colombiaTime.Format("02/01/2006 15:04:05")))
 	builder.WriteString(CMD_LINE_FEED)
 
 	builder.WriteString(p.line("-", 42))
@@ -171,8 +178,35 @@ func (p *ESCPOSPrinter) buildTicketContent(ticket domain.KitchenTicket) string {
 		builder.WriteString(CMD_LINE_FEED)
 
 		// 4. Customizaciones y Notas (si existen)
+		hasMods := item.Notes != "" || (item.Customizations != nil && (len(item.Customizations.ActiveIngredients) > 0 || len(item.Customizations.SelectedAccompaniments) > 0))
+		if hasMods {
+			builder.WriteString(CMD_LINE_FEED)
+			builder.WriteString(CMD_ALIGN_CENTER)
+			builder.WriteString(CMD_INVERT_ON)
+			builder.WriteString(CMD_BOLD_ON)
+			builder.WriteString(CMD_DOUBLE_ON)
+			builder.WriteString(" >>> MODIFICADO <<< ")
+			builder.WriteString(CMD_DOUBLE_OFF)
+			builder.WriteString(CMD_BOLD_OFF)
+			builder.WriteString(CMD_INVERT_OFF)
+			builder.WriteString(CMD_ALIGN_LEFT)
+			builder.WriteString(CMD_LINE_FEED)
+			builder.WriteString(CMD_LINE_FEED)
+		}
+
 		if item.IsTakeout {
-			builder.WriteString("   >>> PARA LLEVAR <<<" + CMD_LINE_FEED)
+			builder.WriteString(CMD_LINE_FEED)
+			builder.WriteString(CMD_ALIGN_CENTER)
+			builder.WriteString(CMD_INVERT_ON)
+			builder.WriteString(CMD_BOLD_ON)
+			builder.WriteString(CMD_DOUBLE_ON)
+			builder.WriteString(" >>> PARA LLEVAR <<< ")
+			builder.WriteString(CMD_DOUBLE_OFF)
+			builder.WriteString(CMD_BOLD_OFF)
+			builder.WriteString(CMD_INVERT_OFF)
+			builder.WriteString(CMD_ALIGN_LEFT)
+			builder.WriteString(CMD_LINE_FEED)
+			builder.WriteString(CMD_LINE_FEED)
 		}
 
 		if item.Customizations != nil {
@@ -260,6 +294,12 @@ func (p *ESCPOSPrinter) line(char string, length int) string {
 
 // sendToNetwork envía los datos a la impresora vía TCP/IP con reintentos
 func (p *ESCPOSPrinter) sendToNetwork(data string) error {
+	// Intentamos codificar el texto a Windows-1252 para soportar tildes y eñes
+	encodedData, err := charmap.Windows1252.NewEncoder().String(data)
+	if err == nil {
+		data = encodedData
+	}
+
 	address := fmt.Sprintf("%s:%d", p.host, p.port)
 	var lastErr error
 

@@ -1,10 +1,12 @@
 import React, { useState, useRef } from 'react';
 import { MdClose, MdAttachMoney, MdPhoneAndroid, MdCameraAlt, MdDelete, MdAdd, MdImage } from 'react-icons/md';
+import { FaQrcode } from 'react-icons/fa';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../../../app/store';
 import { uploadSplitPayments, updateOrderStatus, searchBankTransfers, linkBankTransfer } from '../../shared/orders/api/ordersAPI.ts';
 import type { PaymentInput } from '../../shared/orders/api/ordersAPI.ts';
 import { compressImage, validateImageFile } from '../../../utils/imageUtils';
+import QRModal from './QRModal';
 
 interface CheckoutModalProps {
   orderId: string;
@@ -26,6 +28,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const isGlobalCheckout = groupOrderInfos && groupOrderInfos.length > 1;
 
   // Estados
+  const [showQR, setShowQR] = useState(false);
   type LocalPaymentInput = PaymentInput & { transferToLink?: any };
   const [payments, setPayments] = useState<LocalPaymentInput[]>([]);
   const [paymentState, setPaymentState] = useState<PaymentState>('summary');
@@ -292,13 +295,23 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
               {isGlobalCheckout ? `Pago global para ${targetOrderIds.length} comandas` : 'Pagos de la orden'}
             </p>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 bg-gray-800 rounded-full hover:bg-gray-700 transition-colors"
-            disabled={isSubmitting}
-          >
-            <MdClose size={24} />
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowQR(true)}
+              className="p-2 bg-gray-800 text-indigo-400 rounded-full hover:bg-gray-700 hover:text-indigo-300 transition-colors"
+              title="Mostrar QR"
+              disabled={isSubmitting}
+            >
+              <FaQrcode size={24} />
+            </button>
+            <button
+              onClick={onClose}
+              className="p-2 bg-gray-800 rounded-full hover:bg-gray-700 hover:text-red-400 transition-colors"
+              disabled={isSubmitting}
+            >
+              <MdClose size={24} />
+            </button>
+          </div>
         </div>
 
         {paymentState === 'summary' ? (
@@ -609,6 +622,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
           </div>
         )}
       </div>
+      {showQR && <QRModal onClose={() => setShowQR(false)} />}
     </div>
   );
 };
