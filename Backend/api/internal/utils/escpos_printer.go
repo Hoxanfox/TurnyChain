@@ -186,24 +186,24 @@ func (p *ESCPOSPrinter) buildTicketContent(ticket domain.KitchenTicket) string {
 			builder.WriteString(CMD_BOLD_OFF)
 			builder.WriteString(CMD_INVERT_OFF)
 			builder.WriteString(CMD_LINE_FEED)
+		}
 
-			if item.Customizations != nil {
-				if len(item.Customizations.ActiveIngredients) > 0 {
-					builder.WriteString("CON: ")
-					ings := []string{}
-					for _, ing := range item.Customizations.ActiveIngredients {
-						ings = append(ings, ing.Name)
-					}
-					builder.WriteString(strings.Join(ings, ", ") + CMD_LINE_FEED)
+		if item.Customizations != nil {
+			if len(item.Customizations.ActiveIngredients) > 0 {
+				builder.WriteString("CON: ")
+				ings := []string{}
+				for _, ing := range item.Customizations.ActiveIngredients {
+					ings = append(ings, ing.Name)
 				}
-				if len(item.Customizations.SelectedAccompaniments) > 0 {
-					builder.WriteString("ACOMP: ")
-					accs := []string{}
-					for _, acc := range item.Customizations.SelectedAccompaniments {
-						accs = append(accs, acc.Name)
-					}
-					builder.WriteString(strings.Join(accs, ", ") + CMD_LINE_FEED)
+				builder.WriteString(strings.Join(ings, ", ") + CMD_LINE_FEED)
+			}
+			if len(item.Customizations.SelectedAccompaniments) > 0 {
+				builder.WriteString("ACOMP: ")
+				accs := []string{}
+				for _, acc := range item.Customizations.SelectedAccompaniments {
+					accs = append(accs, acc.Name)
 				}
+				builder.WriteString(strings.Join(accs, ", ") + CMD_LINE_FEED)
 			}
 		}
 
