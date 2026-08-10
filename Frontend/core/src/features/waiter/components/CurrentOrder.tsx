@@ -262,9 +262,8 @@ const CurrentOrder: React.FC<CurrentOrderProps> = ({
           </button>
           <button
             onClick={() => onChargeAndSendOrder(orderType === 'llevar' ? takeoutNotes : undefined)}
-            className="w-full bg-gray-400 text-white py-3 rounded-2xl cursor-not-allowed font-bold text-sm shadow-none opacity-50"
-            disabled={true}
-            title="Deshabilitado temporalmente"
+            className="w-full bg-indigo-600 text-white py-3 rounded-2xl hover:bg-indigo-700 active:bg-indigo-800 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all font-bold text-sm shadow-md disabled:shadow-none"
+            disabled={!tableId || cart.length === 0 || (orderType === 'llevar' && takeoutNotes.trim() === '')}
           >
             Cobrar y Enviar
           </button>
