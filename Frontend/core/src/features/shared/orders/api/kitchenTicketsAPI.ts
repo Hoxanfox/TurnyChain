@@ -8,6 +8,7 @@ import type {
   KitchenTicketsPreview,
   PrintKitchenTicketsResponse,
 } from '../../../../types/kitchen_tickets';
+import { printViaWebSerial } from '../../../../utils/usbPrinterUtils';
 
 // Función helper para obtener el token del localStorage
 const getAuthConfig = () => {
@@ -38,6 +39,7 @@ export const kitchenTicketsAPI = {
       { order_id: orderId, reprint },
       getAuthConfig()
     );
+    await handleUSBPrinting(response.data);
     return response.data;
   },
 
@@ -48,6 +50,7 @@ export const kitchenTicketsAPI = {
       { order_id: orderId, reprint },
       getAuthConfig()
     );
+    await handleUSBPrinting(response.data);
     return response.data;
   },
 
@@ -58,6 +61,7 @@ export const kitchenTicketsAPI = {
       { order_id: orderId },
       getAuthConfig()
     );
+    await handleUSBPrinting(response.data);
     return response.data;
   },
 
@@ -108,5 +112,27 @@ export const kitchenTicketsAPI = {
     );
     return response.data;
   },
+};
+
+// Helper para interceptar y procesar tickets que requieren impresión USB local
+const handleUSBPrinting = async (data: PrintKitchenTicketsResponse) => {
+  if (data.tickets && data.tickets.length > 0) {
+    for (const ticket of data.tickets) {
+      if (ticket.printer_type === 'usb' && ticket.raw_content) {
+        // Enviar a la impresora USB local usando la Web Serial API
+        const success = await printViaWebSerial(ticket.raw_content);
+        if (!success) {
+          console.error('Falló la impresión USB para el ticket', ticket);
+          if (!data.failed_prints) data.failed_prints = [];
+          data.failed_prints.push({
+            printer_name: 'USB Printer (Local)',
+            station_name: ticket.station_name,
+            error: 'No se pudo conectar o enviar datos a la impresora USB local. Verifica que esté conectada y encendida.'
+          });
+          data.success = false;
+        }
+      }
+    }
+  }
 };
 

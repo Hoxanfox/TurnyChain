@@ -16,6 +16,7 @@ const (
 	PrinterTypeESCPOS PrinterType = "escpos" // Impresoras térmicas ESC/POS (más común)
 	PrinterTypePDF    PrinterType = "pdf"    // Generar PDF (para pruebas)
 	PrinterTypeRaw    PrinterType = "raw"    // Envío directo de comandos raw
+	PrinterTypeUSB    PrinterType = "usb"    // Impresión USB mediante Web Serial desde Frontend
 )
 
 // Printer representa una impresora física asociada a una estación
@@ -34,8 +35,8 @@ type Printer struct {
 // CreatePrinterRequest es el payload para crear una impresora
 type CreatePrinterRequest struct {
 	Name        string      `json:"name" binding:"required"`
-	IPAddress   string      `json:"ip_address" binding:"required"`
-	Port        int         `json:"port" binding:"required"`
+	IPAddress   string      `json:"ip_address"`
+	Port        int         `json:"port"`
 	PrinterType PrinterType `json:"printer_type" binding:"required"`
 	StationID   uuid.UUID   `json:"station_id" binding:"required"`
 }

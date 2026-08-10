@@ -21,6 +21,8 @@ type KitchenTicket struct {
 	CreatedAt    time.Time           `json:"created_at"`
 	OrderType    string              `json:"order_type"` // "mesa", "llevar", "domicilio"
 	SpecialNotes string              `json:"special_notes,omitempty"`
+	RawContent   string              `json:"raw_content,omitempty"`  // Contenido ESC/POS raw (para USB)
+	PrinterType  PrinterType         `json:"printer_type,omitempty"` // Para que el frontend sepa cómo imprimir
 }
 
 // KitchenTicketItem representa un item dentro del ticket de cocina

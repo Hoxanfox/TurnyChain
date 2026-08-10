@@ -47,9 +47,19 @@ const PrinterManagement: React.FC = () => {
   };
 
   const handleCreate = async () => {
-    if (!formData.name.trim() || !formData.ip_address.trim() || !formData.station_id) {
-      alert('Todos los campos obligatorios deben ser completados');
+    if (!formData.name.trim() || !formData.station_id) {
+      alert('Nombre y Estación son obligatorios');
       return;
+    }
+    if (formData.printer_type !== 'usb' && !formData.ip_address?.trim()) {
+      alert('Dirección IP es obligatoria para impresoras de red');
+      return;
+    }
+
+    const payload = { ...formData };
+    if (payload.printer_type === 'usb') {
+      payload.ip_address = 'localhost';
+      payload.port = 0;
     }
 
     try {
@@ -66,8 +76,19 @@ const PrinterManagement: React.FC = () => {
   const handleUpdate = async () => {
     if (!editingPrinter || !formData.name.trim()) return;
 
+    if (formData.printer_type !== 'usb' && !formData.ip_address?.trim()) {
+      alert('Dirección IP es obligatoria para impresoras de red');
+      return;
+    }
+
+    const payload = { ...formData };
+    if (payload.printer_type === 'usb') {
+      payload.ip_address = 'localhost';
+      payload.port = 0;
+    }
+
     try {
-      await printersAPI.update(editingPrinter.id, formData);
+      await printersAPI.update(editingPrinter.id, payload);
       setEditingPrinter(null);
       resetForm();
       loadData();
@@ -109,8 +130,8 @@ const PrinterManagement: React.FC = () => {
     setEditingPrinter(printer);
     setFormData({
       name: printer.name,
-      ip_address: printer.ip_address,
-      port: printer.port,
+      ip_address: printer.ip_address || '',
+      port: printer.port || 9100,
       printer_type: printer.printer_type,
       station_id: printer.station_id,
     });
@@ -134,6 +155,7 @@ const PrinterManagement: React.FC = () => {
   const getPrinterTypeLabel = (type: PrinterType) => {
     const labels = {
       escpos: '🖨️ ESC/POS (Térmica)',
+      usb: '🔌 USB / COM (Serial)',
       pdf: '📄 PDF',
       raw: '⚙️ Raw',
     };
@@ -314,29 +336,33 @@ const PrinterManagement: React.FC = () => {
                 </select>
               </div>
 
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Dirección IP *
-                </label>
-                <input
-                  type="text"
-                  value={formData.ip_address}
-                  onChange={(e) => setFormData({ ...formData, ip_address: e.target.value })}
-                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none"
-                  placeholder="192.168.1.101"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Puerto *</label>
-                <input
-                  type="number"
-                  value={formData.port}
-                  onChange={(e) => setFormData({ ...formData, port: parseInt(e.target.value) })}
-                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none"
-                  placeholder="9100"
-                />
-              </div>
+              {formData.printer_type !== 'usb' && (
+                <>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Dirección IP *
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.ip_address}
+                      onChange={(e) => setFormData({ ...formData, ip_address: e.target.value })}
+                      className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none"
+                      placeholder="192.168.1.101"
+                    />
+                  </div>
+    
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Puerto *</label>
+                    <input
+                      type="number"
+                      value={formData.port}
+                      onChange={(e) => setFormData({ ...formData, port: parseInt(e.target.value) })}
+                      className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none"
+                      placeholder="9100"
+                    />
+                  </div>
+                </>
+              )}
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -349,7 +375,8 @@ const PrinterManagement: React.FC = () => {
                   }
                   className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none"
                 >
-                  <option value="escpos">🖨️ ESC/POS (Impresora Térmica)</option>
+                  <option value="escpos">🖨️ ESC/POS (Red TCP/IP)</option>
+                  <option value="usb">🔌 USB / COM (Web Serial)</option>
                   <option value="pdf">📄 PDF (Para pruebas)</option>
                   <option value="raw">⚙️ Raw (Comandos directos)</option>
                 </select>

@@ -93,14 +93,14 @@ func NewESCPOSPrinter(host string, port int) *ESCPOSPrinter {
 // PrintKitchenTicket imprime un ticket de cocina
 func (p *ESCPOSPrinter) PrintKitchenTicket(ticket domain.KitchenTicket) error {
 	// Construir el contenido del ticket
-	content := p.buildTicketContent(ticket)
+	content := p.BuildTicketContent(ticket)
 
 	// Enviar a la impresora
 	return p.sendToNetwork(content)
 }
 
-// buildTicketContent construye el contenido ESC/POS del ticket
-func (p *ESCPOSPrinter) buildTicketContent(ticket domain.KitchenTicket) string {
+// BuildTicketContent construye el contenido ESC/POS del ticket
+func (p *ESCPOSPrinter) BuildTicketContent(ticket domain.KitchenTicket) string {
 	var builder strings.Builder
 
 	// Inicializar impresora

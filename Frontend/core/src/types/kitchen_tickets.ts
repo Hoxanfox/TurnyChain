@@ -25,6 +25,8 @@ export interface KitchenTicket {
   created_at: string;
   order_type: string;
   special_notes?: string;
+  raw_content?: string;
+  printer_type?: string;
 }
 
 export interface KitchenTicketStationSummary {

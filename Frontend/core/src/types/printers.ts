@@ -3,13 +3,13 @@
 // Tipos para el sistema de impresoras
 // =================================================================
 
-export type PrinterType = 'escpos' | 'pdf' | 'raw';
+export type PrinterType = 'escpos' | 'pdf' | 'raw' | 'usb';
 
 export interface Printer {
   id: string;
   name: string;
-  ip_address: string;
-  port: number;
+  ip_address?: string;
+  port?: number;
   printer_type: PrinterType;
   station_id: string;
   station_name?: string;
@@ -19,8 +19,8 @@ export interface Printer {
 
 export interface CreatePrinterRequest {
   name: string;
-  ip_address: string;
-  port: number;
+  ip_address?: string;
+  port?: number;
   printer_type: PrinterType;
   station_id: string;
 }

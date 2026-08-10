@@ -721,7 +721,7 @@ func (s *KitchenTicketService) PrintGlobalOrderTicket(orderID uuid.UUID) error {
 	}
 
 	// 6. Enviar a la impresora principal de Caja
-	return s.sendToPrinter(printers[0], globalTicket)
+	return s.sendToPrinter(printers[0], &globalTicket)
 }
 
 // PrintGlobalOrderTicketResponse imprime la comanda global de Caja y devuelve una respuesta estándar.
@@ -784,7 +784,8 @@ func (s *KitchenTicketService) PrintKitchenTickets(orderID uuid.UUID, reprint bo
 	var failedPrints []domain.FailedPrintInfo
 	successCount := 0
 
-	for _, ticket := range tickets {
+	for i := range tickets {
+		ticket := tickets[i]
 		printers, exists := printersByStation[ticket.StationID]
 		if !exists || len(printers) == 0 {
 			failedPrints = append(failedPrints, domain.FailedPrintInfo{
@@ -799,7 +800,7 @@ func (s *KitchenTicketService) PrintKitchenTickets(orderID uuid.UUID, reprint bo
 		// En el futuro se puede implementar load balancing o backup printers
 		printer := printers[0]
 
-		err := s.sendToPrinter(printer, ticket)
+		err := s.sendToPrinter(printer, &tickets[i])
 		if err != nil {
 			failedPrints = append(failedPrints, domain.FailedPrintInfo{
 				StationName: ticket.StationName,
@@ -831,7 +832,7 @@ func (s *KitchenTicketService) PrintKitchenTickets(orderID uuid.UUID, reprint bo
 }
 
 // sendToPrinter envía el ticket a una impresora específica
-func (s *KitchenTicketService) sendToPrinter(printer domain.Printer, ticket domain.KitchenTicket) error {
+func (s *KitchenTicketService) sendToPrinter(printer domain.Printer, ticket *domain.KitchenTicket) error {
 	log.Printf("📄 Enviando ticket a %s (%s:%d)", printer.Name, printer.IPAddress, printer.Port)
 	log.Printf("   Orden: %s | Mesa: %d | Estación: %s", ticket.OrderNumber, ticket.TableNumber, ticket.StationName)
 	log.Printf("   Items: %d", len(ticket.Items))
@@ -849,7 +850,7 @@ func (s *KitchenTicketService) sendToPrinter(printer domain.Printer, ticket doma
 	case domain.PrinterTypeESCPOS:
 		// Impresión ESC/POS real
 		escposPrinter := utils.NewESCPOSPrinter(printer.IPAddress, printer.Port)
-		err := escposPrinter.PrintKitchenTicket(ticket)
+		err := escposPrinter.PrintKitchenTicket(*ticket)
 		if err != nil {
 			return fmt.Errorf("error al imprimir ticket ESC/POS: %w", err)
 		}
@@ -869,6 +870,15 @@ func (s *KitchenTicketService) sendToPrinter(printer domain.Printer, ticket doma
 		// TODO: Implementar envío raw
 		log.Printf("⚠️  Envío raw no implementado aún")
 		return fmt.Errorf("envío raw no implementado")
+
+	case domain.PrinterTypeUSB:
+		// Para USB, generamos el contenido ESC/POS y lo adjuntamos al ticket 
+		// para que el frontend se encargue de enviarlo a la impresora local.
+		ticket.PrinterType = domain.PrinterTypeUSB
+		escposPrinter := utils.NewESCPOSPrinter("localhost", 0) // dummy printer
+		ticket.RawContent = escposPrinter.BuildTicketContent(*ticket)
+		log.Printf("✅ Ticket USB preparado para enviar al frontend")
+		return nil
 
 	default:
 		return fmt.Errorf("tipo de impresora no soportado: %s", printer.PrinterType)
@@ -957,7 +967,7 @@ func (s *KitchenTicketService) PrintKitchenTicketsByStation(orderID uuid.UUID, s
 		}, nil
 	}
 
-	err = s.sendToPrinter(printers[0], *ticket)
+	err = s.sendToPrinter(printers[0], ticket)
 	if err != nil {
 		return &domain.PrintResponse{
 			Success:     false,
