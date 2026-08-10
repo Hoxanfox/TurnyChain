@@ -872,18 +872,12 @@ func (s *KitchenTicketService) sendToPrinter(printer domain.Printer, ticket *dom
 		return fmt.Errorf("envío raw no implementado")
 
 	case domain.PrinterTypeUSB:
-		// Para USB, generamos el contenido ESC/POS y lo adjuntamos al ticket 
+		// Para USB, generamos el contenido ESC/POS y lo adjuntamos al ticket
 		// para que el frontend se encargue de enviarlo a la impresora local.
 		ticket.PrinterType = domain.PrinterTypeUSB
 		escposPrinter := utils.NewESCPOSPrinter("localhost", 0) // dummy printer
 		ticket.RawContent = escposPrinter.BuildTicketContent(*ticket)
 		log.Printf("✅ Ticket USB preparado para enviar al frontend")
-		
-		// Emitir el payload por WebSocket para que el frontend del cajero lo imprima silenciosamente
-		if s.wsHub != nil {
-			s.wsHub.BroadcastMessage("PRINT_USB_TICKET", ticket)
-		}
-		
 		return nil
 
 	default:

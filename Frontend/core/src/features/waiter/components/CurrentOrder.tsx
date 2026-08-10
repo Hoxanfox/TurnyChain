@@ -100,7 +100,7 @@ const CurrentOrder: React.FC<CurrentOrderProps> = ({
         </div>
       )}
 
-<div className="flex-grow space-y-3 mb-4 overflow-y-auto">
+      <div className="flex-grow space-y-3 mb-4 overflow-y-auto">
         {cart.length === 0 && (
           <p className="text-gray-400 text-sm text-center mt-10">El carrito está vacío</p>
         )}
@@ -207,11 +207,10 @@ const CurrentOrder: React.FC<CurrentOrderProps> = ({
                       {orderType === 'mesa' && onToggleTakeout && (
                         <button
                           onClick={() => onToggleTakeout(item.cartItemId)}
-                          className={`text-xs px-2 py-1 rounded-lg border font-medium transition-colors ${
-                            item.is_takeout
+                          className={`text-xs px-2 py-1 rounded-lg border font-medium transition-colors ${item.is_takeout
                               ? 'bg-green-50 border-green-200 text-green-700'
                               : 'bg-blue-50 border-blue-200 text-blue-700'
-                          }`}
+                            }`}
                           title="Cambiar tipo"
                         >
                           {item.is_takeout ? '🥡' : '🍽️'}
@@ -263,8 +262,9 @@ const CurrentOrder: React.FC<CurrentOrderProps> = ({
           </button>
           <button
             onClick={() => onChargeAndSendOrder(orderType === 'llevar' ? takeoutNotes : undefined)}
-            className="w-full bg-indigo-600 text-white py-3 rounded-2xl hover:bg-indigo-700 active:bg-indigo-800 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all font-bold text-sm shadow-md disabled:shadow-none"
-            disabled={!tableId || cart.length === 0 || (orderType === 'llevar' && takeoutNotes.trim() === '')}
+            className="w-full bg-gray-400 text-white py-3 rounded-2xl cursor-not-allowed font-bold text-sm shadow-none opacity-50"
+            disabled={true}
+            title="Deshabilitado temporalmente"
           >
             Cobrar y Enviar
           </button>

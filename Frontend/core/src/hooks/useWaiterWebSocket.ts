@@ -100,17 +100,6 @@ export const useWaiterWebSocket = (
           handleOrderStatusUpdate(message.payload);
           break;
 
-        case 'PRINT_USB_TICKET':
-          console.log('🖨️ [Mesero] Recibido ticket USB para imprimir en background');
-          if (message.payload && message.payload.raw_content) {
-            import('../utils/usbPrinterUtils').then(({ printViaWebSerial }) => {
-              printViaWebSerial(message.payload.raw_content).catch((err: any) => {
-                console.error('Error en impresión USB silenciosa:', err);
-              });
-            });
-          }
-          break;
-
         case 'ORDER_UPDATED':
           handleOrderUpdate(message.payload);
           break;
@@ -146,8 +135,8 @@ export const useWaiterWebSocket = (
           break;
 
         case 'SYNC_SOLD_OUT':
-          dispatch(setSyncSoldOut({ 
-            menus: message.payload.menus || [], 
+          dispatch(setSyncSoldOut({
+            menus: message.payload.menus || [],
             accompaniments: message.payload.accompaniments || [],
             ingredients: message.payload.ingredients || []
           }));
@@ -168,7 +157,7 @@ export const useWaiterWebSocket = (
         default:
           console.log('📬 [Mesero] Evento:', message.type);
       }
-      
+
       if (onRawMessageRef.current) {
         onRawMessageRef.current(message);
       }
@@ -297,7 +286,7 @@ export const useWaiterWebSocket = (
 
         // Sincroniza datos al reconectar por si se perdieron eventos mientras estuvo caído.
         scheduleOrdersRefresh(undefined, { force: true, includeTeamOrders: true });
-        
+
         // Solicita sincronización de productos agotados
         if (ws.current?.readyState === WebSocket.OPEN) {
           ws.current.send(JSON.stringify({ type: 'REQUEST_SOLD_OUT_SYNC' }));
@@ -350,7 +339,7 @@ export const useWaiterWebSocket = (
 
         const nextAttempt = reconnectAttempts.current + 1;
         reconnectAttempts.current = nextAttempt;
-        const delayMs = Math.min(1000 * Math.pow(2, nextAttempt-1), 10000);
+        const delayMs = Math.min(1000 * Math.pow(2, nextAttempt - 1), 10000);
 
         console.log(`🔁 [Mesero] Reintentando WebSocket en ${delayMs}ms (intento ${nextAttempt})`);
         clearReconnectTimer();

@@ -160,11 +160,13 @@ func (p *ESCPOSPrinter) BuildTicketContent(ticket domain.KitchenTicket) string {
 
 	for _, item := range ticket.Items {
 		builder.WriteString(CMD_ALIGN_LEFT)
+		builder.WriteString(CMD_DOUBLE_ON)
 		builder.WriteString(CMD_BOLD_ON)
 
 		// 2. Cantidad y Nombre del Item
 		builder.WriteString(fmt.Sprintf("%dx %s", item.Quantity, item.MenuItemName))
 		builder.WriteString(CMD_LINE_FEED)
+		builder.WriteString(CMD_DOUBLE_OFF) // Restaurar tamaño normal para customizaciones y notas
 
 		// 3. Precios (solo si es caja)
 		if isCaja {
@@ -262,7 +264,7 @@ func (p *ESCPOSPrinter) BuildTicketContent(ticket domain.KitchenTicket) string {
 	builder.WriteString(CMD_DOUBLE_OFF + CMD_LINE_FEED)
 
 	builder.WriteString(p.line("-", 42) + CMD_LINE_FEED)
-	builder.WriteString(CMD_LINE_FEED + CMD_LINE_FEED)
+	builder.WriteString(CMD_LINE_FEED + CMD_LINE_FEED + CMD_LINE_FEED)
 	builder.WriteString(CMD_CUT_PARTIAL)
 
 	return builder.String()

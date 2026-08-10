@@ -80,7 +80,7 @@ CREATE TABLE "printers" (
   "name" varchar(100) UNIQUE NOT NULL,
   "ip_address" varchar(45) NOT NULL,
   "port" integer NOT NULL DEFAULT 9100,
-  "printer_type" varchar(20) NOT NULL DEFAULT 'escpos' CHECK (printer_type IN ('escpos', 'pdf', 'raw', 'usb')),
+  "printer_type" varchar(20) NOT NULL DEFAULT 'escpos' CHECK (printer_type IN ('escpos', 'pdf', 'raw')),
   "station_id" uuid NOT NULL REFERENCES "stations"("id") ON DELETE CASCADE,
   "is_active" boolean NOT NULL DEFAULT true,
   "created_at" timestamptz NOT NULL DEFAULT (now())

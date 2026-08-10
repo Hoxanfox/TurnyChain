@@ -6,7 +6,6 @@
 import React, { useState, useEffect } from 'react';
 import { FaPlus, FaEdit, FaCheck, FaTimes, FaPrint } from 'react-icons/fa';
 import { printersAPI } from './api/printersAPI';
-import { requestUSBPrinter, printViaWebSerial } from '../../../../utils/usbPrinterUtils';
 import { stationsAPI } from '../stations/api/stationsAPI';
 import type { Printer, CreatePrinterRequest, PrinterType } from '../../../../types/printers';
 import type { Station } from '../../../../types/stations';
@@ -127,31 +126,6 @@ const PrinterManagement: React.FC = () => {
   };
   */
 
-  const handleTestUSB = async (printer: Printer) => {
-    try {
-      // Pedimos permiso al usuario para seleccionar el puerto
-      const granted = await requestUSBPrinter();
-      if (!granted) {
-        alert('No se seleccionó ninguna impresora o hubo un error de permisos.');
-        return;
-      }
-      
-      // Enviamos un ticket de prueba básico (ESC/POS)
-      // \x1B\x40 = Initialize, \x1B\x61\x01 = Center align, \x1D\x56\x41\x10 = Cut paper
-      const testContent = `\x1B\x40\x1B\x61\x01--- PRUEBA DE IMPRESION ---\nImpresora: ${printer.name}\nEstado: CONECTADA OK!\n---------------------------\n\n\n\x1D\x56\x41\x10`;
-      
-      const success = await printViaWebSerial(testContent);
-      if (success) {
-        alert('✅ Impresora vinculada y ticket de prueba enviado correctamente.');
-      } else {
-        alert('❌ Error al enviar el ticket de prueba.');
-      }
-    } catch (error) {
-      console.error('Error probando USB:', error);
-      alert('Error inesperado al probar la impresora USB.');
-    }
-  };
-
   const openEditModal = (printer: Printer) => {
     setEditingPrinter(printer);
     setFormData({
@@ -242,9 +216,8 @@ const PrinterManagement: React.FC = () => {
         {filteredPrinters.map((printer) => (
           <div
             key={printer.id}
-            className={`bg-white rounded-xl shadow-md hover:shadow-lg transition-all p-6 border-2 ${
-              printer.is_active ? 'border-green-200' : 'border-gray-300'
-            }`}
+            className={`bg-white rounded-xl shadow-md hover:shadow-lg transition-all p-6 border-2 ${printer.is_active ? 'border-green-200' : 'border-gray-300'
+              }`}
           >
             <div className="flex justify-between items-start mb-4">
               <div className="flex-1">
@@ -277,26 +250,17 @@ const PrinterManagement: React.FC = () => {
               </div>
               <div className="flex items-center gap-2">
                 <span
-                  className={`px-2 py-1 rounded-full text-xs font-bold ${
-                    printer.is_active
+                  className={`px-2 py-1 rounded-full text-xs font-bold ${printer.is_active
                       ? 'bg-green-100 text-green-700'
                       : 'bg-gray-100 text-gray-700'
-                  }`}
+                    }`}
                 >
                   {printer.is_active ? '✅ Activa' : '❌ Inactiva'}
                 </span>
               </div>
             </div>
 
-            <div className="flex flex-wrap gap-2 mt-4">
-              {printer.printer_type === 'usb' && (
-                <button
-                  onClick={() => handleTestUSB(printer)}
-                  className="flex-1 bg-purple-500 hover:bg-purple-600 text-white px-3 py-2 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 min-w-[120px]"
-                >
-                  🔌 Probar
-                </button>
-              )}
+            <div className="flex gap-2 mt-4">
               <button
                 onClick={() => openEditModal(printer)}
                 className="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg font-semibold transition-all flex items-center justify-center gap-2"
@@ -306,11 +270,10 @@ const PrinterManagement: React.FC = () => {
               </button>
               <button
                 onClick={() => handleToggleActive(printer)}
-                className={`flex-1 px-3 py-2 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 ${
-                  printer.is_active
+                className={`flex-1 px-3 py-2 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 ${printer.is_active
                     ? 'bg-orange-500 hover:bg-orange-600 text-white'
                     : 'bg-green-500 hover:bg-green-600 text-white'
-                }`}
+                  }`}
               >
                 {printer.is_active ? <FaTimes /> : <FaCheck />}
                 {printer.is_active ? 'Desactivar' : 'Activar'}
@@ -384,7 +347,7 @@ const PrinterManagement: React.FC = () => {
                       placeholder="192.168.1.101"
                     />
                   </div>
-    
+
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Puerto *</label>
                     <input
