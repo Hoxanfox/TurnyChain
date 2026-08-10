@@ -6,6 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { FaPlus, FaEdit, FaCheck, FaTimes, FaPrint } from 'react-icons/fa';
 import { printersAPI } from './api/printersAPI';
+import { requestUSBPrinter, printViaWebSerial } from '../../../../utils/usbPrinterUtils';
 import { stationsAPI } from '../stations/api/stationsAPI';
 import type { Printer, CreatePrinterRequest, PrinterType } from '../../../../types/printers';
 import type { Station } from '../../../../types/stations';
@@ -125,6 +126,31 @@ const PrinterManagement: React.FC = () => {
     }
   };
   */
+
+  const handleTestUSB = async (printer: Printer) => {
+    try {
+      // Pedimos permiso al usuario para seleccionar el puerto
+      const granted = await requestUSBPrinter();
+      if (!granted) {
+        alert('No se seleccionó ninguna impresora o hubo un error de permisos.');
+        return;
+      }
+      
+      // Enviamos un ticket de prueba básico (ESC/POS)
+      // \x1B\x40 = Initialize, \x1B\x61\x01 = Center align, \x1D\x56\x41\x10 = Cut paper
+      const testContent = `\x1B\x40\x1B\x61\x01--- PRUEBA DE IMPRESION ---\nImpresora: ${printer.name}\nEstado: CONECTADA OK!\n---------------------------\n\n\n\x1D\x56\x41\x10`;
+      
+      const success = await printViaWebSerial(testContent);
+      if (success) {
+        alert('✅ Impresora vinculada y ticket de prueba enviado correctamente.');
+      } else {
+        alert('❌ Error al enviar el ticket de prueba.');
+      }
+    } catch (error) {
+      console.error('Error probando USB:', error);
+      alert('Error inesperado al probar la impresora USB.');
+    }
+  };
 
   const openEditModal = (printer: Printer) => {
     setEditingPrinter(printer);
@@ -262,7 +288,15 @@ const PrinterManagement: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex gap-2 mt-4">
+            <div className="flex flex-wrap gap-2 mt-4">
+              {printer.printer_type === 'usb' && (
+                <button
+                  onClick={() => handleTestUSB(printer)}
+                  className="flex-1 bg-purple-500 hover:bg-purple-600 text-white px-3 py-2 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 min-w-[120px]"
+                >
+                  🔌 Probar
+                </button>
+              )}
               <button
                 onClick={() => openEditModal(printer)}
                 className="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg font-semibold transition-all flex items-center justify-center gap-2"
