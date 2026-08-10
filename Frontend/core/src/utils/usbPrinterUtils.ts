@@ -86,10 +86,37 @@ export const requestUSBPrinter = async (): Promise<boolean> => {
   }
 };
 
+let isPrinting = false;
+const printQueue: string[] = [];
+
 /**
- * Imprime un contenido raw (ESC/POS) usando WebUSB API
+ * Imprime un contenido raw (ESC/POS) usando WebUSB API (encolado)
  */
 export const printViaWebSerial = async (rawContent: string): Promise<boolean> => {
+  return new Promise((resolve) => {
+    printQueue.push(rawContent);
+    processQueue();
+    resolve(true);
+  });
+};
+
+const processQueue = async () => {
+  if (isPrinting || printQueue.length === 0) return;
+  isPrinting = true;
+  
+  while (printQueue.length > 0) {
+    const content = printQueue.shift();
+    if (content) {
+      await performPrint(content);
+      // Pequeña pausa entre tickets para que la impresora procese
+      await new Promise(r => setTimeout(r, 800));
+    }
+  }
+  
+  isPrinting = false;
+};
+
+const performPrint = async (rawContent: string): Promise<boolean> => {
   if (!('usb' in navigator)) {
     console.error('WebUSB API no soportada');
     return false;

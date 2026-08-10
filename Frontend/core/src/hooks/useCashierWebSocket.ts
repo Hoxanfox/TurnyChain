@@ -122,8 +122,8 @@ export const useCashierWebSocket = (
         case 'PRINT_USB_TICKET':
           console.log('🖨️ [Cajero] Recibido ticket USB para imprimir en background');
           if (message.payload && message.payload.raw_content) {
-            import('../../utils/usbPrinterUtils').then(({ printViaWebSerial }) => {
-              printViaWebSerial(message.payload.raw_content).catch(err => {
+            import('../utils/usbPrinterUtils').then(({ printViaWebSerial }) => {
+              printViaWebSerial(message.payload.raw_content).catch((err: any) => {
                 console.error('Error en impresión USB silenciosa:', err);
               });
             });
