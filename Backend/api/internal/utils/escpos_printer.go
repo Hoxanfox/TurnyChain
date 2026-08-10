@@ -156,6 +156,8 @@ func (p *ESCPOSPrinter) BuildTicketContent(ticket domain.KitchenTicket) string {
 	builder.WriteString(CMD_BOLD_OFF)
 	builder.WriteString(CMD_LINE_FEED)
 
+	isCaja := strings.Contains(strings.ToUpper(ticket.StationName), "CAJA")
+
 	for _, item := range ticket.Items {
 		// 1. Línea superior divisoria por ítem
 		builder.WriteString(p.line("-", 42))
@@ -169,10 +171,13 @@ func (p *ESCPOSPrinter) BuildTicketContent(ticket domain.KitchenTicket) string {
 		builder.WriteString(fmt.Sprintf("%dx %s", item.Quantity, item.MenuItemName))
 		builder.WriteString(CMD_LINE_FEED)
 
-		// 3. Precios
-		unitPrice := formatPriceShort(item.Price)
-		subtotal := formatPriceShort(item.Price * item.Quantity)
-		builder.WriteString(fmt.Sprintf("$%s c/u -> $%s", unitPrice, subtotal))
+		// 3. Precios (solo si es caja)
+		if isCaja {
+			unitPrice := formatPriceShort(item.Price)
+			subtotal := formatPriceShort(item.Price * item.Quantity)
+			builder.WriteString(fmt.Sprintf("$%s c/u -> $%s", unitPrice, subtotal))
+			builder.WriteString(CMD_LINE_FEED)
+		}
 
 		builder.WriteString(CMD_BOLD_OFF)
 		builder.WriteString(CMD_DOUBLE_OFF)
@@ -207,7 +212,7 @@ func (p *ESCPOSPrinter) BuildTicketContent(ticket domain.KitchenTicket) string {
 			}
 		}
 
-		if item.IsTakeout {
+		if isCaja && item.IsTakeout {
 			builder.WriteString(CMD_INVERT_ON)
 			builder.WriteString(CMD_BOLD_ON)
 			builder.WriteString(" >>> PARA LLEVAR <<< ")
@@ -264,7 +269,7 @@ func (p *ESCPOSPrinter) BuildTicketContent(ticket domain.KitchenTicket) string {
 	builder.WriteString(CMD_DOUBLE_OFF + CMD_LINE_FEED)
 
 	builder.WriteString(p.line("-", 42) + CMD_LINE_FEED)
-	builder.WriteString(CMD_LINE_FEED + CMD_LINE_FEED + CMD_LINE_FEED)
+	builder.WriteString(CMD_LINE_FEED + CMD_LINE_FEED)
 	builder.WriteString(CMD_CUT_PARTIAL)
 
 	return builder.String()
