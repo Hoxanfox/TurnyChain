@@ -100,6 +100,17 @@ export const useWaiterWebSocket = (
           handleOrderStatusUpdate(message.payload);
           break;
 
+        case 'PRINT_USB_TICKET':
+          console.log('🖨️ [Mesero] Recibido ticket USB para imprimir en background');
+          if (message.payload && message.payload.raw_content) {
+            import('../utils/usbPrinterUtils').then(({ printViaWebSerial }) => {
+              printViaWebSerial(message.payload.raw_content).catch((err: any) => {
+                console.error('Error en impresión USB silenciosa:', err);
+              });
+            });
+          }
+          break;
+
         case 'ORDER_UPDATED':
           handleOrderUpdate(message.payload);
           break;
