@@ -159,12 +159,7 @@ func (p *ESCPOSPrinter) BuildTicketContent(ticket domain.KitchenTicket) string {
 	isCaja := strings.Contains(strings.ToUpper(ticket.StationName), "CAJA")
 
 	for _, item := range ticket.Items {
-		// 1. Línea superior divisoria por ítem
-		builder.WriteString(p.line("-", 42))
-		builder.WriteString(CMD_LINE_FEED)
-
-		builder.WriteString(CMD_ALIGN_CENTER)
-		builder.WriteString(CMD_DOUBLE_ON)
+		builder.WriteString(CMD_ALIGN_LEFT)
 		builder.WriteString(CMD_BOLD_ON)
 
 		// 2. Cantidad y Nombre del Item
@@ -180,8 +175,6 @@ func (p *ESCPOSPrinter) BuildTicketContent(ticket domain.KitchenTicket) string {
 		}
 
 		builder.WriteString(CMD_BOLD_OFF)
-		builder.WriteString(CMD_DOUBLE_OFF)
-		builder.WriteString(CMD_LINE_FEED)
 
 		// 4. Customizaciones y Notas
 		if item.IsModified {
