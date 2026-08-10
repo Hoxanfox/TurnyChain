@@ -121,6 +121,10 @@ export const printViaWebSerial = async (rawContent: string): Promise<boolean> =>
       await cachedDevice.selectConfiguration(1);
     }
 
+    if (!cachedDevice.configuration) {
+      throw new Error("No se pudo cargar la configuración del dispositivo USB.");
+    }
+
     const interfaces = cachedDevice.configuration.interfaces;
     // Buscamos la interfaz de clase 7 (Impresora) o tomamos la primera
     let printerInterface = interfaces.find(iface =>
@@ -148,31 +152,4 @@ export const printViaWebSerial = async (rawContent: string): Promise<boolean> =>
     cachedDevice = null;
     return false;
   }
-};
-// Buscamos la interfaz de clase 7 (Impresora) o tomamos la primera
-let printerInterface = interfaces.find(iface =>
-  iface.alternates[0].interfaceClass === 7
-) || interfaces[0];
-
-if (!printerInterface.claimed) {
-  await cachedDevice.claimInterface(printerInterface.interfaceNumber);
-}
-
-// Buscamos el endpoint de salida (bulk out)
-const endpoint = printerInterface.alternates[0].endpoints.find(e => e.direction === 'out');
-if (!endpoint) throw new Error("No se encontró un endpoint de salida (OUT) en el dispositivo USB");
-
-// Convertimos el contenido a binario
-const data = new Uint8Array(rawContent.length);
-for (let i = 0; i < rawContent.length; i++) {
-  data[i] = rawContent.charCodeAt(i) & 0xff;
-}
-
-await cachedDevice.transferOut(endpoint.endpointNumber, data);
-return true;
-  } catch (error) {
-  console.error('Error imprimiendo por USB:', error);
-  cachedDevice = null;
-  return false;
-}
 };
