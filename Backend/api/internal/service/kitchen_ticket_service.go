@@ -878,6 +878,12 @@ func (s *KitchenTicketService) sendToPrinter(printer domain.Printer, ticket *dom
 		escposPrinter := utils.NewESCPOSPrinter("localhost", 0) // dummy printer
 		ticket.RawContent = escposPrinter.BuildTicketContent(*ticket)
 		log.Printf("✅ Ticket USB preparado para enviar al frontend")
+		
+		// Emitir el payload por WebSocket para que el frontend del cajero lo imprima silenciosamente
+		if s.wsHub != nil {
+			s.wsHub.BroadcastMessage("PRINT_USB_TICKET", ticket)
+		}
+		
 		return nil
 
 	default:
