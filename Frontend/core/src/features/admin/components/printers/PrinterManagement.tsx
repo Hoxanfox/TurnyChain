@@ -7,6 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { FaPlus, FaEdit, FaCheck, FaTimes, FaPrint } from 'react-icons/fa';
 import { printersAPI } from './api/printersAPI';
 import { stationsAPI } from '../stations/api/stationsAPI';
+import ReceiptDesignerModal from './ReceiptDesignerModal';
 import type { Printer, CreatePrinterRequest, PrinterType } from '../../../../types/printers';
 import type { Station } from '../../../../types/stations';
 
@@ -16,6 +17,7 @@ const PrinterManagement: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingPrinter, setEditingPrinter] = useState<Printer | null>(null);
+  const [designerPrinter, setDesignerPrinter] = useState<Printer | null>(null);
   const [filterStation, setFilterStation] = useState<string>('all');
   const [formData, setFormData] = useState<CreatePrinterRequest>({
     name: '',
@@ -249,6 +251,12 @@ const PrinterManagement: React.FC = () => {
                 Editar
               </button>
               <button
+                onClick={() => setDesignerPrinter(printer)}
+                className="flex-1 bg-purple-500 hover:bg-purple-600 text-white px-3 py-2 rounded-lg font-semibold transition-all flex items-center justify-center gap-2"
+              >
+                🎨 Diseño
+              </button>
+              <button
                 onClick={() => handleToggleActive(printer)}
                 className={`flex-1 px-3 py-2 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 ${
                   printer.is_active
@@ -376,6 +384,18 @@ const PrinterManagement: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal Diseño de Comanda */}
+      {designerPrinter && (
+        <ReceiptDesignerModal
+          printer={designerPrinter}
+          onClose={() => setDesignerPrinter(null)}
+          onSaved={() => {
+            setDesignerPrinter(null);
+            loadData();
+          }}
+        />
       )}
     </div>
   );

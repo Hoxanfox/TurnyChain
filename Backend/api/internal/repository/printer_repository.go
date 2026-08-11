@@ -23,7 +23,7 @@ func NewPrinterRepository(db *sql.DB) *PrinterRepository {
 func (r *PrinterRepository) GetAll() ([]domain.Printer, error) {
 	query := `
 		SELECT p.id, p.name, p.ip_address, p.port, p.printer_type, 
-		       p.station_id, s.name as station_name, p.is_active, p.created_at
+		       p.station_id, s.name as station_name, p.print_layout, p.is_active, p.created_at
 		FROM printers p
 		INNER JOIN stations s ON s.id = p.station_id
 		ORDER BY s.name, p.name
@@ -38,7 +38,7 @@ func (r *PrinterRepository) GetAll() ([]domain.Printer, error) {
 	for rows.Next() {
 		var printer domain.Printer
 		var stationName sql.NullString
-		if err := rows.Scan(&printer.ID, &printer.Name, &printer.IPAddress, &printer.Port, &printer.PrinterType, &printer.StationID, &stationName, &printer.IsActive, &printer.CreatedAt); err != nil {
+		if err := rows.Scan(&printer.ID, &printer.Name, &printer.IPAddress, &printer.Port, &printer.PrinterType, &printer.StationID, &stationName, &printer.PrintLayout, &printer.IsActive, &printer.CreatedAt); err != nil {
 			return nil, err
 		}
 		if stationName.Valid {
@@ -53,7 +53,7 @@ func (r *PrinterRepository) GetAll() ([]domain.Printer, error) {
 func (r *PrinterRepository) GetAllActive() ([]domain.Printer, error) {
 	query := `
 		SELECT p.id, p.name, p.ip_address, p.port, p.printer_type, 
-		       p.station_id, s.name as station_name, p.is_active, p.created_at
+		       p.station_id, s.name as station_name, p.print_layout, p.is_active, p.created_at
 		FROM printers p
 		INNER JOIN stations s ON s.id = p.station_id
 		WHERE p.is_active = true AND s.is_active = true
@@ -69,7 +69,7 @@ func (r *PrinterRepository) GetAllActive() ([]domain.Printer, error) {
 	for rows.Next() {
 		var printer domain.Printer
 		var stationName sql.NullString
-		if err := rows.Scan(&printer.ID, &printer.Name, &printer.IPAddress, &printer.Port, &printer.PrinterType, &printer.StationID, &stationName, &printer.IsActive, &printer.CreatedAt); err != nil {
+		if err := rows.Scan(&printer.ID, &printer.Name, &printer.IPAddress, &printer.Port, &printer.PrinterType, &printer.StationID, &stationName, &printer.PrintLayout, &printer.IsActive, &printer.CreatedAt); err != nil {
 			return nil, err
 		}
 		if stationName.Valid {
@@ -86,12 +86,12 @@ func (r *PrinterRepository) GetByID(id uuid.UUID) (*domain.Printer, error) {
 	var stationName sql.NullString
 	query := `
 		SELECT p.id, p.name, p.ip_address, p.port, p.printer_type, 
-		       p.station_id, s.name as station_name, p.is_active, p.created_at
+		       p.station_id, s.name as station_name, p.print_layout, p.is_active, p.created_at
 		FROM printers p
 		INNER JOIN stations s ON s.id = p.station_id
 		WHERE p.id = $1
 	`
-	err := r.db.QueryRow(query, id).Scan(&printer.ID, &printer.Name, &printer.IPAddress, &printer.Port, &printer.PrinterType, &printer.StationID, &stationName, &printer.IsActive, &printer.CreatedAt)
+	err := r.db.QueryRow(query, id).Scan(&printer.ID, &printer.Name, &printer.IPAddress, &printer.Port, &printer.PrinterType, &printer.StationID, &stationName, &printer.PrintLayout, &printer.IsActive, &printer.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -108,7 +108,7 @@ func (r *PrinterRepository) GetByID(id uuid.UUID) (*domain.Printer, error) {
 func (r *PrinterRepository) GetByStationID(stationID uuid.UUID) ([]domain.Printer, error) {
 	query := `
 		SELECT p.id, p.name, p.ip_address, p.port, p.printer_type, 
-		       p.station_id, s.name as station_name, p.is_active, p.created_at
+		       p.station_id, s.name as station_name, p.print_layout, p.is_active, p.created_at
 		FROM printers p
 		INNER JOIN stations s ON s.id = p.station_id
 		WHERE p.station_id = $1 AND p.is_active = true
@@ -124,7 +124,7 @@ func (r *PrinterRepository) GetByStationID(stationID uuid.UUID) ([]domain.Printe
 	for rows.Next() {
 		var printer domain.Printer
 		var stationName sql.NullString
-		if err := rows.Scan(&printer.ID, &printer.Name, &printer.IPAddress, &printer.Port, &printer.PrinterType, &printer.StationID, &stationName, &printer.IsActive, &printer.CreatedAt); err != nil {
+		if err := rows.Scan(&printer.ID, &printer.Name, &printer.IPAddress, &printer.Port, &printer.PrinterType, &printer.StationID, &stationName, &printer.PrintLayout, &printer.IsActive, &printer.CreatedAt); err != nil {
 			return nil, err
 		}
 		if stationName.Valid {
@@ -144,7 +144,7 @@ func (r *PrinterRepository) GetByStationIDs(stationIDs []uuid.UUID) ([]domain.Pr
 	// Construir query con placeholders dinámicos
 	query := `
 		SELECT p.id, p.name, p.ip_address, p.port, p.printer_type, 
-		       p.station_id, s.name as station_name, p.is_active, p.created_at
+		       p.station_id, s.name as station_name, p.print_layout, p.is_active, p.created_at
 		FROM printers p
 		INNER JOIN stations s ON s.id = p.station_id
 		WHERE p.is_active = true AND s.is_active = true AND p.station_id IN (`
@@ -169,7 +169,7 @@ func (r *PrinterRepository) GetByStationIDs(stationIDs []uuid.UUID) ([]domain.Pr
 	for rows.Next() {
 		var printer domain.Printer
 		var stationName sql.NullString
-		if err := rows.Scan(&printer.ID, &printer.Name, &printer.IPAddress, &printer.Port, &printer.PrinterType, &printer.StationID, &stationName, &printer.IsActive, &printer.CreatedAt); err != nil {
+		if err := rows.Scan(&printer.ID, &printer.Name, &printer.IPAddress, &printer.Port, &printer.PrinterType, &printer.StationID, &stationName, &printer.PrintLayout, &printer.IsActive, &printer.CreatedAt); err != nil {
 			return nil, err
 		}
 		if stationName.Valid {
@@ -184,11 +184,11 @@ func (r *PrinterRepository) GetByStationIDs(stationIDs []uuid.UUID) ([]domain.Pr
 func (r *PrinterRepository) Create(req domain.CreatePrinterRequest) (*domain.Printer, error) {
 	var printer domain.Printer
 	query := `
-		INSERT INTO printers (name, ip_address, port, printer_type, station_id)
-		VALUES ($1, $2, $3, $4, $5)
-		RETURNING id, name, ip_address, port, printer_type, station_id, is_active, created_at
+		INSERT INTO printers (name, ip_address, port, printer_type, station_id, print_layout)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		RETURNING id, name, ip_address, port, printer_type, station_id, print_layout, is_active, created_at
 	`
-	err := r.db.QueryRow(query, req.Name, req.IPAddress, req.Port, req.PrinterType, req.StationID).Scan(&printer.ID, &printer.Name, &printer.IPAddress, &printer.Port, &printer.PrinterType, &printer.StationID, &printer.IsActive, &printer.CreatedAt)
+	err := r.db.QueryRow(query, req.Name, req.IPAddress, req.Port, req.PrinterType, req.StationID, req.PrintLayout).Scan(&printer.ID, &printer.Name, &printer.IPAddress, &printer.Port, &printer.PrinterType, &printer.StationID, &printer.PrintLayout, &printer.IsActive, &printer.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -211,10 +211,11 @@ func (r *PrinterRepository) Update(id uuid.UUID, req domain.UpdatePrinterRequest
 		    port = COALESCE($3, port),
 		    printer_type = COALESCE($4, printer_type),
 		    station_id = COALESCE($5, station_id),
-		    is_active = COALESCE($6, is_active)
-		WHERE id = $7
+		    print_layout = COALESCE($6, print_layout),
+		    is_active = COALESCE($7, is_active)
+		WHERE id = $8
 	`
-	result, err := r.db.Exec(query, req.Name, req.IPAddress, req.Port, req.PrinterType, req.StationID, req.IsActive, id)
+	result, err := r.db.Exec(query, req.Name, req.IPAddress, req.Port, req.PrinterType, req.StationID, req.PrintLayout, req.IsActive, id)
 	if err != nil {
 		return err
 	}

@@ -819,7 +819,7 @@ func (s *KitchenTicketService) sendToPrinter(printer domain.Printer, ticket doma
 	case domain.PrinterTypeESCPOS:
 		// Impresión ESC/POS real
 		escposPrinter := utils.NewESCPOSPrinter(printer.IPAddress, printer.Port)
-		err := escposPrinter.PrintKitchenTicket(ticket)
+		err := escposPrinter.PrintKitchenTicket(ticket, printer.PrintLayout)
 		if err != nil {
 			return fmt.Errorf("error al imprimir ticket ESC/POS: %w", err)
 		}

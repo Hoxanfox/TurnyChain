@@ -91,197 +91,259 @@ func NewESCPOSPrinter(host string, port int) *ESCPOSPrinter {
 }
 
 // PrintKitchenTicket imprime un ticket de cocina
-func (p *ESCPOSPrinter) PrintKitchenTicket(ticket domain.KitchenTicket) error {
+func (p *ESCPOSPrinter) PrintKitchenTicket(ticket domain.KitchenTicket, layout domain.PrintLayout) error {
 	// Construir el contenido del ticket
-	content := p.buildTicketContent(ticket)
+	content := p.buildTicketContent(ticket, layout)
 
 	// Enviar a la impresora
 	return p.sendToNetwork(content)
 }
 
+func applyStyle(builder *strings.Builder, block domain.PrintBlock) {
+	if block.Align == "center" {
+		builder.WriteString(CMD_ALIGN_CENTER)
+	} else if block.Align == "right" {
+		builder.WriteString(CMD_ALIGN_RIGHT)
+	} else {
+		builder.WriteString(CMD_ALIGN_LEFT)
+	}
+	if block.FontSize == "double" {
+		builder.WriteString(CMD_DOUBLE_ON)
+	}
+	if block.FontWeight == "bold" {
+		builder.WriteString(CMD_BOLD_ON)
+	}
+}
+
+func resetStyle(builder *strings.Builder, block domain.PrintBlock) {
+	if block.FontWeight == "bold" {
+		builder.WriteString(CMD_BOLD_OFF)
+	}
+	if block.FontSize == "double" {
+		builder.WriteString(CMD_DOUBLE_OFF)
+	}
+	builder.WriteString(CMD_ALIGN_LEFT)
+}
+
 // buildTicketContent construye el contenido ESC/POS del ticket
-func (p *ESCPOSPrinter) buildTicketContent(ticket domain.KitchenTicket) string {
+func (p *ESCPOSPrinter) buildTicketContent(ticket domain.KitchenTicket, layout domain.PrintLayout) string {
 	var builder strings.Builder
 
 	// Inicializar impresora
 	builder.WriteString(CMD_INIT)
 	builder.WriteString(CMD_CODEPAGE_1252)
 
-	// === ENCABEZADO ===
-	builder.WriteString(CMD_ALIGN_CENTER)
-	builder.WriteString(CMD_DOUBLE_ON)
-	builder.WriteString(CMD_BOLD_ON)
-	builder.WriteString(ticket.StationName)
-	builder.WriteString(CMD_LINE_FEED)
-	builder.WriteString(CMD_DOUBLE_OFF)
-	builder.WriteString(CMD_BOLD_OFF)
-	builder.WriteString(CMD_LINE_FEED)
-
-	// Información de la orden
-	builder.WriteString(CMD_ALIGN_CENTER)
-	builder.WriteString(CMD_BOLD_ON)
-	builder.WriteString(fmt.Sprintf("ORDEN: %s", ticket.OrderNumber))
-	builder.WriteString(CMD_LINE_FEED)
-	builder.WriteString(CMD_BOLD_OFF)
-
-	// Tipo de orden resaltado
-	builder.WriteString(CMD_ALIGN_CENTER)
-	builder.WriteString(CMD_DOUBLE_ON)
-	builder.WriteString(CMD_BOLD_ON)
-	var tipoOrden string
-	if ticket.TableNumber == 9999 {
-		tipoOrden = "LLEVAR"
-	} else if ticket.TableNumber == 9998 {
-		tipoOrden = "DOMICILIO"
-	} else {
-		tipoOrden = strings.ToUpper(ticket.OrderType)
+	if len(layout) == 0 {
+		layout = domain.DefaultPrintLayout()
 	}
-	builder.WriteString(tipoOrden)
-	builder.WriteString(CMD_BOLD_OFF)
-	builder.WriteString(CMD_DOUBLE_OFF)
-	builder.WriteString(CMD_LINE_FEED)
 
-	builder.WriteString(CMD_ALIGN_CENTER)
-	// Convertir la hora a zona horaria de Colombia antes de formatear
-	colombiaTime := toColombiaTime(ticket.CreatedAt)
-	builder.WriteString(fmt.Sprintf("Fecha: %s", colombiaTime.Format("02/01/2006 15:04:05")))
-	builder.WriteString(CMD_LINE_FEED)
-
-	builder.WriteString(p.line("-", 42))
-	builder.WriteString(CMD_LINE_FEED)
-
-	// === ITEMS ===
-	builder.WriteString(CMD_BOLD_ON)
-	builder.WriteString("ITEMS:")
-	builder.WriteString(CMD_BOLD_OFF)
-	builder.WriteString(CMD_LINE_FEED)
-
-	for _, item := range ticket.Items {
-		// 1. Línea superior divisoria por ítem
-		builder.WriteString(p.line("-", 42))
-		builder.WriteString(CMD_LINE_FEED)
-
-		builder.WriteString(CMD_DOUBLE_ON)
-		builder.WriteString(CMD_BOLD_ON)
-
-		// 2. Cantidad y Nombre del Item (con su respectivo salto de línea)
-		builder.WriteString(fmt.Sprintf("%dx %s", item.Quantity, item.MenuItemName))
-		builder.WriteString(CMD_LINE_FEED)
-
-		// 3. Precios justo debajo
-		unitPrice := formatPriceShort(item.Price)
-		subtotal := formatPriceShort(item.Price * item.Quantity)
-		builder.WriteString(fmt.Sprintf("   $%s c/u -> $%s", unitPrice, subtotal))
-
-		builder.WriteString(CMD_BOLD_OFF)
-		builder.WriteString(CMD_DOUBLE_OFF)
-		builder.WriteString(CMD_LINE_FEED)
-
-		// 4. Customizaciones y Notas (si existen)
-		hasMods := item.Notes != "" || (item.Customizations != nil && (len(item.Customizations.ActiveIngredients) > 0 || len(item.Customizations.SelectedAccompaniments) > 0))
-		if hasMods {
-			builder.WriteString(CMD_LINE_FEED)
-			builder.WriteString(CMD_ALIGN_CENTER)
-			builder.WriteString(CMD_INVERT_ON)
-			builder.WriteString(CMD_BOLD_ON)
-			builder.WriteString(CMD_DOUBLE_ON)
-			builder.WriteString(" >>> MODIFICADO <<< ")
-			builder.WriteString(CMD_DOUBLE_OFF)
-			builder.WriteString(CMD_BOLD_OFF)
-			builder.WriteString(CMD_INVERT_OFF)
-			builder.WriteString(CMD_ALIGN_LEFT)
-			builder.WriteString(CMD_LINE_FEED)
-			builder.WriteString(CMD_LINE_FEED)
+	for _, block := range layout {
+		if !block.Visible {
+			continue
 		}
+		
+		switch block.ID {
+		case "header":
+			applyStyle(&builder, block)
+			builder.WriteString(ticket.StationName)
+			resetStyle(&builder, block)
+			builder.WriteString(CMD_LINE_FEED)
 
-		if item.IsTakeout {
+		case "order_info":
+			applyStyle(&builder, block)
+			builder.WriteString(fmt.Sprintf("ORDEN: %s", ticket.OrderNumber))
 			builder.WriteString(CMD_LINE_FEED)
-			builder.WriteString(CMD_ALIGN_CENTER)
-			builder.WriteString(CMD_INVERT_ON)
-			builder.WriteString(CMD_BOLD_ON)
-			builder.WriteString(CMD_DOUBLE_ON)
-			builder.WriteString(" >>> PARA LLEVAR <<< ")
-			builder.WriteString(CMD_DOUBLE_OFF)
-			builder.WriteString(CMD_BOLD_OFF)
-			builder.WriteString(CMD_INVERT_OFF)
-			builder.WriteString(CMD_ALIGN_LEFT)
-			builder.WriteString(CMD_LINE_FEED)
-			builder.WriteString(CMD_LINE_FEED)
-		}
-
-		if item.Customizations != nil {
-			if len(item.Customizations.ActiveIngredients) > 0 {
-				builder.WriteString("   CON: ")
-				ings := []string{}
-				for _, ing := range item.Customizations.ActiveIngredients {
-					ings = append(ings, ing.Name)
-				}
-				builder.WriteString(strings.Join(ings, ", ") + CMD_LINE_FEED)
+			var tipoOrden string
+			if ticket.TableNumber == 9999 {
+				tipoOrden = "LLEVAR"
+			} else if ticket.TableNumber == 9998 {
+				tipoOrden = "DOMICILIO"
+			} else {
+				tipoOrden = strings.ToUpper(ticket.OrderType)
 			}
-			if len(item.Customizations.SelectedAccompaniments) > 0 {
-				builder.WriteString("   ACOMP: ")
-				accs := []string{}
-				for _, acc := range item.Customizations.SelectedAccompaniments {
-					accs = append(accs, acc.Name)
+			builder.WriteString(tipoOrden)
+			builder.WriteString(CMD_LINE_FEED)
+
+			colombiaTime := toColombiaTime(ticket.CreatedAt)
+			builder.WriteString(fmt.Sprintf("Fecha: %s", colombiaTime.Format("02/01/2006 15:04:05")))
+			resetStyle(&builder, block)
+			builder.WriteString(CMD_LINE_FEED)
+			builder.WriteString(p.line("-", 42))
+			builder.WriteString(CMD_LINE_FEED)
+
+		case "items":
+			applyStyle(&builder, block)
+			builder.WriteString("ITEMS:")
+			resetStyle(&builder, block)
+			builder.WriteString(CMD_LINE_FEED)
+
+			var nameBlock, priceBlock, modsBlock, notesBlock *domain.PrintBlock
+			for i := range block.SubBlocks {
+				sb := &block.SubBlocks[i]
+				switch sb.ID {
+				case "item_name":
+					nameBlock = sb
+				case "item_price":
+					priceBlock = sb
+				case "item_modifiers":
+					modsBlock = sb
+				case "item_notes":
+					notesBlock = sb
 				}
-				builder.WriteString(strings.Join(accs, ", ") + CMD_LINE_FEED)
 			}
+
+			for _, item := range ticket.Items {
+				builder.WriteString(p.line("-", 42))
+				builder.WriteString(CMD_LINE_FEED)
+
+				if nameBlock == nil || nameBlock.Visible {
+					nb := domain.PrintBlock{Align: "left", FontSize: "double", FontWeight: "bold"}
+					if nameBlock != nil {
+						nb = *nameBlock
+					}
+					applyStyle(&builder, nb)
+					builder.WriteString(fmt.Sprintf("%dx %s", item.Quantity, item.MenuItemName))
+					resetStyle(&builder, nb)
+					builder.WriteString(CMD_LINE_FEED)
+				}
+
+				if priceBlock == nil || priceBlock.Visible {
+					pb := domain.PrintBlock{Align: "left", FontSize: "normal", FontWeight: "normal"}
+					if priceBlock != nil {
+						pb = *priceBlock
+					}
+					unitPrice := formatPriceShort(item.Price)
+					subtotal := formatPriceShort(item.Price * item.Quantity)
+					applyStyle(&builder, pb)
+					builder.WriteString(fmt.Sprintf("   $%s c/u -> $%s", unitPrice, subtotal))
+					resetStyle(&builder, pb)
+					builder.WriteString(CMD_LINE_FEED)
+				}
+
+				hasMods := item.Notes != "" || (item.Customizations != nil && (len(item.Customizations.ActiveIngredients) > 0 || len(item.Customizations.SelectedAccompaniments) > 0))
+				if hasMods {
+					builder.WriteString(CMD_LINE_FEED)
+					builder.WriteString(CMD_ALIGN_CENTER)
+					builder.WriteString(CMD_INVERT_ON)
+					builder.WriteString(CMD_BOLD_ON)
+					builder.WriteString(CMD_DOUBLE_ON)
+					builder.WriteString(" >>> MODIFICADO <<< ")
+					builder.WriteString(CMD_DOUBLE_OFF)
+					builder.WriteString(CMD_BOLD_OFF)
+					builder.WriteString(CMD_INVERT_OFF)
+					builder.WriteString(CMD_ALIGN_LEFT)
+					builder.WriteString(CMD_LINE_FEED)
+					builder.WriteString(CMD_LINE_FEED)
+				}
+
+				if item.IsTakeout {
+					builder.WriteString(CMD_LINE_FEED)
+					builder.WriteString(CMD_ALIGN_CENTER)
+					builder.WriteString(CMD_INVERT_ON)
+					builder.WriteString(CMD_BOLD_ON)
+					builder.WriteString(CMD_DOUBLE_ON)
+					builder.WriteString(" >>> PARA LLEVAR <<< ")
+					builder.WriteString(CMD_DOUBLE_OFF)
+					builder.WriteString(CMD_BOLD_OFF)
+					builder.WriteString(CMD_INVERT_OFF)
+					builder.WriteString(CMD_ALIGN_LEFT)
+					builder.WriteString(CMD_LINE_FEED)
+					builder.WriteString(CMD_LINE_FEED)
+				}
+
+				if modsBlock == nil || modsBlock.Visible {
+					mb := domain.PrintBlock{Align: "left", FontSize: "normal", FontWeight: "normal"}
+					if modsBlock != nil {
+						mb = *modsBlock
+					}
+					if item.Customizations != nil {
+						if len(item.Customizations.ActiveIngredients) > 0 {
+							applyStyle(&builder, mb)
+							builder.WriteString("   CON: ")
+							ings := []string{}
+							for _, ing := range item.Customizations.ActiveIngredients {
+								ings = append(ings, ing.Name)
+							}
+							builder.WriteString(strings.Join(ings, ", "))
+							resetStyle(&builder, mb)
+							builder.WriteString(CMD_LINE_FEED)
+						}
+						if len(item.Customizations.SelectedAccompaniments) > 0 {
+							applyStyle(&builder, mb)
+							builder.WriteString("   ACOMP: ")
+							accs := []string{}
+							for _, acc := range item.Customizations.SelectedAccompaniments {
+								accs = append(accs, acc.Name)
+							}
+							builder.WriteString(strings.Join(accs, ", "))
+							resetStyle(&builder, mb)
+							builder.WriteString(CMD_LINE_FEED)
+						}
+					}
+				}
+
+				if notesBlock == nil || notesBlock.Visible {
+					nb := domain.PrintBlock{Align: "left", FontSize: "normal", FontWeight: "normal"}
+					if notesBlock != nil {
+						nb = *notesBlock
+					}
+					if item.Notes != "" {
+						applyStyle(&builder, nb)
+						builder.WriteString(CMD_UNDERLINE_ON + "   NOTA: " + item.Notes + CMD_UNDERLINE_OFF)
+						resetStyle(&builder, nb)
+						builder.WriteString(CMD_LINE_FEED)
+					}
+				}
+
+				builder.WriteString(p.line("-", 42))
+				builder.WriteString(CMD_LINE_FEED)
+				builder.WriteString(CMD_LINE_FEED)
+			}
+
+		case "totals":
+			if strings.Contains(strings.ToUpper(ticket.StationName), "CAJA") {
+				totalTicket := 0
+				for _, item := range ticket.Items {
+					totalTicket += (item.Price * item.Quantity)
+				}
+
+				builder.WriteString(p.line("=", 42) + CMD_LINE_FEED)
+				applyStyle(&builder, block)
+				builder.WriteString(fmt.Sprintf("TOTAL ORDEN: $%s", formatPriceShort(totalTicket)))
+				resetStyle(&builder, block)
+				builder.WriteString(CMD_LINE_FEED)
+			}
+
+		case "notes":
+			if ticket.SpecialNotes != "" {
+				builder.WriteString(p.line("-", 42) + CMD_LINE_FEED)
+				applyStyle(&builder, block)
+				builder.WriteString("NOTA ESPECIAL:" + CMD_LINE_FEED)
+				builder.WriteString(ticket.SpecialNotes)
+				resetStyle(&builder, block)
+				builder.WriteString(CMD_LINE_FEED)
+			}
+
+		case "footer":
+			builder.WriteString(p.line("=", 42) + CMD_LINE_FEED)
+			applyStyle(&builder, block)
+			mesaLabel := ""
+			switch ticket.TableNumber {
+			case 9999:
+				mesaLabel = "LLEVAR"
+			case 9998:
+				mesaLabel = "DOMICILIO"
+			default:
+				mesaLabel = fmt.Sprintf("Mesa: %d", ticket.TableNumber)
+			}
+			builder.WriteString(fmt.Sprintf("Mesero: %s\n%s", ticket.WaiterName, mesaLabel))
+			resetStyle(&builder, block)
+			builder.WriteString(CMD_LINE_FEED)
+			builder.WriteString(p.line("-", 42) + CMD_LINE_FEED)
+			builder.WriteString(CMD_LINE_FEED + CMD_LINE_FEED + CMD_LINE_FEED)
 		}
-
-		if item.Notes != "" {
-			builder.WriteString(CMD_UNDERLINE_ON + "   NOTA: " + item.Notes + CMD_UNDERLINE_OFF + CMD_LINE_FEED)
-		}
-
-		// 5. Línea inferior divisoria por ítem
-		builder.WriteString(p.line("-", 42))
-		builder.WriteString(CMD_LINE_FEED)
-
-		// Un pequeño espacio extra entre ítems para que respire el diseño
-		builder.WriteString(CMD_LINE_FEED)
 	}
 
-	// === TOTAL PARA CAJA ===
-	// Si la estación contiene "CAJA", calculamos el total de los items presentes en este ticket
-	if strings.Contains(strings.ToUpper(ticket.StationName), "CAJA") {
-		totalTicket := 0
-		for _, item := range ticket.Items {
-			totalTicket += (item.Price * item.Quantity)
-		}
-
-		builder.WriteString(p.line("=", 42) + CMD_LINE_FEED)
-		builder.WriteString(CMD_ALIGN_RIGHT)
-		builder.WriteString(CMD_DOUBLE_ON + CMD_BOLD_ON)
-		builder.WriteString(fmt.Sprintf("TOTAL ORDEN: $%s", formatPriceShort(totalTicket))) // Formato abreviado con "k"
-		builder.WriteString(CMD_BOLD_OFF + CMD_DOUBLE_OFF + CMD_LINE_FEED)
-		builder.WriteString(CMD_ALIGN_LEFT)
-	}
-
-	// Notas especiales de la orden
-	if ticket.SpecialNotes != "" {
-		builder.WriteString(p.line("-", 42) + CMD_LINE_FEED)
-		builder.WriteString(CMD_BOLD_ON + "NOTA ESPECIAL:" + CMD_BOLD_OFF + CMD_LINE_FEED)
-		builder.WriteString(ticket.SpecialNotes + CMD_LINE_FEED)
-	}
-
-	builder.WriteString(p.line("=", 42) + CMD_LINE_FEED)
-
-	// Pie de ticket: Mesero y Mesa
-	builder.WriteString(CMD_ALIGN_LEFT)
-	builder.WriteString(CMD_DOUBLE_ON)
-	mesaLabel := ""
-	switch ticket.TableNumber {
-	case 9999:
-		mesaLabel = "LLEVAR"
-	case 9998:
-		mesaLabel = "DOMICILIO"
-	default:
-		mesaLabel = fmt.Sprintf("Mesa: %d", ticket.TableNumber)
-	}
-	builder.WriteString(fmt.Sprintf("Mesero: %s\n%s", ticket.WaiterName, mesaLabel))
-	builder.WriteString(CMD_DOUBLE_OFF + CMD_LINE_FEED)
-
-	builder.WriteString(p.line("-", 42) + CMD_LINE_FEED)
-	builder.WriteString(CMD_LINE_FEED + CMD_LINE_FEED + CMD_LINE_FEED)
 	builder.WriteString(CMD_CUT_PARTIAL)
 
 	return builder.String()

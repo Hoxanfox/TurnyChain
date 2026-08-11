@@ -5,6 +5,15 @@
 
 export type PrinterType = 'escpos' | 'pdf' | 'raw';
 
+export interface PrintBlock {
+  id: string;
+  visible: boolean;
+  align: 'left' | 'center' | 'right';
+  font_size: 'normal' | 'double';
+  font_weight: 'normal' | 'bold';
+  sub_blocks?: PrintBlock[];
+}
+
 export interface Printer {
   id: string;
   name: string;
@@ -13,6 +22,7 @@ export interface Printer {
   printer_type: PrinterType;
   station_id: string;
   station_name?: string;
+  print_layout?: PrintBlock[];
   is_active: boolean;
   created_at: string;
 }
@@ -23,6 +33,7 @@ export interface CreatePrinterRequest {
   port: number;
   printer_type: PrinterType;
   station_id: string;
+  print_layout?: PrintBlock[];
 }
 
 export interface UpdatePrinterRequest {
@@ -31,6 +42,6 @@ export interface UpdatePrinterRequest {
   port?: number;
   printer_type?: PrinterType;
   station_id?: string;
+  print_layout?: PrintBlock[];
   is_active?: boolean;
 }
-
