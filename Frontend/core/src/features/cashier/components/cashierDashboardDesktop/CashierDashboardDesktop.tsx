@@ -1,25 +1,21 @@
-// =================================================================
-// ARCHIVO: /src/features/cashier/CashierDashboardDesktop.tsx
-// =================================================================
-import React, { useEffect, useMemo, useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Order } from '../../../../types/orders';
-import { CashierHeader } from '../cashierDashboardShared/CashierHeader';
-import { CashierFilters } from '../cashierDashboardShared/CashierFilters';
 import type { FilterStatus, PaymentMethodFilter, SortBy } from '../cashierDashboardShared/CashierFilters';
-import { StatisticsCard } from '../cashierDashboardShared/StatisticsCard';
+import type { CashierNotification, CashierStatistics } from '../../types/cashierDashboardTypes';
+import { Notification } from '../../../../components/Notification';
 import { CinemaTablesSelector } from '../cashierDashboardShared/CinemaTablesSelector';
-import { getOrderPaymentCategory } from '../../hooks/useCashierLogic';
+import OrderDetailModal from '../../../shared/orders/components/OrderDetailModal';
 import { OrderIdSearchModal } from '../cashierDashboardShared/OrderIdSearchModal';
 import { WaiterPickerModal } from '../cashierDashboardShared/WaiterPickerModal';
 import { QuickTablePickerModal } from '../cashierDashboardShared/QuickTablePickerModal';
-import { OrdersPanel } from '../cashierDashboardShared/OrdersPanel';
-import { TableOrdersModal } from '../cashierDashboardShared/TableOrdersModal';
-import { QuickProofView } from '../cashierDashboardShared/QuickProofView';
-import type { CashierNotification, CashierStatistics } from '../../types/cashierDashboardTypes';
-import { Notification } from '../../../../components/Notification';
-import OrderDetailModal from '../../../shared/orders/components/OrderDetailModal';
 import { AttendanceNotebookModal } from '../cashierDashboardShared/AttendanceNotebookModal';
+
+import { useCashierDesktopViewModel } from './hooks/useCashierDesktopViewModel';
+import { DesktopLayout } from './layout/DesktopLayout';
+import { DesktopSidebar } from './layout/DesktopSidebar';
+import { DesktopTableDetailView } from './layout/DesktopTableDetailView';
+
 
 interface CashierDashboardDesktopProps {
   // Estado
@@ -58,7 +54,7 @@ interface CashierDashboardDesktopProps {
   onOpenBlockchainModal: () => void;
   onOpenBrebPanel?: () => void;
   onCloseNotification: () => void;
-  onSelectTable: (tableNumber: number) => void;
+  onSelectTable: (tableNumber: number | null) => void;
   onStatusChange: (orderId: string, status: string) => void;
   onConfirmPayment: (orderId: string) => void;
   onRejectPayment: (orderId: string) => void;
@@ -75,509 +71,247 @@ interface CashierDashboardDesktopProps {
   hasWsNotification?: boolean;
 }
 
-export const CashierDashboardDesktop: React.FC<CashierDashboardDesktopProps> = ({
-  showStats,
-  filterStatus,
-  paymentMethodFilter,
-  searchQuery,
-  waiterQuery,
-  orderIdQuery,
-  sortBy,
-  selectedTable,
-  statistics,
-  ordersByTable,
-  sortedSelectedOrders,
-  pendingVerificationCount,
-  pendingBlockchainCount,
-  isLoading,
-  hasFailed,
-  notification,
-  onToggleStats,
-  onFilterStatusChange,
-  onPaymentMethodFilterChange,
-  onSearchQueryChange,
-  onWaiterQueryChange,
-  onOrderIdQueryChange,
-  onSortByChange,
-  onClearFilters,
-  onExportReport,
-  onOpenPrintSettings,
-  onOpenBlockchainModal,
-  onOpenBrebPanel,
-  onCloseNotification,
-  onSelectTable,
-  onStatusChange,
-  onConfirmPayment,
-  onRejectPayment,
-  onPrintCommand,
-  onPrintFullCommand,
-  onPreviewTickets,
-  onOpenCheckout,
-  onOpenCheckoutGroup,
-  onRetryPrint,
-  onRetryLoadOrders,
-  shortcutTarget = null,
-  shortcutNonce = 0,
-  hasWsNotification = false,
-}) => {
+export const CashierDashboardDesktop: React.FC<CashierDashboardDesktopProps> = (props) => {
   const navigate = useNavigate();
-  const [selectedProofOrder, setSelectedProofOrder] = useState<Order | null>(null);
-  const [selectedOrderIdForDetail, setSelectedOrderIdForDetail] = useState<string | null>(null);
-  const [focusedOrderId, setFocusedOrderId] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'tables' | 'urgent'>('tables');
-  const [isTableModalOpen, setIsTableModalOpen] = useState(false);
-  const [isOrderSearchModalOpen, setIsOrderSearchModalOpen] = useState(false);
-  const [isWaiterPickerOpen, setIsWaiterPickerOpen] = useState(false);
-  const [isQuickTablePickerOpen, setIsQuickTablePickerOpen] = useState(false);
-  const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
-  const [openPrintMonitorSignal, setOpenPrintMonitorSignal] = useState(0);
+  const vm = useCashierDesktopViewModel(props);
 
-  const isPorCobrarStatus = (status: string) => status === 'entregado' || status === 'pendiente_aprobacion';
-  const isPayableStatus = (status: string) => status === 'por_verificar' || isPorCobrarStatus(status);
+  const { state, actions, derived } = vm;
 
-  // Datos para CashierFilters
-  const allOrders = Object.values(ordersByTable).flat();
-  const totalOrders = allOrders.length;
-  const cashPayments = allOrders.filter((o) => o.status === 'pagado' && getOrderPaymentCategory(o) === 'efectivo').length;
-  const transferPayments = allOrders.filter((o) => o.status === 'pagado' && getOrderPaymentCategory(o) === 'transferencia').length;
-  const mixedPayments = allOrders.filter((o) => o.status === 'pagado' && getOrderPaymentCategory(o) === 'mixto').length;
-  const urgentOrders = allOrders.filter((o) => o.status === 'por_verificar');
-  const deliveredOrders = allOrders.filter((o) => isPorCobrarStatus(o.status));
-  const paidOrders = allOrders.filter((o) => o.status === 'pagado');
-  const tableNumbers = useMemo(() => Object.keys(ordersByTable).map(Number).sort((a, b) => a - b), [ordersByTable]);
-  const waiterOptions = useMemo(() => {
-    const waiterMap = new Map<string, { ordersCount: number; tables: Set<number> }>();
-
-    allOrders.forEach((order) => {
-      const waiterName = (order.waiter_name || '').trim();
-      if (!waiterName) return;
-
-      const current = waiterMap.get(waiterName) || { ordersCount: 0, tables: new Set<number>() };
-      current.ordersCount += 1;
-      current.tables.add(order.table_number);
-      waiterMap.set(waiterName, current);
-    });
-
-    return Array.from(waiterMap.entries())
-      .map(([name, value]) => ({
-        name,
-        ordersCount: value.ordersCount,
-        tablesCount: value.tables.size,
-      }))
-      .sort((a, b) => b.ordersCount - a.ordersCount || a.name.localeCompare(b.name));
-  }, [allOrders]);
-
-  const urgentGroupedOrders = useMemo(() => {
-    const orderById = new Map<string, Order>();
-    allOrders.forEach((order) => orderById.set(order.id, order));
-
-    const childrenByParent = new Map<string, Order[]>();
-    allOrders.forEach((order) => {
-      if (!order.parent_order_id || !orderById.has(order.parent_order_id)) return;
-      const list = childrenByParent.get(order.parent_order_id) || [];
-      list.push(order);
-      childrenByParent.set(order.parent_order_id, list);
-    });
-
-    const roots = allOrders
-      .filter((order) => !order.parent_order_id || !orderById.has(order.parent_order_id))
-      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-
-    return roots
-      .map((root) => {
-        const members: Order[] = [root];
-
-        const appendChildren = (parentId: string) => {
-          const children = childrenByParent.get(parentId) || [];
-          children.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-          children.forEach((child) => {
-            members.push(child);
-            appendChildren(child.id);
-          });
-        };
-
-        appendChildren(root.id);
-
-        return {
-          root,
-          members,
-          isLinkedGroup: members.length > 1,
-          payableTotal: members
-            .filter((member) => isPayableStatus(member.status))
-            .reduce((sum, current) => sum + current.total, 0),
-          pendingMembers: members.filter((member) => member.status === 'por_verificar'),
-        };
-      })
-      .filter((group) => group.pendingMembers.length > 0);
-  }, [allOrders]);
-
-  // Datos para StatisticsCard
-  const statsForCard = {
-    totalOrders: statistics.ordersCount,
-    totalRevenue: statistics.totalPaid,
-    pendingPayments: pendingVerificationCount,
-    verifiedPayments: paidOrders.length,
-    cashPayments,
-    transferPayments,
-    mixedPayments,
-    averageOrderValue: statistics.averageOrderValue,
-    // Analíticas diarias
-    dailyRevenue: statistics.dailyRevenue,
-    dailyCash: statistics.dailyCash,
-    dailyTransfer: statistics.dailyTransfer,
-    dailyOrdersCount: statistics.dailyOrdersCount,
-    dailyAverageTicket: statistics.dailyAverageTicket,
+  const handleTableSelect = (tableNumber: number | null) => {
+    props.onSelectTable(tableNumber);
+    if (tableNumber !== null) {
+      actions.setViewMode('tables');
+    }
   };
 
-  // Calcular filtros activos
-  const activeFiltersCount = [
-    filterStatus !== 'all',
-    paymentMethodFilter !== 'all',
-    searchQuery.trim() !== '',
-    waiterQuery.trim() !== '',
-    orderIdQuery.trim() !== '',
-  ].filter(Boolean).length;
-
-  const handleQuickFilterByStatus = (status: FilterStatus) => {
-    onFilterStatusChange(status);
-    setViewMode('tables');
+  const handleCloseRightPanel = () => {
+    props.onSelectTable(null);
   };
-
-  const handleDesktopTableSelect = (tableNumber: number) => {
-    onSelectTable(tableNumber);
-    setFocusedOrderId(null);
-    setIsTableModalOpen(true);
-  };
-
-  useEffect(() => {
-    if (!shortcutTarget || shortcutNonce === 0) return;
-    setViewMode('tables');
-    onSelectTable(shortcutTarget.tableNumber);
-    setFocusedOrderId(shortcutTarget.orderId);
-    setIsTableModalOpen(true);
-  }, [shortcutNonce, shortcutTarget, onSelectTable]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 p-6">
-      <div className="max-w-[1920px] mx-auto">
-        {/* Notificaciones */}
-        {notification && (
-          <Notification
-            title={notification.title}
-            message={notification.message}
-            type={notification.type}
-            onClose={onCloseNotification}
-          />
-        )}
-
-        {/* Header */}
-        <CashierHeader
-          pendingVerificationCount={pendingVerificationCount}
-          pendingBlockchainCount={pendingBlockchainCount}
-          showStats={showStats}
-          onToggleStats={onToggleStats}
-          onExportReport={onExportReport}
-          onOpenPrintSettings={onOpenPrintSettings}
-          onOpenBlockchainModal={onOpenBlockchainModal}
-          onOpenBrebPanel={onOpenBrebPanel}
-          hasWsNotification={hasWsNotification}
-          onOpenPrintMonitor={() => setOpenPrintMonitorSignal((prev) => prev + 1)}
-          activeFiltersCount={activeFiltersCount}
-          orderIdQuery={orderIdQuery}
-          onOpenOrderIdSearch={() => setIsOrderSearchModalOpen(true)}
-          waiterQuery={waiterQuery}
-          onOpenWaiterSearch={() => setIsWaiterPickerOpen(true)}
+    <DesktopLayout
+      isRightPanelOpen={false}
+      sidebar={
+        <DesktopSidebar
+          viewMode={state.viewMode}
+          setViewMode={(mode) => {
+            actions.setViewMode(mode);
+            if (mode === 'urgent') handleCloseRightPanel(); // Close right panel if switching to urgent view
+          }}
+          urgentOrdersCount={derived.urgentOrders.length}
+          onExportReport={props.onExportReport}
+          onOpenPrintSettings={props.onOpenPrintSettings}
+          onOpenBrebPanel={props.onOpenBrebPanel}
           onOpenMetrics={() => navigate('/cashier/metrics')}
-          quickTablesCount={tableNumbers.length}
-          onOpenQuickTableSelect={() => setIsQuickTablePickerOpen(true)}
-          onOpenAttendanceModal={() => setIsAttendanceModalOpen(true)}
+          onOpenAttendanceModal={() => actions.setIsAttendanceModalOpen(true)}
+          onOpenOrderSearch={() => actions.setIsOrderSearchModalOpen(true)}
         />
-
-        {/* Estadísticas */}
-        {showStats && <StatisticsCard stats={statsForCard} />}
-
-        {/* Filtros */}
-        <CashierFilters
-          filterStatus={filterStatus}
-          paymentMethodFilter={paymentMethodFilter}
-          searchQuery={searchQuery}
-          sortBy={sortBy}
-          onFilterStatusChange={onFilterStatusChange}
-          onPaymentMethodFilterChange={onPaymentMethodFilterChange}
-          onSearchQueryChange={onSearchQueryChange}
-          onSortByChange={onSortByChange}
-          onClearFilters={onClearFilters}
-          totalOrders={totalOrders}
-          pendingVerificationCount={pendingVerificationCount}
-          cashPayments={cashPayments}
-          transferPayments={transferPayments}
-          mixedPayments={mixedPayments}
-        />
-
-        {/* Acciones rápidas equivalentes a móvil */}
-        <div className="mt-4 grid grid-cols-3 gap-3">
-          <button
-            onClick={() => handleQuickFilterByStatus('por_verificar')}
-            className="rounded-xl bg-gradient-to-r from-orange-500 to-red-500 text-white px-4 py-3 text-left shadow-md hover:shadow-lg transition-all"
-          >
-            <p className="text-2xl font-bold">{urgentOrders.length}</p>
-            <p className="text-xs font-semibold">⚠️ Por Verificar</p>
-          </button>
-          <button
-            onClick={() => handleQuickFilterByStatus('entregado')}
-            className="rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-4 py-3 text-left shadow-md hover:shadow-lg transition-all"
-          >
-            <p className="text-2xl font-bold">{deliveredOrders.length}</p>
-            <p className="text-xs font-semibold">🧾 Por Cobrar</p>
-          </button>
-          <button
-            onClick={() => handleQuickFilterByStatus('pagado')}
-            className="rounded-xl bg-gradient-to-r from-green-600 to-emerald-600 text-white px-4 py-3 text-left shadow-md hover:shadow-lg transition-all"
-          >
-            <p className="text-2xl font-bold">{paidOrders.length}</p>
-            <p className="text-xs font-semibold">💰 Pagadas</p>
-          </button>
+      }
+      rightPanel={null}
+    >
+      {/* Notifications */}
+      {props.notification && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50">
+          <Notification
+            title={props.notification.title}
+            message={props.notification.message}
+            type={props.notification.type}
+            onClose={props.onCloseNotification}
+          />
         </div>
+      )}
 
-        {/* Tabs de vista: Mesas/Urgentes */}
-        <div className="mt-4 grid grid-cols-2 gap-2 max-w-md">
-          <button
-            onClick={() => setViewMode('tables')}
-            className={`px-4 py-2 rounded-lg font-semibold transition-all ${
-              viewMode === 'tables' ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-indigo-700 border border-indigo-200'
-            }`}
-          >
-            🪑 Por Mesas
-          </button>
-          <button
-            onClick={() => setViewMode('urgent')}
-            className={`px-4 py-2 rounded-lg font-semibold transition-all ${
-              viewMode === 'urgent' ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-indigo-700 border border-indigo-200'
-            }`}
-          >
-            ⚠️ Urgentes ({urgentOrders.length})
-          </button>
-        </div>
-
-        {viewMode === 'tables' ? (
-          <div className="mt-6 flex gap-4 h-[calc(100vh-520px)] min-h-[500px]">
-            <CinemaTablesSelector
-              ordersByTable={ordersByTable}
-              selectedTable={selectedTable}
-              onSelectTable={handleDesktopTableSelect}
-            />
-            <OrdersPanel
-              orders={sortedSelectedOrders}
-              selectedTable={selectedTable}
-              isLoading={isLoading}
-              hasFailed={hasFailed}
-              onStatusChange={onStatusChange}
-              onConfirmPayment={onConfirmPayment}
-              onRejectPayment={onRejectPayment}
-              onViewProof={(order) => setSelectedProofOrder(order)}
-              onViewDetail={(orderId) => setSelectedOrderIdForDetail(orderId)}
-              onPrintCommand={onPrintCommand}
-              onPrintFullCommand={onPrintFullCommand}
-              onPreviewTickets={onPreviewTickets}
-              onRetryLoadOrders={onRetryLoadOrders}
-              onRetryPrint={onRetryPrint}
-              openPrintMonitorSignal={openPrintMonitorSignal}
+      {/* Main Area Content */}
+      <div className="h-full flex flex-col overflow-hidden">
+        {props.selectedTable !== null ? (
+          <div className="flex-1 w-full h-full overflow-hidden">
+            <DesktopTableDetailView
+              tableNumber={props.selectedTable}
+              orders={props.ordersByTable[props.selectedTable] || []}
+              onConfirmPayment={props.onConfirmPayment}
+              onRejectPayment={props.onRejectPayment}
+              onViewDetail={(orderId) => actions.setSelectedOrderIdForDetail(orderId)}
+              onOpenCheckout={props.onOpenCheckout}
+              onOpenCheckoutGroup={props.onOpenCheckoutGroup}
+              onCancelOrder={(orderId) => props.onStatusChange(orderId, 'cancelado')}
+              onRetryPrint={props.onRetryPrint}
+              onCloseTable={handleCloseRightPanel}
+              highlightOrderId={state.focusedOrderId}
             />
           </div>
         ) : (
-          <div className="mt-6 space-y-4 max-h-[calc(100vh-520px)] overflow-y-auto pr-2">
-            {urgentGroupedOrders.length === 0 ? (
-              <div className="bg-white rounded-2xl shadow-md p-10 text-center border border-emerald-200">
-                <p className="text-5xl mb-3">✅</p>
-                <p className="text-gray-600 font-semibold">No hay pagos por verificar</p>
+          <>
+            {/* Header / Top Bar */}
+            <div className="flex items-center justify-between mb-6 px-2">
+              <h2 className="text-2xl font-bold text-slate-800">
+                {state.viewMode === 'tables' ? 'Vista General de Mesas' : 'Cola de Órdenes'}
+              </h2>
+              <div className="flex items-center gap-3">
+                 <button
+                   onClick={() => actions.setIsWaiterPickerOpen(true)}
+                   className="px-4 py-2 bg-white border border-slate-200 rounded-lg shadow-sm text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
+                 >
+                   Meseros
+                 </button>
+                 <button
+                   onClick={() => actions.setIsQuickTablePickerOpen(true)}
+                   className="px-4 py-2 bg-white border border-slate-200 rounded-lg shadow-sm text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
+                 >
+                   Buscar Mesa
+                 </button>
               </div>
-            ) : (
-              urgentGroupedOrders.map((group) => (
-                <div
-                  key={group.root.id}
-                  className={`rounded-2xl shadow-lg p-4 border-2 ${group.isLinkedGroup ? 'bg-orange-50 border-orange-300' : 'bg-white border-orange-300'}`}
+            </div>
+
+            {/* View Content */}
+            <div className="flex-1 overflow-hidden flex flex-col">
+          {state.viewMode === 'tables' ? (
+            <div className="w-full h-full">
+              <CinemaTablesSelector
+                ordersByTable={props.ordersByTable}
+                selectedTable={props.selectedTable}
+                onSelectTable={handleTableSelect}
+              />
+            </div>
+          ) : (
+            <div className="w-full h-full flex flex-col overflow-hidden">
+              <div className="flex gap-2 mb-4 bg-slate-100 p-1 rounded-lg w-max mx-2">
+                <button
+                  onClick={() => actions.setUrgentTab('por_verificar')}
+                  className={`px-4 py-1.5 rounded-md text-sm font-semibold transition-all ${state.urgentTab === 'por_verificar' ? 'bg-amber-500 text-white shadow-sm' : 'text-slate-500 hover:bg-amber-50'}`}
                 >
-                  <div className="flex items-center justify-between mb-3">
-                    <div>
-                      <h3 className="text-xl font-bold">Mesa {group.root.table_number}</h3>
-                      {group.isLinkedGroup ? (
-                        <p className="text-sm text-orange-700 font-semibold">
-                          Grupo enlazado: {group.members.length} comandas
-                        </p>
-                      ) : (
-                        <p className="text-sm text-gray-600">Comanda individual</p>
-                      )}
-                    </div>
-                    <div className="text-right">
-                      <p className="text-2xl font-bold text-green-600">${group.payableTotal.toFixed(2)}</p>
-                      <p className="text-xs text-orange-700 font-semibold">
-                        {group.pendingMembers.length} por verificar
-                      </p>
-                    </div>
+                  Por Verificar
+                </button>
+                <button
+                  onClick={() => actions.setUrgentTab('entregado')}
+                  className={`px-4 py-1.5 rounded-md text-sm font-semibold transition-all ${state.urgentTab === 'entregado' ? 'bg-blue-500 text-white shadow-sm' : 'text-slate-500 hover:bg-blue-50'}`}
+                >
+                  Por Cobrar
+                </button>
+                <button
+                  onClick={() => actions.setUrgentTab('pagado')}
+                  className={`px-4 py-1.5 rounded-md text-sm font-semibold transition-all ${state.urgentTab === 'pagado' ? 'bg-emerald-500 text-white shadow-sm' : 'text-slate-500 hover:bg-emerald-50'}`}
+                >
+                  Pagadas
+                </button>
+                <button
+                  onClick={() => actions.setUrgentTab('cancelado')}
+                  className={`px-4 py-1.5 rounded-md text-sm font-semibold transition-all ${state.urgentTab === 'cancelado' ? 'bg-rose-500 text-white shadow-sm' : 'text-slate-500 hover:bg-rose-50'}`}
+                >
+                  Canceladas
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto custom-scrollbar px-2 space-y-4">
+                {derived.filteredGroupedOrders.length === 0 ? (
+                  <div className="bg-white rounded-2xl shadow-sm p-12 text-center border border-slate-200 mt-4">
+                    <span className="text-5xl block mb-4">✅</span>
+                    <p className="text-slate-500 font-semibold text-lg">No hay órdenes en esta vista</p>
                   </div>
-
-                  <div className="relative pl-3">
-                    <div className="absolute left-0 top-2 bottom-2 w-1 rounded-full bg-gradient-to-b from-orange-300 to-violet-300" />
-                    {group.members.map((order, index) => {
-                      const isPending = order.status === 'por_verificar';
-                      return (
-                        <div
-                          key={order.id}
-                          className="relative"
-                          style={{ marginLeft: `${index * 12}px` }}
-                        >
-                          {index > 0 && (
-                            <span className="absolute -left-3 top-7 h-[2px] w-3 rounded-full bg-indigo-200" />
-                          )}
-                          <div className={`rounded-xl border p-3 shadow-sm ${order.parent_order_id ? 'bg-violet-50 border-violet-200' : 'bg-indigo-50 border-indigo-200'}`}>
-                          <div className="flex items-start justify-between mb-2">
-                            <div>
-                              <p className="text-sm font-bold">
-                                {group.isLinkedGroup ? (index === 0 ? 'Padre' : `Hija ${index}`) : 'Comanda'} #{order.id.slice(0, 8)}
-                              </p>
-                              <p className="text-xs text-gray-600">Mesero: {order.waiter_name || 'N/A'}</p>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-lg font-bold text-green-700">${order.total.toFixed(2)}</p>
-                              <p className={`text-xs font-semibold ${isPending ? 'text-orange-700' : 'text-gray-500'}`}>
-                                {order.status}
-                              </p>
-                            </div>
-                          </div>
-
-                          {isPending ? (
-                            <div className="grid grid-cols-2 gap-2">
-                              <button
-                                onClick={() => onConfirmPayment(order.id)}
-                                className="px-3 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 font-semibold shadow-sm"
-                              >
-                                ✓ Confirmar
-                              </button>
-                              <button
-                                onClick={() => onRejectPayment(order.id)}
-                                className="px-3 py-2 bg-gradient-to-r from-red-600 to-pink-600 text-white rounded-lg hover:from-red-700 hover:to-pink-700 font-semibold shadow-sm"
-                              >
-                                ✕ Rechazar
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="rounded-lg bg-gray-100 text-gray-600 text-xs font-semibold px-3 py-2">
-                              Esta comanda no está en verificación
-                            </div>
-                          )}
-
-                          <button
-                            onClick={() => setSelectedOrderIdForDetail(order.id)}
-                            className="mt-2 w-full px-3 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 font-semibold shadow-sm"
-                          >
-                            📋 Ver Detalle
-                          </button>
-                          </div>
+                ) : (
+                  derived.filteredGroupedOrders.map((group) => (
+                   <div key={group.root.id} className="bg-white rounded-xl shadow-sm border border-orange-200 overflow-hidden">
+                     <div className="bg-orange-50/50 p-4 border-b border-orange-100 flex justify-between items-center">
+                        <div>
+                          <h3 className="font-bold text-slate-800">Mesa {group.root.table_number}</h3>
+                          <p className="text-sm text-orange-700 font-medium">
+                            {group.isLinkedGroup ? `Grupo: ${group.members.length} comandas` : 'Comanda individual'}
+                          </p>
                         </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
+                        <div className="text-right">
+                          <p className="text-xl font-bold text-emerald-600">${group.payableTotal.toFixed(2)}</p>
+                          <p className="text-xs text-orange-600 font-semibold">
+                            {group.pendingMembers.length} por verificar
+                          </p>
+                        </div>
+                     </div>
+                     <div className="p-4 flex gap-4 overflow-x-auto custom-scrollbar">
+                        {group.members.map((order) => (
+                          <div key={order.id} className="shrink-0 w-64 bg-slate-50 rounded-lg p-3 border border-slate-200 flex flex-col">
+                             <div className="flex justify-between items-start mb-2">
+                               <div>
+                                 <p className="text-sm font-bold text-slate-800">#{order.id.slice(0, 8)}</p>
+                                 <p className="text-xs text-slate-500">{order.waiter_name}</p>
+                               </div>
+                               <p className="font-bold text-slate-800">${order.total.toFixed(2)}</p>
+                             </div>
+                             
+                             <div className="mt-auto pt-3 flex gap-2">
+                               <button onClick={() => actions.setSelectedOrderIdForDetail(order.id)} className="flex-1 py-1.5 bg-slate-200 text-slate-700 text-xs font-bold rounded hover:bg-slate-300 transition-colors">
+                                 Detalle
+                               </button>
+                               {order.status === 'por_verificar' && (
+                                 <button onClick={() => { handleTableSelect(order.table_number); actions.setFocusedOrderId(order.id); }} className="flex-1 py-1.5 bg-orange-500 text-white text-xs font-bold rounded hover:bg-orange-600 transition-colors">
+                                   Revisar
+                                 </button>
+                               )}
+                             </div>
+                          </div>
+                        ))}
+                     </div>
+                   </div>
+                ))
+              )}
+              </div>
+            </div>
+          )}
+        </div>
+      </>
         )}
-
-        {/* Modal de Comprobante */}
-        {selectedProofOrder && (
-          <QuickProofView
-            order={selectedProofOrder}
-            onClose={() => setSelectedProofOrder(null)}
-            onConfirm={(targetOrderId) => {
-              onConfirmPayment(targetOrderId);
-              setSelectedProofOrder(null);
-            }}
-            onReject={(targetOrderId) => {
-              onRejectPayment(targetOrderId);
-              setSelectedProofOrder(null);
-            }}
-          />
-        )}
-
-        {/* Modal de Detalle de Orden */}
-        {selectedOrderIdForDetail && (
-          <OrderDetailModal
-            orderId={selectedOrderIdForDetail}
-            onClose={() => setSelectedOrderIdForDetail(null)}
-            editable={true}
-          />
-        )}
-
-        {/* Modal de órdenes por mesa con agrupación completa (paridad mobile) */}
-        <TableOrdersModal
-          isOpen={isTableModalOpen && selectedTable !== null}
-          onClose={() => {
-            setIsTableModalOpen(false);
-            setFocusedOrderId(null);
-          }}
-          tableNumber={selectedTable}
-          orders={selectedTable ? (ordersByTable[selectedTable] || []) : []}
-          highlightOrderId={focusedOrderId}
-          onStatusChange={onStatusChange}
-          onConfirmPayment={onConfirmPayment}
-          onRejectPayment={onRejectPayment}
-          onViewDetail={(orderId) => setSelectedOrderIdForDetail(orderId)}
-          onPrintCommand={onPrintCommand}
-          onPrintFullCommand={onPrintFullCommand}
-          onPreviewTickets={onPreviewTickets}
-          onOpenCheckout={onOpenCheckout}
-          onOpenCheckoutGroup={onOpenCheckoutGroup}
-          onRetryPrint={onRetryPrint}
-          onCancelOrder={(orderId) => onStatusChange(orderId, 'cancelado')}
-        />
-
-        <OrderIdSearchModal
-          isOpen={isOrderSearchModalOpen}
-          value={orderIdQuery}
-          onChange={onOrderIdQueryChange}
-          onSubmit={(value) => {
-            const normalized = value.trim();
-            if (!normalized) return;
-            setIsOrderSearchModalOpen(false);
-            onOrderIdQueryChange('');
-            navigate(`/cashier/search/${encodeURIComponent(normalized)}`);
-          }}
-          onClose={() => setIsOrderSearchModalOpen(false)}
-        />
-
-        <WaiterPickerModal
-          isOpen={isWaiterPickerOpen}
-          waiters={waiterOptions}
-          selectedWaiter={waiterQuery}
-          onSelectWaiter={(waiterName) => {
-            const normalized = waiterName.trim();
-            if (!normalized) return;
-            onWaiterQueryChange(normalized);
-            navigate(`/cashier/search/waiter/${encodeURIComponent(normalized)}`);
-          }}
-          onClear={() => onWaiterQueryChange('')}
-          onClose={() => setIsWaiterPickerOpen(false)}
-        />
-
-        <QuickTablePickerModal
-          isOpen={isQuickTablePickerOpen}
-          tableNumbers={tableNumbers}
-          selectedTable={selectedTable}
-          onSelectTable={(tableNumber) => {
-            setViewMode('tables');
-            onSelectTable(tableNumber);
-            setFocusedOrderId(null);
-            setIsTableModalOpen(true);
-          }}
-          onClose={() => setIsQuickTablePickerOpen(false)}
-        />
-
-        <AttendanceNotebookModal
-          isOpen={isAttendanceModalOpen}
-          onClose={() => setIsAttendanceModalOpen(false)}
-        />
       </div>
-    </div>
+
+      {/* Modals */}
+      {state.selectedOrderIdForDetail && (
+        <OrderDetailModal
+          orderId={state.selectedOrderIdForDetail}
+          onClose={() => actions.setSelectedOrderIdForDetail(null)}
+          editable={true}
+        />
+      )}
+
+      <OrderIdSearchModal
+        isOpen={state.isOrderSearchModalOpen}
+        value={props.orderIdQuery}
+        onChange={props.onOrderIdQueryChange}
+        onSubmit={(value) => {
+          const normalized = value.trim();
+          if (!normalized) return;
+          actions.setIsOrderSearchModalOpen(false);
+          props.onOrderIdQueryChange('');
+          navigate(`/cashier/search/${encodeURIComponent(normalized)}`);
+        }}
+        onClose={() => actions.setIsOrderSearchModalOpen(false)}
+      />
+
+      <WaiterPickerModal
+        isOpen={state.isWaiterPickerOpen}
+        waiters={derived.waiterOptions}
+        selectedWaiter={props.waiterQuery}
+        onSelectWaiter={(waiterName) => {
+          const normalized = waiterName.trim();
+          if (!normalized) return;
+          props.onWaiterQueryChange(normalized);
+          navigate(`/cashier/search/waiter/${encodeURIComponent(normalized)}`);
+        }}
+        onClear={() => props.onWaiterQueryChange('')}
+        onClose={() => actions.setIsWaiterPickerOpen(false)}
+      />
+
+      <QuickTablePickerModal
+        isOpen={state.isQuickTablePickerOpen}
+        tableNumbers={derived.tableNumbers}
+        selectedTable={props.selectedTable}
+        onSelectTable={(tableNumber) => {
+          actions.setViewMode('tables');
+          props.onSelectTable(tableNumber);
+          actions.setFocusedOrderId(null);
+        }}
+        onClose={() => actions.setIsQuickTablePickerOpen(false)}
+      />
+
+      <AttendanceNotebookModal
+        isOpen={state.isAttendanceModalOpen}
+        onClose={() => actions.setIsAttendanceModalOpen(false)}
+      />
+    </DesktopLayout>
   );
 };
-

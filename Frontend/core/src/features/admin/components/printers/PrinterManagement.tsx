@@ -8,6 +8,7 @@ import { FaPlus, FaEdit, FaCheck, FaTimes, FaPrint } from 'react-icons/fa';
 import { printersAPI } from './api/printersAPI';
 import { stationsAPI } from '../stations/api/stationsAPI';
 import ReceiptDesignerModal from './ReceiptDesignerModal';
+import { requestUsbPrinter, testUsbPrinter } from '../../../../utils/usbPrinterUtils';
 import type { Printer, CreatePrinterRequest, PrinterType } from '../../../../types/printers';
 import type { Station } from '../../../../types/stations';
 
@@ -19,6 +20,7 @@ const PrinterManagement: React.FC = () => {
   const [editingPrinter, setEditingPrinter] = useState<Printer | null>(null);
   const [designerPrinter, setDesignerPrinter] = useState<Printer | null>(null);
   const [filterStation, setFilterStation] = useState<string>('all');
+  const [connectionType, setConnectionType] = useState<'network' | 'usb'>('network');
   const [formData, setFormData] = useState<CreatePrinterRequest>({
     name: '',
     ip_address: '',
@@ -109,6 +111,7 @@ const PrinterManagement: React.FC = () => {
 
   const openEditModal = (printer: Printer) => {
     setEditingPrinter(printer);
+    setConnectionType(printer.ip_address.startsWith('USB:') ? 'usb' : 'network');
     setFormData({
       name: printer.name,
       ip_address: printer.ip_address,
@@ -119,6 +122,7 @@ const PrinterManagement: React.FC = () => {
   };
 
   const resetForm = () => {
+    setConnectionType('network');
     setFormData({
       name: '',
       ip_address: '',
@@ -126,6 +130,28 @@ const PrinterManagement: React.FC = () => {
       printer_type: 'escpos',
       station_id: '',
     });
+  };
+
+  const handleTestPrint = async (printer: Printer) => {
+    try {
+      if (printer.ip_address.startsWith('USB:')) {
+        const parts = printer.ip_address.split(':');
+        if (parts.length === 3) {
+          const vendorId = parseInt(parts[1], 10);
+          const productId = parseInt(parts[2], 10);
+          await testUsbPrinter(vendorId, productId);
+          alert('Prueba enviada a impresora USB exitosamente');
+        } else {
+          throw new Error('Configuración de USB inválida en la dirección IP');
+        }
+      } else {
+        await printersAPI.test(printer.id);
+        alert('Prueba enviada a impresora de red exitosamente');
+      }
+    } catch (error: any) {
+      console.error('Error al probar impresora:', error);
+      alert('Error al probar impresora: ' + (error.response?.data?.message || error.message || ''));
+    }
   };
 
   const filteredPrinters =
@@ -214,12 +240,15 @@ const PrinterManagement: React.FC = () => {
                     </span>
                   </div>
                   <div className="text-gray-600">
-                    <span className="font-semibold">IP:</span>{' '}
-                    <code className="bg-gray-100 px-2 py-1 rounded">{printer.ip_address}</code>
-                  </div>
-                  <div className="text-gray-600">
-                    <span className="font-semibold">Puerto:</span>{' '}
-                    <code className="bg-gray-100 px-2 py-1 rounded">{printer.port}</code>
+                    <span className="font-semibold">Conexión:</span>{' '}
+                    {printer.ip_address.startsWith('USB:') ? (
+                      <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded">USB Local</span>
+                    ) : (
+                      <>
+                        <code className="bg-gray-100 px-2 py-1 rounded">{printer.ip_address}</code>:
+                        <code className="bg-gray-100 px-2 py-1 rounded ml-1">{printer.port}</code>
+                      </>
+                    )}
                   </div>
                   <div className="text-gray-600">
                     <span className="font-semibold">Tipo:</span>{' '}
@@ -242,23 +271,28 @@ const PrinterManagement: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex gap-2 mt-4">
+            <div className="grid grid-cols-2 gap-2 mt-4">
               <button
                 onClick={() => openEditModal(printer)}
-                className="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg font-semibold transition-all flex items-center justify-center gap-2"
+                className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg font-semibold transition-all flex items-center justify-center gap-2"
               >
-                <FaEdit />
-                Editar
+                <FaEdit /> Editar
+              </button>
+              <button
+                onClick={() => handleTestPrint(printer)}
+                className="bg-teal-500 hover:bg-teal-600 text-white px-3 py-2 rounded-lg font-semibold transition-all flex items-center justify-center gap-2"
+              >
+                🖨️ Probar
               </button>
               <button
                 onClick={() => setDesignerPrinter(printer)}
-                className="flex-1 bg-purple-500 hover:bg-purple-600 text-white px-3 py-2 rounded-lg font-semibold transition-all flex items-center justify-center gap-2"
+                className="bg-purple-500 hover:bg-purple-600 text-white px-3 py-2 rounded-lg font-semibold transition-all flex items-center justify-center gap-2"
               >
                 🎨 Diseño
               </button>
               <button
                 onClick={() => handleToggleActive(printer)}
-                className={`flex-1 px-3 py-2 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 ${
+                className={`px-3 py-2 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 ${
                   printer.is_active
                     ? 'bg-orange-500 hover:bg-orange-600 text-white'
                     : 'bg-green-500 hover:bg-green-600 text-white'
@@ -324,27 +358,91 @@ const PrinterManagement: React.FC = () => {
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Dirección IP *
+                  Tipo de Conexión *
                 </label>
-                <input
-                  type="text"
-                  value={formData.ip_address}
-                  onChange={(e) => setFormData({ ...formData, ip_address: e.target.value })}
-                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none"
-                  placeholder="192.168.1.101"
-                />
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="connectionType"
+                      value="network"
+                      checked={connectionType === 'network'}
+                      onChange={() => setConnectionType('network')}
+                      className="w-4 h-4 text-indigo-600"
+                    />
+                    <span>Red (IP)</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="connectionType"
+                      value="usb"
+                      checked={connectionType === 'usb'}
+                      onChange={() => setConnectionType('usb')}
+                      className="w-4 h-4 text-indigo-600"
+                    />
+                    <span>Local (USB)</span>
+                  </label>
+                </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Puerto *</label>
-                <input
-                  type="number"
-                  value={formData.port}
-                  onChange={(e) => setFormData({ ...formData, port: parseInt(e.target.value) })}
-                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none"
-                  placeholder="9100"
-                />
-              </div>
+              {connectionType === 'network' ? (
+                <>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Dirección IP *
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.ip_address}
+                      onChange={(e) => setFormData({ ...formData, ip_address: e.target.value })}
+                      className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none"
+                      placeholder="192.168.1.101"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Puerto *</label>
+                    <input
+                      type="number"
+                      value={formData.port}
+                      onChange={(e) => setFormData({ ...formData, port: parseInt(e.target.value) })}
+                      className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none"
+                      placeholder="9100"
+                    />
+                  </div>
+                </>
+              ) : (
+                <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
+                  <p className="text-sm text-blue-800 mb-3">
+                    Conecta la impresora térmica por USB a este equipo para enlazarla.
+                  </p>
+                  <button
+                    onClick={async () => {
+                      try {
+                        const usbDevice = await requestUsbPrinter();
+                        setFormData({
+                          ...formData,
+                          ip_address: `USB:${usbDevice.vendorId}:${usbDevice.productId}`,
+                          port: 0,
+                          printer_type: 'escpos'
+                        });
+                        alert(`Impresora seleccionada: ${usbDevice.productName}`);
+                      } catch (error: any) {
+                        alert(error.message);
+                      }
+                    }}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold transition-all flex items-center justify-center gap-2"
+                  >
+                    🔌 Buscar Impresora USB
+                  </button>
+                  {formData.ip_address.startsWith('USB:') && (
+                    <p className="text-xs text-green-700 font-bold mt-2 text-center">
+                      ✓ Dispositivo USB Enlazado
+                    </p>
+                  )}
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">

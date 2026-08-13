@@ -55,5 +55,10 @@ export const printersAPI = {
   delete: async (id: string): Promise<void> => {
     await axios.delete(`${API_URL}/${id}`, getAuthConfig());
   },
+
+  // Probar impresora
+  test: async (id: string): Promise<void> => {
+    await axios.post(`${API_URL}/${id}/test`, {}, getAuthConfig());
+  },
 };
 

@@ -14,10 +14,23 @@ export const CinemaTablesSelector: React.FC<CinemaTablesSelectorProps> = ({
 }) => {
   const [search, setSearch] = useState('');
 
-  const tableNumbers = useMemo(
-    () => Object.keys(ordersByTable).map(Number).sort((a, b) => a - b),
-    [ordersByTable]
-  );
+  const tableNumbers = useMemo(() => {
+    return Object.keys(ordersByTable)
+      .map(Number)
+      .sort((a, b) => {
+        const ordersA = ordersByTable[a] || [];
+        const ordersB = ordersByTable[b] || [];
+        const hasUrgentA = ordersA.some(
+          (o) => o.status === 'por_verificar' || o.status === 'entregado' || o.status === 'pendiente_aprobacion'
+        );
+        const hasUrgentB = ordersB.some(
+          (o) => o.status === 'por_verificar' || o.status === 'entregado' || o.status === 'pendiente_aprobacion'
+        );
+        if (hasUrgentA && !hasUrgentB) return -1;
+        if (!hasUrgentA && hasUrgentB) return 1;
+        return a - b;
+      });
+  }, [ordersByTable]);
 
   const filteredTableNumbers = useMemo(() => {
     const query = search.trim();
@@ -26,7 +39,7 @@ export const CinemaTablesSelector: React.FC<CinemaTablesSelectorProps> = ({
   }, [tableNumbers, search]);
 
   return (
-    <div className="w-full md:w-1/4 bg-white p-4 rounded-lg shadow overflow-y-auto">
+    <div className="w-full bg-white p-4 rounded-lg shadow overflow-y-auto">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-bold">🎬 Selector de Mesas</h2>
         <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-bold">
@@ -71,7 +84,7 @@ export const CinemaTablesSelector: React.FC<CinemaTablesSelectorProps> = ({
           <p>No hay mesas para la búsqueda.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 xl:grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {filteredTableNumbers.map((tableNumber) => {
             const orders = ordersByTable[tableNumber] || [];
             const totalAmount = orders.reduce((sum, order) => sum + order.total, 0);
