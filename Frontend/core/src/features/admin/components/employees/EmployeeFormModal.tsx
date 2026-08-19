@@ -5,7 +5,7 @@ import type { Employee } from './api/employeesAPI';
 interface EmployeeFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (name: string, role: string) => Promise<boolean>;
+  onSubmit: (name: string, role: string, isActive: boolean) => Promise<boolean>;
   initialData?: Employee | null;
 }
 
@@ -17,6 +17,7 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
 }) => {
   const [name, setName] = useState('');
   const [role, setRole] = useState('');
+  const [isActive, setIsActive] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -24,9 +25,11 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
       if (initialData) {
         setName(initialData.name);
         setRole(initialData.role);
+        setIsActive(initialData.is_active ?? true);
       } else {
         setName('');
         setRole('');
+        setIsActive(true);
       }
     }
   }, [isOpen, initialData]);
@@ -38,7 +41,7 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
     if (!name.trim() || !role.trim()) return;
 
     setIsSubmitting(true);
-    const success = await onSubmit(name, role);
+    const success = await onSubmit(name, role, isActive);
     setIsSubmitting(false);
 
     if (success) {
@@ -83,6 +86,26 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
               placeholder="Ej. Cocinero, Mesero"
               required
             />
+          </div>
+
+          <div className="flex items-center justify-between py-2 border-t border-gray-100 mt-2">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Estado del Empleado</label>
+              <p className="text-xs text-gray-500">Si está inactivo, no podrá marcar asistencia.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsActive(!isActive)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                isActive ? 'bg-cyan-500' : 'bg-gray-300'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  isActive ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
           </div>
 
           <div className="pt-4 flex justify-end gap-3">

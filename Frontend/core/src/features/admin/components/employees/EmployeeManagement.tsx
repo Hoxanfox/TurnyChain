@@ -33,9 +33,9 @@ const EmployeeManagement: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handleSubmit = async (name: string, role: string) => {
+  const handleSubmit = async (name: string, role: string, isActive: boolean) => {
     if (editingEmployee) {
-      return await updateEmployee(editingEmployee.id, name, role, editingEmployee.is_active);
+      return await updateEmployee(editingEmployee.id, name, role, isActive);
     } else {
       return await createEmployee(name, role);
     }

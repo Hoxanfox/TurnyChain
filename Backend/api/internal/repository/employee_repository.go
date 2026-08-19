@@ -33,7 +33,7 @@ func (r *employeeRepository) CreateEmployee(employee *domain.Employee) (*domain.
 }
 
 func (r *employeeRepository) GetEmployees() ([]domain.Employee, error) {
-	query := "SELECT id, name, role, is_active FROM employees WHERE is_active = true"
+	query := "SELECT id, name, role, is_active FROM employees"
 	rows, err := r.db.Query(query)
 	if err != nil {
 		return nil, err
@@ -53,7 +53,7 @@ func (r *employeeRepository) GetEmployees() ([]domain.Employee, error) {
 
 func (r *employeeRepository) GetEmployeeByID(id uuid.UUID) (*domain.Employee, error) {
 	e := &domain.Employee{}
-	query := "SELECT id, name, role, is_active FROM employees WHERE id = $1 AND is_active = true"
+	query := "SELECT id, name, role, is_active FROM employees WHERE id = $1"
 	err := r.db.QueryRow(query, id).Scan(&e.ID, &e.Name, &e.Role, &e.IsActive)
 	return e, err
 }

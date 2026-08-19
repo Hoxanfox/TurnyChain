@@ -78,15 +78,15 @@ export const AttendanceNotebookModal: React.FC<AttendanceNotebookModalProps> = (
     return () => window.removeEventListener('attendance_updated', handleWsUpdate);
   }, [isOpen, isUnlocked, showHistory]);
 
-  const loadEmployees = async () => {
-    setIsLoading(true);
+  const loadEmployees = async (showLoader = true) => {
+    if (showLoader) setIsLoading(true);
     try {
       const data = await attendanceApi.getTodayStatus();
       setEmployees(data || []);
     } catch (err) {
       console.error('Error loading attendance', err);
     } finally {
-      setIsLoading(false);
+      if (showLoader) setIsLoading(false);
     }
   };
 
@@ -118,7 +118,8 @@ export const AttendanceNotebookModal: React.FC<AttendanceNotebookModalProps> = (
       await attendanceApi.registerAttendance(employeeId, action);
       // Siempre recargamos los datos para mantener el estado 100% sincronizado con el backend,
       // evitando inconsistencias al cambiar rápidamente de FALTA a RESET y a ENTRADA.
-      await loadEmployees();
+      // Pasamos false para no mostrar el spinner de carga y no reiniciar el scroll de la lista
+      await loadEmployees(false);
     } catch (err) {
       console.error('Error registering attendance', err);
     }

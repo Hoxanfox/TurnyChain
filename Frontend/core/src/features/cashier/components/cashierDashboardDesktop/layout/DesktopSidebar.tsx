@@ -14,6 +14,8 @@ interface DesktopSidebarProps {
   onOpenMetrics: () => void;
   onOpenAttendanceModal: () => void;
   onOpenOrderSearch: () => void;
+  onOpenWizard: () => void;
+  onStartTutorial: () => void;
 }
 
 export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
@@ -26,6 +28,8 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
   onOpenMetrics,
   onOpenAttendanceModal,
   onOpenOrderSearch,
+  onOpenWizard,
+  onStartTutorial,
 }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -49,7 +53,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
       </div>
 
       {/* Main Navigation */}
-      <div className="space-y-2 mb-8">
+      <div className="space-y-2 mb-8 tutorial-sidebar">
         <button
           onClick={() => setViewMode('tables')}
           className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 font-semibold text-sm ${
@@ -111,8 +115,14 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
             <span>🏦</span> BREB
           </button>
         )}
-        <button onClick={onOpenPrintSettings} className="flex items-center gap-3 px-3 py-2 text-sm text-slate-600 font-medium hover:bg-slate-100 rounded-lg transition-colors">
+        <button onClick={onOpenPrintSettings} className="flex items-center gap-3 px-3 py-2 text-sm text-slate-600 font-medium hover:bg-slate-100 rounded-lg transition-colors tutorial-settings">
           <span>🖨️</span> Impresoras
+        </button>
+        <button onClick={onOpenWizard} className="flex items-center gap-3 px-3 py-2 text-sm text-slate-600 font-medium hover:bg-slate-100 rounded-lg transition-colors">
+          <span>⚙️</span> Asistente
+        </button>
+        <button onClick={onStartTutorial} className="flex items-center gap-3 px-3 py-2 text-sm text-slate-600 font-medium hover:bg-slate-100 rounded-lg transition-colors">
+          <span>❓</span> Tutorial
         </button>
         <div className="h-px bg-slate-200 my-2 mx-2" />
         <button onClick={handleLogout} className="flex items-center gap-3 px-3 py-2 text-sm text-red-600 font-medium hover:bg-red-50 rounded-lg transition-colors">

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Order } from '../../../../types/orders';
 import type { FilterStatus, PaymentMethodFilter, SortBy } from '../cashierDashboardShared/CashierFilters';
@@ -15,6 +15,8 @@ import { useCashierDesktopViewModel } from './hooks/useCashierDesktopViewModel';
 import { DesktopLayout } from './layout/DesktopLayout';
 import { DesktopSidebar } from './layout/DesktopSidebar';
 import { DesktopTableDetailView } from './layout/DesktopTableDetailView';
+import { SetupWizardModal } from '../../../onboarding/SetupWizardModal';
+import { SystemTutorial } from '../../../onboarding/SystemTutorial';
 
 
 interface CashierDashboardDesktopProps {
@@ -74,6 +76,8 @@ interface CashierDashboardDesktopProps {
 export const CashierDashboardDesktop: React.FC<CashierDashboardDesktopProps> = (props) => {
   const navigate = useNavigate();
   const vm = useCashierDesktopViewModel(props);
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
+  const [isTutorialRunning, setIsTutorialRunning] = useState(false);
 
   const { state, actions, derived } = vm;
 
@@ -105,6 +109,12 @@ export const CashierDashboardDesktop: React.FC<CashierDashboardDesktopProps> = (
           onOpenMetrics={() => navigate('/cashier/metrics')}
           onOpenAttendanceModal={() => actions.setIsAttendanceModalOpen(true)}
           onOpenOrderSearch={() => actions.setIsOrderSearchModalOpen(true)}
+          onOpenWizard={() => setIsWizardOpen(true)}
+          onStartTutorial={() => {
+            actions.setViewMode('tables');
+            props.onSelectTable(null);
+            setTimeout(() => setIsTutorialRunning(true), 300);
+          }}
         />
       }
       rightPanel={null}
@@ -298,16 +308,29 @@ export const CashierDashboardDesktop: React.FC<CashierDashboardDesktopProps> = (
 
       <QuickTablePickerModal
         isOpen={state.isQuickTablePickerOpen}
+        onClose={() => actions.setIsQuickTablePickerOpen(false)}
         tableNumbers={derived.tableNumbers}
         selectedTable={props.selectedTable}
-        onSelectTable={(tableNumber) => {
-          actions.setViewMode('tables');
-          props.onSelectTable(tableNumber);
-          actions.setFocusedOrderId(null);
+        onSelectTable={(t) => {
+          actions.setIsQuickTablePickerOpen(false);
+          handleTableSelect(t);
         }}
-        onClose={() => actions.setIsQuickTablePickerOpen(false)}
       />
 
+      <SetupWizardModal 
+        isOpen={isWizardOpen}
+        onClose={() => setIsWizardOpen(false)}
+        onLaunchTutorial={() => {
+          actions.setViewMode('tables');
+          props.onSelectTable(null);
+          setTimeout(() => setIsTutorialRunning(true), 300);
+        }}
+      />
+
+      <SystemTutorial 
+        run={isTutorialRunning}
+        onFinish={() => setIsTutorialRunning(false)}
+      />
       <AttendanceNotebookModal
         isOpen={state.isAttendanceModalOpen}
         onClose={() => actions.setIsAttendanceModalOpen(false)}

@@ -77,6 +77,10 @@ func (s *attendanceService) GetAttendanceStatusByDate(date time.Time) ([]domain.
 
 	result := make([]domain.EmployeeAttendance, 0)
 	for _, emp := range employees {
+		if !emp.IsActive {
+			continue // Skip inactive employees for today's status list
+		}
+
 		status := "SALIDA" // Default status if no records today or ever
 		if val, ok := latestStatusMap[emp.ID]; ok {
 			if val == "RESET" {
@@ -172,13 +176,16 @@ func (s *attendanceService) GetAttendanceReport(start, end time.Time) ([]domain.
 			}
 		}
 
-		report = append(report, domain.AttendanceReport{
-			EmployeeID: emp.ID,
-			Name:       emp.Name,
-			Role:       emp.Role,
-			DaysWorked: len(dailyRecords),
-			Records:    dailyRecords,
-		})
+		// Only show inactive employees in the report if they have actual records in the requested date range
+		if len(dailyRecords) > 0 || emp.IsActive {
+			report = append(report, domain.AttendanceReport{
+				EmployeeID: emp.ID,
+				Name:       emp.Name,
+				Role:       emp.Role,
+				DaysWorked: len(dailyRecords),
+				Records:    dailyRecords,
+			})
+		}
 	}
 
 	return report, nil
