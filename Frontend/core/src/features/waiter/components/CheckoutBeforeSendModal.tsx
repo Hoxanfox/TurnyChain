@@ -25,6 +25,7 @@ const CheckoutBeforeSendModal: React.FC<CheckoutBeforeSendModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [isCompressing, setIsCompressing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [viewImagePreviewUrl, setViewImagePreviewUrl] = useState<string | null>(null);
 
   // Estados para Mixto
   const [splitPayments, setSplitPayments] = useState<PaymentInput[]>([]);
@@ -196,8 +197,25 @@ const CheckoutBeforeSendModal: React.FC<CheckoutBeforeSendModalProps> = ({
     return () => {
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       if (splitPreviewUrl) URL.revokeObjectURL(splitPreviewUrl);
+      if (viewImagePreviewUrl) URL.revokeObjectURL(viewImagePreviewUrl);
     };
-  }, [previewUrl, splitPreviewUrl]);
+  }, [previewUrl, splitPreviewUrl, viewImagePreviewUrl]);
+
+  const handleViewImage = (fileOrUrl: File | string) => {
+    if (typeof fileOrUrl === 'string') {
+      setViewImagePreviewUrl(fileOrUrl);
+    } else {
+      const url = URL.createObjectURL(fileOrUrl);
+      setViewImagePreviewUrl(url);
+    }
+  };
+
+  const handleCloseImagePreview = () => {
+    if (viewImagePreviewUrl && viewImagePreviewUrl !== previewUrl && viewImagePreviewUrl !== splitPreviewUrl) {
+      URL.revokeObjectURL(viewImagePreviewUrl);
+    }
+    setViewImagePreviewUrl(null);
+  };
 
   // Cambiar método de pago sin borrar imagen
   const handlePaymentMethodChange = (method: 'efectivo' | 'transferencia' | 'mixto') => {
@@ -408,8 +426,16 @@ const CheckoutBeforeSendModal: React.FC<CheckoutBeforeSendModalProps> = ({
                 </div>
               ) : (
                 // PREVISUALIZACIÓN DE FOTO
-                <div className="relative rounded-2xl overflow-hidden border-2 border-green-300 shadow-lg">
-                  <img src={previewUrl} alt="Comprobante" className="w-full h-56 object-cover" />
+                <div className="relative rounded-2xl overflow-hidden border-2 border-green-300 shadow-lg group">
+                  <img 
+                    src={previewUrl} 
+                    alt="Comprobante" 
+                    className="w-full h-56 object-cover cursor-pointer hover:opacity-90 transition-opacity" 
+                    onClick={() => handleViewImage(previewUrl)}
+                  />
+                  <div className="absolute inset-0 pointer-events-none flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                     <span className="bg-black/50 text-white text-xs font-bold px-3 py-1 rounded-full">🔍 Ver</span>
+                  </div>
 
                   {/* Botón para borrar y reintentar */}
                   <button
@@ -456,7 +482,14 @@ const CheckoutBeforeSendModal: React.FC<CheckoutBeforeSendModalProps> = ({
                           }`}>
                             {p.method}
                           </span>
-                          {p.file && <span className="text-xs text-gray-500">📸 Con foto</span>}
+                          {p.file && (
+                            <button 
+                              onClick={() => handleViewImage(p.file as File)}
+                              className="text-xs text-indigo-600 underline font-semibold flex items-center gap-1 hover:text-indigo-800 transition-colors"
+                            >
+                              📸 Ver foto
+                            </button>
+                          )}
                         </div>
                         <div className="flex items-center gap-3">
                           <span className="font-bold">{formatMoney(p.amount)}</span>
@@ -575,8 +608,16 @@ const CheckoutBeforeSendModal: React.FC<CheckoutBeforeSendModalProps> = ({
                           </button>
                         </div>
                       ) : (
-                        <div className="relative rounded-xl overflow-hidden border-2 border-green-300">
-                          <img src={splitPreviewUrl} alt="Comprobante parcial" className="w-full h-32 object-cover" />
+                        <div className="relative rounded-xl overflow-hidden border-2 border-green-300 group">
+                          <img 
+                            src={splitPreviewUrl} 
+                            alt="Comprobante parcial" 
+                            className="w-full h-32 object-cover cursor-pointer hover:opacity-90 transition-opacity" 
+                            onClick={() => handleViewImage(splitPreviewUrl)}
+                          />
+                          <div className="absolute inset-0 pointer-events-none flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                             <span className="bg-black/50 text-white text-xs font-bold px-3 py-1 rounded-full">🔍 Ver</span>
+                          </div>
                           <button
                             onClick={handleRemoveSplitPhoto}
                             className="absolute top-2 right-2 bg-red-600 text-white p-1.5 rounded-full shadow-lg"
@@ -661,6 +702,18 @@ const CheckoutBeforeSendModal: React.FC<CheckoutBeforeSendModalProps> = ({
         </div>
 
       </div>
+      
+      {viewImagePreviewUrl && (
+        <div className="fixed inset-0 z-[60] bg-black/90 flex flex-col items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
+          <button 
+            onClick={handleCloseImagePreview}
+            className="absolute top-4 right-4 bg-white/20 hover:bg-white/40 text-white rounded-full p-2 transition-colors z-[70]"
+          >
+            <MdClose size={32} />
+          </button>
+          <img src={viewImagePreviewUrl} alt="Comprobante ampliado" className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl" />
+        </div>
+      )}
     </div>
   );
 };

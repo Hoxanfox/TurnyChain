@@ -41,6 +41,8 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [selectedTransferForCurrentPayment, setSelectedTransferForCurrentPayment] = useState<any>(null);
   const [isSearchingTransfers, setIsSearchingTransfers] = useState(false);
 
+  const [viewImagePreviewUrl, setViewImagePreviewUrl] = useState<string | null>(null);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -281,8 +283,25 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
   React.useEffect(() => {
     return () => {
       if (currentPreviewUrl) URL.revokeObjectURL(currentPreviewUrl);
+      if (viewImagePreviewUrl) URL.revokeObjectURL(viewImagePreviewUrl);
     };
-  }, [currentPreviewUrl]);
+  }, [currentPreviewUrl, viewImagePreviewUrl]);
+
+  const handleViewImage = (fileOrUrl: File | string) => {
+    if (typeof fileOrUrl === 'string') {
+      setViewImagePreviewUrl(fileOrUrl);
+    } else {
+      const url = URL.createObjectURL(fileOrUrl);
+      setViewImagePreviewUrl(url);
+    }
+  };
+
+  const handleCloseImagePreview = () => {
+    if (viewImagePreviewUrl && viewImagePreviewUrl !== currentPreviewUrl) {
+      URL.revokeObjectURL(viewImagePreviewUrl);
+    }
+    setViewImagePreviewUrl(null);
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
@@ -355,7 +374,12 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                         <div>
                           <p className="font-bold text-gray-800 capitalize">{p.method}</p>
                           {p.method === 'transferencia' && p.file && (
-                            <p className="text-xs text-gray-500">📷 Comprobante adjunto</p>
+                            <button 
+                              onClick={() => handleViewImage(p.file as File)}
+                              className="text-xs text-indigo-600 underline font-semibold flex items-center gap-1 hover:text-indigo-800 transition-colors mt-0.5"
+                            >
+                              📷 Ver comprobante adjunto
+                            </button>
                           )}
                           {p.transferToLink && (
                             <p className="text-xs text-indigo-600 font-semibold mt-1">
@@ -587,8 +611,16 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       </button>
                     </div>
                   ) : (
-                    <div className="relative rounded-2xl overflow-hidden border-2 border-green-300 shadow-md">
-                      <img src={currentPreviewUrl} alt="Comprobante" className="w-full h-40 object-cover" />
+                    <div className="relative rounded-2xl overflow-hidden border-2 border-green-300 shadow-md group">
+                      <img 
+                        src={currentPreviewUrl} 
+                        alt="Comprobante" 
+                        className="w-full h-40 object-cover cursor-pointer hover:opacity-90 transition-opacity" 
+                        onClick={() => handleViewImage(currentPreviewUrl)}
+                      />
+                      <div className="absolute inset-0 pointer-events-none flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                         <span className="bg-black/50 text-white text-xs font-bold px-3 py-1 rounded-full">🔍 Ver</span>
+                      </div>
                       <button
                         onClick={handleRemovePhoto}
                         disabled={isSubmitting}
@@ -623,6 +655,18 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
         )}
       </div>
       {showQR && <QRModal onClose={() => setShowQR(false)} />}
+      
+      {viewImagePreviewUrl && (
+        <div className="fixed inset-0 z-[60] bg-black/90 flex flex-col items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
+          <button 
+            onClick={handleCloseImagePreview}
+            className="absolute top-4 right-4 bg-white/20 hover:bg-white/40 text-white rounded-full p-2 transition-colors z-[70]"
+          >
+            <MdClose size={32} />
+          </button>
+          <img src={viewImagePreviewUrl} alt="Comprobante ampliado" className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl" />
+        </div>
+      )}
     </div>
   );
 };
