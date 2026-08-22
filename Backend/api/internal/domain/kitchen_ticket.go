@@ -31,6 +31,7 @@ type KitchenTicketItem struct {
 	Customizations *Customizations `json:"customizations,omitempty"`
 	IsTakeout      bool            `json:"is_takeout"`
 	Price          int             `json:"price"` // Precio unitario en moneda local
+	IsModified     bool            `json:"is_modified"`
 }
 
 // StationSummary es el resumen de una estación dentro de una orden

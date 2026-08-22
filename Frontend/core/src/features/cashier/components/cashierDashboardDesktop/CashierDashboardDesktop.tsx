@@ -258,8 +258,8 @@ export const CashierDashboardDesktop: React.FC<CashierDashboardDesktopProps> = (
   }, [shortcutNonce, shortcutTarget, onSelectTable]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 p-6">
-      <div className="max-w-[1920px] mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 p-6 flex flex-col">
+      <div className="max-w-[1920px] mx-auto w-full flex-1 flex flex-col">
         {/* Notificaciones */}
         {notification && (
           <Notification
@@ -360,7 +360,7 @@ export const CashierDashboardDesktop: React.FC<CashierDashboardDesktopProps> = (
         </div>
 
         {viewMode === 'tables' ? (
-          <div className="mt-6 flex gap-4 h-[calc(100vh-520px)] min-h-[500px]">
+          <div className="mt-6 flex gap-4 flex-1 min-h-[500px] pb-4">
             <CinemaTablesSelector
               ordersByTable={ordersByTable}
               selectedTable={selectedTable}
@@ -385,7 +385,7 @@ export const CashierDashboardDesktop: React.FC<CashierDashboardDesktopProps> = (
             />
           </div>
         ) : (
-          <div className="mt-6 space-y-4 max-h-[calc(100vh-520px)] overflow-y-auto pr-2">
+          <div className="mt-6 space-y-4 flex-1 overflow-y-auto pr-2 min-h-[500px] pb-4">
             {urgentGroupedOrders.length === 0 ? (
               <div className="bg-white rounded-2xl shadow-md p-10 text-center border border-emerald-200">
                 <p className="text-5xl mb-3">✅</p>

@@ -53,6 +53,7 @@ type KitchenTicketService struct {
 	printerRepo  *repository.PrinterRepository
 	stationRepo  *repository.StationRepository
 	wsHub        *wshub.Hub
+	menuRepo     repository.MenuRepository
 	printerMutex sync.Mutex             // Mutex global para serializar impresiones
 	ipLocks      map[string]*sync.Mutex // Mutex por IP para impresoras que comparten dirección
 	ipLocksGuard sync.RWMutex           // Protege el mapa de ipLocks
@@ -67,12 +68,14 @@ func NewKitchenTicketService(
 	printerRepo *repository.PrinterRepository,
 	stationRepo *repository.StationRepository,
 	wsHub *wshub.Hub,
+	menuRepo repository.MenuRepository,
 ) *KitchenTicketService {
 	svc := &KitchenTicketService{
 		orderRepo:   orderRepo,
 		printerRepo: printerRepo,
 		stationRepo: stationRepo,
 		wsHub:       wsHub,
+		menuRepo:    menuRepo,
 		ipLocks:     make(map[string]*sync.Mutex),
 		printQueue:  make(chan printJob, printQueueBufferSize),
 		processing:  make(map[uuid.UUID]time.Time),
@@ -569,6 +572,19 @@ func (s *KitchenTicketService) GenerateKitchenTickets(orderID uuid.UUID) ([]doma
 				}
 			}
 
+			// Verificar si fue modificado
+			isModified := false
+			if item.Notes != nil && *item.Notes != "" {
+				isModified = true
+			} else {
+				allIngredients, allAccompaniments, err := s.menuRepo.GetMenuItemDetails(item.MenuItemID)
+				if err == nil {
+					if len(item.Customizations.ActiveIngredients) < len(allIngredients) || len(item.Customizations.SelectedAccompaniments) < len(allAccompaniments) {
+						isModified = true
+					}
+				}
+			}
+
 			// Agregar el item a la estación
 			kitchenItem := domain.KitchenTicketItem{
 				MenuItemName:   item.MenuItemName,
@@ -576,6 +592,7 @@ func (s *KitchenTicketService) GenerateKitchenTickets(orderID uuid.UUID) ([]doma
 				Customizations: &item.Customizations,
 				IsTakeout:      item.IsTakeout,
 				Price:          int(item.PriceAtOrder),
+				IsModified:     isModified,
 			}
 
 			// Manejar Notes que puede ser nil
@@ -633,12 +650,25 @@ func (s *KitchenTicketService) PrintGlobalOrderTicket(orderID uuid.UUID) error {
 	// 2. Mapear TODOS los ítems de la orden a KitchenTicketItem
 	var allItems []domain.KitchenTicketItem
 	for _, item := range order.Items {
+		isModified := false
+		if item.Notes != nil && *item.Notes != "" {
+			isModified = true
+		} else {
+			allIngredients, allAccompaniments, err := s.menuRepo.GetMenuItemDetails(item.MenuItemID)
+			if err == nil {
+				if len(item.Customizations.ActiveIngredients) < len(allIngredients) || len(item.Customizations.SelectedAccompaniments) < len(allAccompaniments) {
+					isModified = true
+				}
+			}
+		}
+
 		kitchenItem := domain.KitchenTicketItem{
 			MenuItemName:   item.MenuItemName,
 			Quantity:       item.Quantity,
 			Customizations: &item.Customizations,
 			IsTakeout:      item.IsTakeout,
 			Price:          int(item.PriceAtOrder),
+			IsModified:     isModified,
 		}
 		if item.Notes != nil {
 			kitchenItem.Notes = *item.Notes
