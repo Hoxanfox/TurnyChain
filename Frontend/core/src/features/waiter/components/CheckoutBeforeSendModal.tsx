@@ -25,6 +25,7 @@ const CheckoutBeforeSendModal: React.FC<CheckoutBeforeSendModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [isCompressing, setIsCompressing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
 
   // Estados para Mixto
   const [splitPayments, setSplitPayments] = useState<PaymentInput[]>([]);
@@ -456,7 +457,17 @@ const CheckoutBeforeSendModal: React.FC<CheckoutBeforeSendModalProps> = ({
                           }`}>
                             {p.method}
                           </span>
-                          {p.file && <span className="text-xs text-gray-500">📸 Con foto</span>}
+                          {p.file && (
+                            <div className="ml-2">
+                              <img 
+                                src={URL.createObjectURL(p.file)} 
+                                alt="Comprobante" 
+                                className="w-10 h-10 object-cover rounded border border-gray-300 cursor-pointer hover:opacity-80 transition-opacity" 
+                                onClick={() => setFullscreenImage(URL.createObjectURL(p.file!))}
+                                title="Ver comprobante"
+                              />
+                            </div>
+                          )}
                         </div>
                         <div className="flex items-center gap-3">
                           <span className="font-bold">{formatMoney(p.amount)}</span>
@@ -661,6 +672,20 @@ const CheckoutBeforeSendModal: React.FC<CheckoutBeforeSendModalProps> = ({
         </div>
 
       </div>
+
+      {fullscreenImage && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md" onClick={() => setFullscreenImage(null)}>
+          <div className="relative max-w-full max-h-full animate-fade-in flex flex-col items-center">
+            <button 
+              onClick={() => setFullscreenImage(null)}
+              className="absolute -top-12 right-0 text-white bg-white/20 hover:bg-white/40 p-2 rounded-full transition-colors"
+            >
+              <MdClose size={24} />
+            </button>
+            <img src={fullscreenImage} alt="Comprobante Completo" className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl" />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

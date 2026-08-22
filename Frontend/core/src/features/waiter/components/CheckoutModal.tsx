@@ -44,6 +44,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -355,7 +356,15 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                         <div>
                           <p className="font-bold text-gray-800 capitalize">{p.method}</p>
                           {p.method === 'transferencia' && p.file && (
-                            <p className="text-xs text-gray-500">📷 Comprobante adjunto</p>
+                            <div className="mt-2">
+                              <p className="text-xs text-gray-500 mb-1">📷 Comprobante adjunto:</p>
+                              <img 
+                                src={URL.createObjectURL(p.file)} 
+                                alt="Comprobante" 
+                                className="w-16 h-16 object-cover rounded-md border border-gray-300 cursor-pointer hover:opacity-80 transition-opacity" 
+                                onClick={() => setFullscreenImage(URL.createObjectURL(p.file!))}
+                              />
+                            </div>
                           )}
                           {p.transferToLink && (
                             <p className="text-xs text-indigo-600 font-semibold mt-1">
@@ -623,6 +632,20 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
         )}
       </div>
       {showQR && <QRModal onClose={() => setShowQR(false)} />}
+      
+      {fullscreenImage && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md" onClick={() => setFullscreenImage(null)}>
+          <div className="relative max-w-full max-h-full animate-fade-in flex flex-col items-center">
+            <button 
+              onClick={() => setFullscreenImage(null)}
+              className="absolute -top-12 right-0 text-white bg-white/20 hover:bg-white/40 p-2 rounded-full transition-colors"
+            >
+              <MdClose size={24} />
+            </button>
+            <img src={fullscreenImage} alt="Comprobante Completo" className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl" />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

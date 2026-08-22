@@ -5,7 +5,7 @@ import type { Employee } from './api/employeesAPI';
 interface EmployeeFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (name: string, role: string) => Promise<boolean>;
+  onSubmit: (name: string, role: string, is_active: boolean) => Promise<boolean>;
   initialData?: Employee | null;
 }
 
@@ -17,6 +17,7 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
 }) => {
   const [name, setName] = useState('');
   const [role, setRole] = useState('');
+  const [isActive, setIsActive] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -24,9 +25,11 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
       if (initialData) {
         setName(initialData.name);
         setRole(initialData.role);
+        setIsActive(initialData.is_active);
       } else {
         setName('');
         setRole('');
+        setIsActive(true);
       }
     }
   }, [isOpen, initialData]);
@@ -38,7 +41,7 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
     if (!name.trim() || !role.trim()) return;
 
     setIsSubmitting(true);
-    const success = await onSubmit(name, role);
+    const success = await onSubmit(name, role, isActive);
     setIsSubmitting(false);
 
     if (success) {
@@ -83,6 +86,19 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
               placeholder="Ej. Cocinero, Mesero"
               required
             />
+          </div>
+
+          <div className="flex items-center gap-2 pt-1">
+            <input
+              type="checkbox"
+              id="isActive"
+              checked={isActive}
+              onChange={(e) => setIsActive(e.target.checked)}
+              className="w-4 h-4 text-cyan-600 border-gray-300 rounded focus:ring-cyan-500"
+            />
+            <label htmlFor="isActive" className="text-sm font-medium text-gray-700">
+              Empleado Activo
+            </label>
           </div>
 
           <div className="pt-4 flex justify-end gap-3">

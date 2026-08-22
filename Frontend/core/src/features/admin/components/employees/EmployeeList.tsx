@@ -58,9 +58,16 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
                   </div>
                 </td>
                 <td className="px-6 py-4">
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                    {emp.role}
-                  </span>
+                  <div className="flex gap-2">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      {emp.role}
+                    </span>
+                    {!emp.is_active && (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                        Inactivo
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="px-6 py-4 text-right">
                   <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
