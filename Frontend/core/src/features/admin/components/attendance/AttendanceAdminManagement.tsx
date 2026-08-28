@@ -14,8 +14,29 @@ const AttendanceAdminManagement: React.FC = () => {
   const [editingTimeId, setEditingTimeId] = useState<string | null>(null);
   const [tempTime, setTempTime] = useState<string>('');
 
+  // Employee editing state
+  const [editingEmployee, setEditingEmployee] = useState<EmployeeAttendance | null>(null);
+  const [editForm, setEditForm] = useState({ name: '', role: '', is_active: true });
+
+  const handleEditEmployee = (emp: EmployeeAttendance) => {
+    setEditingEmployee(emp);
+    setEditForm({ name: emp.name, role: emp.role, is_active: emp.is_active !== false });
+  };
+
+  const handleSaveEmployee = async () => {
+    if (!editingEmployee) return;
+    try {
+      await attendanceApi.updateEmployee(editingEmployee.id, editForm);
+      setEditingEmployee(null);
+      await loadAttendance();
+    } catch (err) {
+      console.error('Error saving employee', err);
+      setError('Error al guardar el empleado.');
+    }
+  };
+
   const loadAttendance = async () => {
-    setIsLoading(true);
+    if (employees.length === 0) setIsLoading(true);
     setError(null);
     try {
       const data = await attendanceApi.getTodayStatus(selectedDate);
@@ -141,9 +162,10 @@ const AttendanceAdminManagement: React.FC = () => {
                 <tr>
                   <th className="px-6 py-4">Empleado</th>
                   <th className="px-6 py-4">Rol</th>
-                  <th className="px-6 py-4 text-center">Estado</th>
+                  <th className="px-6 py-4 text-center">Estado de Hoy</th>
                   <th className="px-6 py-4">Hora Llegada</th>
-                  <th className="px-6 py-4 text-center">Acciones</th>
+                  <th className="px-6 py-4 text-center">Asistencia</th>
+                  <th className="px-6 py-4 text-center">Gestión</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -157,7 +179,10 @@ const AttendanceAdminManagement: React.FC = () => {
                         }`}>
                           {emp.name.charAt(0).toUpperCase()}
                         </div>
-                        <span className="font-bold text-gray-800">{emp.name}</span>
+                        <span className={`font-bold ${!emp.is_active ? 'text-gray-400 line-through' : 'text-gray-800'}`}>{emp.name}</span>
+                        {!emp.is_active && (
+                          <span className="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-bold">Inactivo</span>
+                        )}
                       </div>
                     </td>
                     <td className="px-6 py-4 font-medium text-gray-500">
@@ -242,6 +267,15 @@ const AttendanceAdminManagement: React.FC = () => {
                         )}
                       </div>
                     </td>
+                    <td className="px-6 py-4 text-center">
+                      <button
+                        onClick={() => handleEditEmployee(emp)}
+                        className="p-2 text-gray-400 hover:text-indigo-600 transition-colors"
+                        title="Editar Empleado"
+                      >
+                        <FaEdit size={16} />
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -249,6 +283,69 @@ const AttendanceAdminManagement: React.FC = () => {
           </div>
         )}
       </div>
+
+      {editingEmployee && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
+              <h3 className="text-lg font-bold text-gray-800">Editar Empleado</h3>
+              <button onClick={() => setEditingEmployee(null)} className="text-gray-400 hover:text-gray-600">
+                <FaTimes size={20} />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
+                <input
+                  type="text"
+                  value={editForm.name}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Rol</label>
+                <select
+                  value={editForm.role}
+                  onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                >
+                  <option value="mesero">Mesero</option>
+                  <option value="cocina">Cocina</option>
+                  <option value="cajero">Cajero</option>
+                  <option value="admin">Administrador</option>
+                </select>
+              </div>
+              <div className="flex items-center gap-2 pt-2">
+                <input
+                  type="checkbox"
+                  id="isActive"
+                  checked={editForm.is_active}
+                  onChange={(e) => setEditForm({ ...editForm, is_active: e.target.checked })}
+                  className="w-4 h-4 text-indigo-600 rounded border-gray-300"
+                />
+                <label htmlFor="isActive" className="text-sm font-medium text-gray-700">
+                  Empleado Activo
+                </label>
+              </div>
+            </div>
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end gap-3">
+              <button
+                onClick={() => setEditingEmployee(null)}
+                className="px-4 py-2 text-gray-600 font-medium hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSaveEmployee}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors flex items-center gap-2"
+              >
+                <FaSave /> Guardar Cambios
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

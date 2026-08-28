@@ -79,7 +79,7 @@ export const AttendanceNotebookModal: React.FC<AttendanceNotebookModalProps> = (
   }, [isOpen, isUnlocked, showHistory]);
 
   const loadEmployees = async () => {
-    setIsLoading(true);
+    if (employees.length === 0) setIsLoading(true);
     try {
       const data = await attendanceApi.getTodayStatus();
       setEmployees(data || []);
@@ -91,7 +91,7 @@ export const AttendanceNotebookModal: React.FC<AttendanceNotebookModalProps> = (
   };
 
   const loadHistory = async () => {
-    setIsLoading(true);
+    if (reports.length === 0) setIsLoading(true);
     try {
       const data = await attendanceApi.getAttendanceReport(startDate, endDate);
       setReports(data || []);

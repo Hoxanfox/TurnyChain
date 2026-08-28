@@ -64,6 +64,14 @@ import toast, { Toaster } from 'react-hot-toast';
 import { useWaiterGamification } from './hooks/useWaiterGamification';
 import './styles/Gamification.css';
 
+interface OrderTab {
+  id: string;
+  name: string;
+  cart: CartItem[];
+  tableId: string;
+  orderType: string;
+}
+
 const WaiterDashboard: React.FC = () => {
     // Estado para nota especial de checkout en pedidos para llevar
     const [checkoutTakeoutNotes, setCheckoutTakeoutNotes] = useState<string>("");
@@ -111,9 +119,46 @@ const WaiterDashboard: React.FC = () => {
 
   const { sendMessage } = useWaiterWebSocket(handleWaiterWsNotification, handleRawWsMessage);
 
-  const [cart, setCart] = useState<CartItem[]>([]);
-  const [tableId, setTableId] = useState('');
-  const [orderType, setOrderType] = useState<string>('mesa'); // "mesa" | "llevar" | "domicilio"
+  const [tabs, setTabs] = useState<OrderTab[]>([
+    { id: '1', name: 'Comanda 1', cart: [], tableId: '', orderType: 'mesa' }
+  ]);
+  const [activeTabId, setActiveTabId] = useState<string>('1');
+
+  const activeTab = tabs.find(t => t.id === activeTabId) || tabs[0];
+  const cart = activeTab.cart;
+  const tableId = activeTab.tableId;
+  const orderType = activeTab.orderType;
+
+  const setCart = (updater: CartItem[] | ((curr: CartItem[]) => CartItem[])) => {
+    setTabs(currTabs => currTabs.map(tab => 
+      tab.id === activeTabId 
+        ? { ...tab, cart: typeof updater === 'function' ? updater(tab.cart) : updater } 
+        : tab
+    ));
+  };
+
+  const setTableId = (newTableId: string) => {
+    setTabs(currTabs => currTabs.map(tab => tab.id === activeTabId ? { ...tab, tableId: newTableId } : tab));
+  };
+
+  const setOrderType = (newOrderType: string) => {
+    setTabs(currTabs => currTabs.map(tab => tab.id === activeTabId ? { ...tab, orderType: newOrderType } : tab));
+  };
+
+  const closeTab = (idToClose: string) => {
+    if (tabs.length === 1) {
+      // Clear the last tab instead of removing it
+      setTabs([{ id: '1', name: 'Comanda 1', cart: [], tableId: '', orderType: 'mesa' }]);
+      setActiveTabId('1');
+    } else {
+      const newTabs = tabs.filter(t => t.id !== idToClose);
+      setTabs(newTabs);
+      if (activeTabId === idToClose) {
+        setActiveTabId(newTabs[newTabs.length - 1].id);
+      }
+    }
+  };
+
   const [deliveryData, setDeliveryData] = useState<{
     address: string;
     phone: string;
@@ -156,45 +201,43 @@ const WaiterDashboard: React.FC = () => {
   // 🆕 MEJORA UX #1: Persistencia del carrito (Efecto Zeigarnik)
   // Recuperar carrito guardado al montar el componente
   useEffect(() => {
-    const savedDraft = localStorage.getItem('waiter-cart-draft');
+    const savedDraft = localStorage.getItem('waiter-tabs-draft');
     if (savedDraft) {
       try {
         const parsed = JSON.parse(savedDraft);
         const hoursSinceLastUpdate = (Date.now() - parsed.timestamp) / (1000 * 60 * 60);
 
         // Solo recuperar si tiene menos de 4 horas (un turno)
-        if (parsed.cart.length > 0 && hoursSinceLastUpdate < 4) {
-          setCart(parsed.cart);
-          setTableId(parsed.tableId || '');
-          setOrderType(parsed.orderType || 'mesa');
-          toast('📦 Tienes una orden sin terminar', {
+        if (parsed.tabs && parsed.tabs.length > 0 && hoursSinceLastUpdate < 4) {
+          setTabs(parsed.tabs);
+          setActiveTabId(parsed.activeTabId || parsed.tabs[0].id);
+          toast('📦 Tienes comandas sin terminar', {
             icon: '💡',
             duration: 4000,
           });
         } else {
-          // Limpiar si es muy viejo
-          localStorage.removeItem('waiter-cart-draft');
+          localStorage.removeItem('waiter-tabs-draft');
         }
       } catch (error) {
         console.error('Error al recuperar carrito guardado:', error);
-        localStorage.removeItem('waiter-cart-draft');
+        localStorage.removeItem('waiter-tabs-draft');
       }
     }
   }, []);
 
   // Guardar carrito en localStorage cada vez que cambie
   useEffect(() => {
-    if (cart.length > 0) {
-      localStorage.setItem('waiter-cart-draft', JSON.stringify({
-        cart,
-        tableId,
-        orderType,
+    const hasData = tabs.some(t => t.cart.length > 0 || t.tableId !== '');
+    if (hasData) {
+      localStorage.setItem('waiter-tabs-draft', JSON.stringify({
+        tabs,
+        activeTabId,
         timestamp: Date.now()
       }));
     } else {
-      localStorage.removeItem('waiter-cart-draft');
+      localStorage.removeItem('waiter-tabs-draft');
     }
-  }, [cart, tableId, orderType]);
+  }, [tabs, activeTabId]);
 
   useEffect(() => {
     dispatch(fetchTables());
@@ -392,12 +435,11 @@ const WaiterDashboard: React.FC = () => {
       setIsValidationModalOpen(false);
       setValidationError(null);
 
-      setCart([]);
-      setTableId('');
-      setOrderType('mesa');
+      // Close tab on success
+      closeTab(activeTabId);
+      
       setDeliveryData(null);
       setSelectedParentOrder(null);
-      localStorage.removeItem('waiter-cart-draft');
     } catch (error: any) {
       if (error === 'CASH_REGISTER_CLOSED') {
         setValidationError('La caja está cerrada.');
@@ -640,12 +682,10 @@ const WaiterDashboard: React.FC = () => {
       setIsCheckoutBeforeSend(false);
 
       // Limpiar estado
-      setCart([]);
-      setTableId('');
-      setOrderType('mesa');
+      closeTab(activeTabId);
+      
       setDeliveryData(null);
       setSelectedParentOrder(null);
-      localStorage.removeItem('waiter-cart-draft');
       return true;
     } catch (error: any) {
       if (error === 'CASH_REGISTER_CLOSED') {
@@ -812,6 +852,55 @@ const WaiterDashboard: React.FC = () => {
             <WaiterProfileMenu />
           </div>
         </header>
+
+        {/* --- TABS BAR --- */}
+        <div className="bg-white px-2 py-2 flex gap-2 overflow-x-auto shadow-sm z-10 border-b border-gray-200 hide-scrollbar scroll-smooth">
+          {tabs.map((tab) => (
+            <div
+              key={tab.id}
+              className={`flex-shrink-0 flex items-center rounded-full text-sm font-bold transition-colors border ${
+                activeTabId === tab.id 
+                  ? 'bg-indigo-600 text-white border-indigo-700 shadow-md' 
+                  : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+              }`}
+            >
+              <button
+                onClick={() => setActiveTabId(tab.id)}
+                className="pl-3 pr-2 py-1.5 flex items-center"
+              >
+                {tab.name}
+                {tab.cart.length > 0 && (
+                  <span className={`ml-2 text-[10px] px-1.5 py-0.5 rounded-full ${activeTabId === tab.id ? 'bg-indigo-400' : 'bg-indigo-100 text-indigo-700'}`}>
+                    {tab.cart.length}
+                  </span>
+                )}
+              </button>
+              {tabs.length > 1 && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    closeTab(tab.id);
+                  }}
+                  className={`pr-3 pl-1 py-1.5 opacity-60 hover:opacity-100 transition-opacity ${activeTabId === tab.id ? 'text-white' : 'text-gray-500'}`}
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          ))}
+          <button
+            onClick={() => {
+              const newId = Date.now().toString();
+              setTabs([...tabs, { id: newId, name: `Comanda ${tabs.length + 1}`, cart: [], tableId: '', orderType: 'mesa' }]);
+              setActiveTabId(newId);
+              // Ensure swiper goes to menu when opening new tab
+              swiperRef.current?.slideTo(1);
+            }}
+            className="flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-bold text-indigo-600 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 transition-colors flex items-center gap-1"
+          >
+            <span>+</span> Nueva
+          </button>
+        </div>
 
         {/* Cierra dropdown si se hace clic afuera (hack rápido cubriendo el resto) */}
         {showToolsMenu && (

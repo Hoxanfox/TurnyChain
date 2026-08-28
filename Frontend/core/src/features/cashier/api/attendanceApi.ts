@@ -74,4 +74,9 @@ export const attendanceApi = {
     const response = await axios.get(`${API_URL}/attendance/report?start_date=${startDate}&end_date=${endDate}`, getAuthHeaders());
     return response.data;
   },
+
+  updateEmployee: async (id: string, employeeData: Partial<Employee>): Promise<Employee> => {
+    const response = await axios.put(`${API_URL}/employees/${id}`, employeeData, getAuthHeaders());
+    return response.data;
+  },
 };
