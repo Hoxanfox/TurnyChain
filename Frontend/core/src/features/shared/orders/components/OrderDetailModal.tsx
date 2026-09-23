@@ -27,6 +27,10 @@ const PaymentInfoSection: React.FC<PaymentInfoSectionProps> = ({ order }) => {
     new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(amount);
 
   const hasMultiplePayments = order.payments && order.payments.length > 0;
+  const paidTotal = hasMultiplePayments
+    ? order.payments!.reduce((sum, payment) => sum + payment.amount, 0)
+    : order.total;
+  const registeredTip = Math.max(0, paidTotal - order.total);
 
   return (
     <>
@@ -43,7 +47,7 @@ const PaymentInfoSection: React.FC<PaymentInfoSectionProps> = ({ order }) => {
             <div className="flex items-center gap-2 bg-slate-700 px-3 py-1.5 rounded-full border border-slate-600">
               <span className="text-sm font-semibold text-slate-200">Total pagado:</span>
               <span className="text-sm font-bold text-emerald-400">
-                {formatMoney(hasMultiplePayments ? order.payments!.reduce((sum, p) => sum + p.amount, 0) : order.total)}
+                {formatMoney(paidTotal)}
               </span>
             </div>
           )}
@@ -51,6 +55,23 @@ const PaymentInfoSection: React.FC<PaymentInfoSectionProps> = ({ order }) => {
         
         {/* BODY */}
         <div className="p-5 bg-slate-50">
+          <div className="grid gap-2 sm:grid-cols-3 mb-5">
+            <div className="bg-white rounded-xl border border-slate-200 p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Cuenta</p>
+              <p className="mt-1 font-black text-slate-800">{formatMoney(order.total)}</p>
+            </div>
+            <div className={`rounded-xl border p-3 ${registeredTip > 0 ? 'bg-amber-50 border-amber-200' : 'bg-white border-slate-200'}`}>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Propina</p>
+              <p className={`mt-1 font-black ${registeredTip > 0 ? 'text-amber-700' : 'text-slate-500'}`}>
+                {formatMoney(registeredTip)}
+              </p>
+            </div>
+            <div className="bg-white rounded-xl border border-slate-200 p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Total pagado</p>
+              <p className="mt-1 font-black text-emerald-600">{formatMoney(paidTotal)}</p>
+            </div>
+          </div>
+
           {hasMultiplePayments ? (
             <div className="space-y-4">
               <div className="flex items-center gap-2 mb-2">

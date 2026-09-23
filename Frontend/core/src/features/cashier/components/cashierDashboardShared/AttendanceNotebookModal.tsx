@@ -10,8 +10,7 @@ import {
   FiCheck as Check,
   FiBarChart2 as BarChart,
   FiCalendar as Calendar,
-  FiChevronDown as ChevronDown,
-  FiChevronUp as ChevronUp
+  FiUsers as Users
 } from 'react-icons/fi';
 import { attendanceApi, type EmployeeAttendance, type AttendanceReport } from '../../api/attendanceApi';
 
@@ -19,6 +18,64 @@ interface AttendanceNotebookModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
+
+interface AttendanceCalendarProps {
+  month: Date;
+  workedDates: Set<string>;
+}
+
+const WEEKDAYS = ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom'];
+
+const formatMonthLabel = (date: Date) =>
+  date.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+
+const dateKey = (year: number, month: number, day: number) =>
+  `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+const CalendarMonth: React.FC<AttendanceCalendarProps> = ({ month, workedDates }) => {
+  const year = month.getFullYear();
+  const monthIndex = month.getMonth();
+  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+  const firstDayOffset = (new Date(year, monthIndex, 1).getDay() + 6) % 7;
+  const cells = Array.from({ length: firstDayOffset + daysInMonth }, (_, index) => {
+    if (index < firstDayOffset) return null;
+    const day = index - firstDayOffset + 1;
+    const key = dateKey(year, monthIndex, day);
+    return { day, key, worked: workedDates.has(key) };
+  });
+
+  return (
+    <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/80">
+        <h4 className="font-bold text-slate-800 capitalize">{formatMonthLabel(month)}</h4>
+      </div>
+      <div className="p-3 md:p-4">
+        <div className="grid grid-cols-7 gap-1 mb-2">
+          {WEEKDAYS.map(day => (
+            <div key={day} className="text-center text-[10px] md:text-xs font-bold uppercase text-slate-400 py-1">
+              {day}
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-7 gap-1">
+          {cells.map((cell, index) => cell ? (
+            <div
+              key={cell.key}
+              title={cell.worked ? `Trabajo registrado: ${cell.key}` : cell.key}
+              className={`aspect-square min-h-8 md:min-h-10 rounded-lg flex items-center justify-center text-xs md:text-sm font-semibold transition-colors ${
+                cell.worked
+                  ? 'bg-emerald-500 text-white shadow-sm ring-2 ring-emerald-100'
+                  : 'bg-slate-50 text-slate-500'
+              }`}
+            >
+              {cell.day}
+            </div>
+          ) : <div key={`empty-${index}`} className="aspect-square min-h-8 md:min-h-10" />)}
+        </div>
+      </div>
+    </section>
+  );
+};
 
 export const AttendanceNotebookModal: React.FC<AttendanceNotebookModalProps> = ({ isOpen, onClose }) => {
   const [isUnlocked, setIsUnlocked] = useState(false);
@@ -35,7 +92,7 @@ export const AttendanceNotebookModal: React.FC<AttendanceNotebookModalProps> = (
   // Estado para Reportes/Historial
   const [showHistory, setShowHistory] = useState(false);
   const [reports, setReports] = useState<AttendanceReport[]>([]);
-  const [expandedReportId, setExpandedReportId] = useState<string | null>(null);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState('all');
   const [startDate, setStartDate] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() - 7);
@@ -44,6 +101,24 @@ export const AttendanceNotebookModal: React.FC<AttendanceNotebookModalProps> = (
   const [endDate, setEndDate] = useState(() => {
     return new Date().toISOString().split('T')[0];
   });
+
+  const selectedReport = reports.find(report => report.employee_id === selectedEmployeeId);
+  const visibleReports = selectedEmployeeId === 'all'
+    ? reports
+    : selectedReport ? [selectedReport] : [];
+  const rangeIsValid = startDate <= endDate;
+  const calendarMonths = rangeIsValid ? (() => {
+    const first = new Date(`${startDate}T00:00:00`);
+    const last = new Date(`${endDate}T00:00:00`);
+    const months: Date[] = [];
+    const cursor = new Date(first.getFullYear(), first.getMonth(), 1);
+    const lastMonth = new Date(last.getFullYear(), last.getMonth(), 1);
+    while (cursor <= lastMonth) {
+      months.push(new Date(cursor));
+      cursor.setMonth(cursor.getMonth() + 1);
+    }
+    return months;
+  })() : [];
 
   useEffect(() => {
     if (isOpen && isUnlocked) {
@@ -91,6 +166,7 @@ export const AttendanceNotebookModal: React.FC<AttendanceNotebookModalProps> = (
   };
 
   const loadHistory = async () => {
+    if (startDate > endDate) return;
     if (reports.length === 0) setIsLoading(true);
     try {
       const data = await attendanceApi.getAttendanceReport(startDate, endDate);
@@ -162,11 +238,6 @@ export const AttendanceNotebookModal: React.FC<AttendanceNotebookModalProps> = (
     if (!isoString) return '--:--';
     const d = new Date(isoString);
     return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
-
-  const formatDateStr = (dateString: string) => {
-    const d = new Date(dateString + 'T00:00:00'); // Prevent timezone shift
-    return d.toLocaleDateString([], { weekday: 'short', day: '2-digit', month: 'short' });
   };
 
   if (!isOpen) return null;
@@ -267,67 +338,71 @@ export const AttendanceNotebookModal: React.FC<AttendanceNotebookModalProps> = (
                 </button>
               </div>
 
-              {isLoading ? (
+              <div className="flex flex-wrap items-center justify-between gap-3 px-1">
+                <div className="flex items-center gap-2 text-sm text-slate-600">
+                  <Users className="w-4 h-4 text-indigo-600" />
+                  <label htmlFor="attendance-employee" className="font-semibold">Mesero:</label>
+                  <select
+                    id="attendance-employee"
+                    value={selectedEmployeeId}
+                    onChange={e => setSelectedEmployeeId(e.target.value)}
+                    className="bg-white border border-slate-300 rounded-lg px-3 py-1.5 font-medium text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="all">Todos los meseros</option>
+                    {reports.map(report => (
+                      <option key={report.employee_id} value={report.employee_id}>{report.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex items-center gap-3 text-xs font-semibold text-slate-500">
+                  <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-emerald-500" /> Día trabajado</span>
+                  <span>{calendarMonths.length} {calendarMonths.length === 1 ? 'mes' : 'meses'}</span>
+                </div>
+              </div>
+
+              {!rangeIsValid ? (
+                <div className="text-center py-12 bg-white rounded-xl border border-amber-200">
+                  <Calendar className="w-12 h-12 text-amber-400 mx-auto mb-3" />
+                  <p className="text-amber-700 font-medium">La fecha inicial debe ser anterior a la fecha final.</p>
+                </div>
+              ) : isLoading ? (
                 <div className="flex justify-center items-center py-20">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
                 </div>
-              ) : reports.length === 0 ? (
+              ) : reports.length === 0 || visibleReports.length === 0 ? (
                 <div className="text-center py-12 bg-white rounded-xl border border-gray-200">
                   <BarChart className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                   <p className="text-gray-500 font-medium">No hay registros en este rango de fechas.</p>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {reports.map(report => (
-                    <div key={report.employee_id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                      <div 
-                        onClick={() => setExpandedReportId(expandedReportId === report.employee_id ? null : report.employee_id)}
-                        className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors"
-                      >
-                        <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold">
-                            {report.name.charAt(0).toUpperCase()}
+                <div className="space-y-4">
+                  {visibleReports.map(report => {
+                    const workedDates = new Set(report.records.map(record => record.date));
+                    return (
+                      <div key={report.employee_id} className="space-y-3">
+                        <div className="flex items-center justify-between gap-3 px-1">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold">
+                              {report.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <h4 className="font-bold text-gray-800">{report.name}</h4>
+                              <p className="text-xs text-gray-500">{report.role}</p>
+                            </div>
                           </div>
-                          <div>
-                            <h4 className="font-bold text-gray-800">{report.name}</h4>
-                            <p className="text-sm text-gray-500">{report.role}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-4">
                           <div className="text-right">
                             <span className="block text-xl font-black text-indigo-600">{report.days_worked}</span>
-                            <span className="text-xs text-gray-500 font-semibold uppercase">Días</span>
+                            <span className="text-[10px] text-gray-500 font-semibold uppercase">Días trabajados</span>
                           </div>
-                          {expandedReportId === report.employee_id ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+                        </div>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                          {calendarMonths.map(month => (
+                            <CalendarMonth key={`${report.employee_id}-${month.toISOString()}`} month={month} workedDates={workedDates} />
+                          ))}
                         </div>
                       </div>
-                      
-                      {expandedReportId === report.employee_id && (
-                        <div className="bg-gray-50 px-4 py-3 border-t border-gray-100">
-                          {report.records.length > 0 ? (
-                            <table className="w-full text-sm text-left">
-                              <thead>
-                                <tr className="text-gray-500 border-b border-gray-200">
-                                  <th className="py-2 font-semibold">Fecha</th>
-                                  <th className="py-2 font-semibold text-emerald-600">Entrada</th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-gray-100">
-                                {report.records.map((rec, idx) => (
-                                  <tr key={idx}>
-                                    <td className="py-2 font-medium text-gray-700 capitalize">{formatDateStr(rec.date)}</td>
-                                    <td className="py-2 text-emerald-700 font-medium">{formatTimeStr(rec.arrival_time)}</td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          ) : (
-                            <p className="text-sm text-gray-500 text-center py-2">Sin asistencia registrada.</p>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

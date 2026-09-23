@@ -3,7 +3,7 @@
 -- =================================================================
 
 -- Borrar tablas antiguas si existen para un reinicio limpio
-DROP TABLE IF EXISTS "cash_register_expenses", "cash_register_sessions", "order_items", "orders", "menu_item_ingredients", "menu_item_accompaniments", "menu_items", "categories", "printers", "stations", "ingredients", "accompaniments", "tables", "user_sessions", "users" CASCADE;
+DROP TABLE IF EXISTS "inventory_receipt_lines", "inventory_receipts", "inventory_stock", "cash_register_expenses", "cash_register_sessions", "order_items", "orders", "menu_item_ingredients", "menu_item_accompaniments", "menu_items", "categories", "printers", "stations", "ingredients", "accompaniments", "tables", "user_sessions", "users" CASCADE;
 
 -- Tabla para usuarios y roles
 CREATE TABLE "users" (
@@ -24,6 +24,44 @@ CREATE TABLE "user_sessions" (
   "expires_at" timestamptz NOT NULL,
   "revoked_at" timestamptz NULL,
   "revoked_reason" text NULL
+);
+
+-- Recepciones internas de mercancía; no son documentos fiscales.
+CREATE TABLE "inventory_receipts" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "receipt_number" varchar(40) UNIQUE NOT NULL,
+  "received_by" uuid NOT NULL REFERENCES "users"("id"),
+  "supplier_name" varchar(255) NOT NULL DEFAULT '',
+  "notes" text NULL,
+  "status" varchar(20) NOT NULL DEFAULT 'registered' CHECK (status IN ('registered', 'cancelled')),
+  "total" numeric(14, 2) NOT NULL DEFAULT 0,
+  "created_at" timestamptz NOT NULL DEFAULT (now())
+);
+
+CREATE TABLE "inventory_receipt_lines" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "receipt_id" uuid NOT NULL REFERENCES "inventory_receipts"("id") ON DELETE CASCADE,
+  "item_name" varchar(255) NOT NULL,
+  "quantity" numeric(14, 3) NOT NULL CHECK (quantity > 0),
+  "portion_quantities" numeric(14, 3)[] NOT NULL DEFAULT '{}',
+  "unit" varchar(10) NOT NULL CHECK (unit IN ('kg', 'g', 'lb', 'unidad', 'caja')),
+  "unit_cost" numeric(14, 2) NOT NULL CHECK (unit_cost >= 0),
+  "line_total" numeric(14, 2) NOT NULL CHECK (line_total >= 0)
+);
+
+CREATE TABLE "inventory_receipt_drafts" (
+  "user_id" uuid PRIMARY KEY REFERENCES "users"("id") ON DELETE CASCADE,
+  "payload" jsonb NOT NULL,
+  "updated_at" timestamptz NOT NULL DEFAULT (now())
+);
+
+CREATE TABLE "inventory_stock" (
+  "item_name" varchar(255) NOT NULL,
+  "unit" varchar(10) NOT NULL CHECK (unit IN ('kg', 'g', 'lb', 'unidad', 'caja')),
+  "quantity" numeric(14, 3) NOT NULL DEFAULT 0 CHECK (quantity >= 0),
+  "total_cost" numeric(14, 2) NOT NULL DEFAULT 0 CHECK (total_cost >= 0),
+  "updated_at" timestamptz NOT NULL DEFAULT (now()),
+  PRIMARY KEY ("item_name", "unit")
 );
 
 -- Tabla para turnos de caja

@@ -36,6 +36,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [currentAmount, setCurrentAmount] = useState<number | ''>('');
   const [currentProofImage, setCurrentProofImage] = useState<File | null>(null);
   const [currentPreviewUrl, setCurrentPreviewUrl] = useState<string | null>(null);
+  const [tipAmount, setTipAmount] = useState<number | ''>('');
 
   const [matchingTransfers, setMatchingTransfers] = useState<any[]>([]);
   const [selectedTransferForCurrentPayment, setSelectedTransferForCurrentPayment] = useState<any>(null);
@@ -50,7 +51,9 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
-  const remaining = orderTotal - totalPaid;
+  const tip = typeof tipAmount === 'number' ? tipAmount : 0;
+  const totalToCollect = orderTotal + tip;
+  const remaining = totalToCollect - totalPaid;
 
   const formatMoney = (amount: number) =>
     new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(amount);
@@ -202,6 +205,14 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
   };
 
   const handleSubmitAll = async () => {
+    if (tip < 0) {
+      setError('La propina no puede ser negativa');
+      return;
+    }
+    if (remaining < 0) {
+      setError('Los pagos agregados superan el total de la cuenta');
+      return;
+    }
     if (remaining > 0) {
       setError('Aún queda saldo por pagar');
       return;
@@ -223,7 +234,8 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
         let paymentPool = payments.map(p => ({ ...p, remaining: p.amount }));
 
         for (const orderInfo of groupOrderInfos) {
-          let needed = orderInfo.total;
+          const isLastOrder = orderInfo.id === groupOrderInfos[groupOrderInfos.length - 1].id;
+          let needed = orderInfo.total + (isLastOrder ? tip : 0);
           let orderPayments: PaymentInput[] = [];
 
           for (let p of paymentPool) {
@@ -324,6 +336,32 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 <span className="text-gray-500 font-semibold">Total:</span>
                 <span className="text-xl font-bold text-gray-800">{formatMoney(orderTotal)}</span>
               </div>
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <label htmlFor="checkout-tip" className="text-gray-500 font-semibold">Propina:</label>
+                <div className="relative w-36">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold">$</span>
+                  <input
+                    id="checkout-tip"
+                    type="number"
+                    min="0"
+                    step="100"
+                    value={tipAmount}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      setTipAmount(value === '' ? '' : Math.max(0, Number(value)));
+                    }}
+                    disabled={isSubmitting}
+                    placeholder="0"
+                    className="w-full pl-7 pr-2 py-1.5 bg-white border border-gray-300 rounded-lg text-right font-bold text-gray-800 focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+              {tip > 0 && (
+                <div className="flex justify-between items-center mb-2 text-sm text-indigo-700">
+                  <span className="font-semibold">Total con propina:</span>
+                  <span className="font-black">{formatMoney(totalToCollect)}</span>
+                </div>
+              )}
               <div className="flex justify-between items-center mb-2">
                 <span className="text-gray-500 font-semibold">Pagado:</span>
                 <span className="text-xl font-bold text-green-600">{formatMoney(totalPaid)}</span>

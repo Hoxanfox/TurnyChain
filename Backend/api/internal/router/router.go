@@ -11,7 +11,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *handler.UserHandler, menuHandler *handler.MenuHandler, orderHandler *handler.OrderHandler, invoiceHandler *handler.InvoiceHandler, tableHandler *handler.TableHandler, categoryHandler *handler.CategoryHandler, ingredientHandler *handler.IngredientHandler, accompanimentHandler *handler.AccompanimentHandler, wsHandler *handler.WebSocketHandler, stationHandler *handler.StationHandler, printerHandler *handler.PrinterHandler, kitchenTicketHandler *handler.KitchenTicketHandler, backupHandler *handler.BackupHandler, cashRegisterHandler *handler.CashRegisterHandler, settingHandler *handler.SettingHandler, bankTransferHandler *handler.BankTransferHandler, sessionRepo repository.SessionRepository, cashRegisterRepo repository.CashRegisterRepository, employeeHandler *handler.EmployeeHandler, attendanceHandler *handler.AttendanceHandler) {
+func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *handler.UserHandler, menuHandler *handler.MenuHandler, orderHandler *handler.OrderHandler, invoiceHandler *handler.InvoiceHandler, inventoryReceiptHandler *handler.InventoryReceiptHandler, tableHandler *handler.TableHandler, categoryHandler *handler.CategoryHandler, ingredientHandler *handler.IngredientHandler, accompanimentHandler *handler.AccompanimentHandler, wsHandler *handler.WebSocketHandler, stationHandler *handler.StationHandler, printerHandler *handler.PrinterHandler, kitchenTicketHandler *handler.KitchenTicketHandler, backupHandler *handler.BackupHandler, cashRegisterHandler *handler.CashRegisterHandler, settingHandler *handler.SettingHandler, bankTransferHandler *handler.BankTransferHandler, sessionRepo repository.SessionRepository, cashRegisterRepo repository.CashRegisterRepository, employeeHandler *handler.EmployeeHandler, attendanceHandler *handler.AttendanceHandler) {
 	// Ruta pública para WebSockets
 	app.Get("/ws", websocket.New(wsHandler.HandleConnection))
 
@@ -79,21 +79,33 @@ func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *
 	orders.Get("/", orderHandler.GetOrders)
 	orders.Get("/today", orderHandler.GetOrdersToday)
 	orders.Get("/waiter-approved-stats", orderHandler.GetWaiterApprovedStats) // Nueva ruta para estadísticas de meseros
-	orders.Get("/product-stats", orderHandler.GetProductSalesStats) // Nueva ruta para métricas de productos
+	orders.Get("/product-stats", orderHandler.GetProductSalesStats)           // Nueva ruta para métricas de productos
 	orders.Get("/:id", orderHandler.GetOrderByID)
 	orders.Put("/:id/status", orderHandler.UpdateOrderStatus)
 	orders.Put("/:id/manage", orderHandler.ManageOrder)
 	orders.Put("/:id/items", orderHandler.UpdateOrderItems)
-	orders.Put("/:id/edit", orderHandler.EditOrder) // Nueva ruta para edición granular
-	orders.Post("/:id/notarize-now", orderHandler.NotarizeOrderNow) // Ruta para notarización inmediata
-	orders.Get("/blockchain/pending-count", orderHandler.GetPendingBlockchainOrderCount) // Conteo de órdenes por notarizar
-	orders.Post("/:id/link", orderHandler.LinkOrder) // Nueva ruta para vincular órdenes
-	orders.Post("/:id/proof", middleware.CashSessionMiddleware(cashRegisterRepo), orderHandler.UploadPaymentProof) // Ruta existente para 1 solo pago
+	orders.Put("/:id/edit", orderHandler.EditOrder)                                                                          // Nueva ruta para edición granular
+	orders.Post("/:id/notarize-now", orderHandler.NotarizeOrderNow)                                                          // Ruta para notarización inmediata
+	orders.Get("/blockchain/pending-count", orderHandler.GetPendingBlockchainOrderCount)                                     // Conteo de órdenes por notarizar
+	orders.Post("/:id/link", orderHandler.LinkOrder)                                                                         // Nueva ruta para vincular órdenes
+	orders.Post("/:id/proof", middleware.CashSessionMiddleware(cashRegisterRepo), orderHandler.UploadPaymentProof)           // Ruta existente para 1 solo pago
 	orders.Post("/:id/split-payments", middleware.CashSessionMiddleware(cashRegisterRepo), orderHandler.UploadSplitPayments) // Nueva ruta para multiples pagos
 
 	// Rutas de Facturas
 	invoices := protected.Group("/invoices")
 	invoices.Get("/history", invoiceHandler.GetInvoiceHistory)
+
+	// Recepciones internas de mercancía. El mesero solo puede registrar recepciones.
+	inventory := protected.Group("/inventory")
+	inventory.Get("/stock", inventoryReceiptHandler.GetStock)
+	inventoryReceipts := inventory.Group("/receipts")
+	inventoryReceipts.Get("/draft", middleware.RequireRole("mesero", "cajero", "admin"), inventoryReceiptHandler.GetDraft)
+	inventoryReceipts.Put("/draft", middleware.RequireRole("mesero", "cajero", "admin"), inventoryReceiptHandler.SaveDraft)
+	inventoryReceipts.Delete("/draft", middleware.RequireRole("mesero", "cajero", "admin"), inventoryReceiptHandler.DeleteDraft)
+	inventoryReceipts.Post("/", middleware.RequireRole("mesero", "cajero", "admin"), inventoryReceiptHandler.Create)
+	inventoryReceipts.Get("/", middleware.RequireRole("mesero", "cajero", "admin"), inventoryReceiptHandler.GetHistory)
+	inventoryReceipts.Put("/:id", middleware.RequireRole("cajero", "admin"), inventoryReceiptHandler.Update)
+	inventoryReceipts.Delete("/:id", middleware.RequireRole("cajero", "admin"), inventoryReceiptHandler.Delete)
 
 	// Rutas de Mesas
 	tables := protected.Group("/tables")

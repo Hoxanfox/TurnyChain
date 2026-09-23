@@ -180,7 +180,7 @@ const WaiterDashboard: React.FC = () => {
   const [validationStep, setValidationStep] = useState<'session' | 'printer' | 'saving'>('session');
   const [isPaymentFlowRunning, setIsPaymentFlowRunning] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
-  const [lastPaymentAttempt, setLastPaymentAttempt] = useState<{ paymentMethod: 'efectivo' | 'transferencia' | 'mixto'; proofFile: File | null; splitPayments?: PaymentInput[] } | null>(null);
+  const [lastPaymentAttempt, setLastPaymentAttempt] = useState<{ paymentMethod: 'efectivo' | 'transferencia' | 'mixto'; proofFile: File | null; splitPayments?: PaymentInput[]; tipAmount?: number } | null>(null);
   const [pendingSubmissionMode, setPendingSubmissionMode] = useState<'charge' | 'send' | null>(null);
   const [pendingTakeoutNotes, setPendingTakeoutNotes] = useState<string>('');
   const [isSendWithoutChargeModalOpen, setIsSendWithoutChargeModalOpen] = useState(false);
@@ -563,7 +563,7 @@ const WaiterDashboard: React.FC = () => {
     dispatch(fetchMyOrders()); // Recargar órdenes después del pago
   };
 
-  const runPaymentFlow = async (paymentMethod: 'efectivo' | 'transferencia' | 'mixto', proofFile: File | null, splitPayments?: PaymentInput[]): Promise<boolean> => {
+  const runPaymentFlow = async (paymentMethod: 'efectivo' | 'transferencia' | 'mixto', proofFile: File | null, splitPayments?: PaymentInput[], tipAmount = 0): Promise<boolean> => {
     if (createOrderStatus === 'loading' || isPaymentFlowRunning) return false;
     if (!isOnline) {
       toast.error('Sin conexion a internet. No se puede validar ni enviar la comanda.');
@@ -646,10 +646,11 @@ const WaiterDashboard: React.FC = () => {
       const selectedTable = findTableById(tables, tableId);
 
       const requestId = buildRequestId();
+      const hasTip = tipAmount > 0;
       const createdOrder = await dispatch(addNewOrder({
         orderData: payload,
-        paymentMethod: paymentMethod === 'mixto' ? undefined : paymentMethod,
-        paymentProofFile: paymentMethod === 'mixto' ? undefined : proofFile,
+        paymentMethod: paymentMethod === 'mixto' || hasTip ? undefined : paymentMethod,
+        paymentProofFile: paymentMethod === 'mixto' || hasTip ? undefined : proofFile,
         requestId,
       })).unwrap();
 
@@ -661,6 +662,13 @@ const WaiterDashboard: React.FC = () => {
         } catch (err: any) {
           toast.error(err.response?.data?.error || 'Error al procesar pagos mixtos. Revisa en detalle de la orden.', { id: `split-payments-${createdOrder.id}` });
         }
+      } else if (hasTip) {
+        const directPaymentMethod = paymentMethod === 'transferencia' ? 'transferencia' : 'efectivo';
+        await uploadSplitPayments(createdOrder.id, [{
+          method: directPaymentMethod,
+          amount: total + tipAmount,
+          file: proofFile
+        }], token || '');
       }
 
       await waitForMinStepDuration(stepStartedAt, 700);
@@ -704,16 +712,16 @@ const WaiterDashboard: React.FC = () => {
     }
   };
 
-  const handleConfirmPaymentBeforeSend = async (paymentMethod: 'efectivo' | 'transferencia' | 'mixto', proofFile: File | null, splitPayments?: PaymentInput[]): Promise<boolean> => {
-    setLastPaymentAttempt({ paymentMethod, proofFile, splitPayments });
-    return runPaymentFlow(paymentMethod, proofFile, splitPayments);
+  const handleConfirmPaymentBeforeSend = async (paymentMethod: 'efectivo' | 'transferencia' | 'mixto', proofFile: File | null, splitPayments?: PaymentInput[], tipAmount?: number): Promise<boolean> => {
+    setLastPaymentAttempt({ paymentMethod, proofFile, splitPayments, tipAmount });
+    return runPaymentFlow(paymentMethod, proofFile, splitPayments, tipAmount);
   };
 
   const handleRetryPaymentFlow = async () => {
     if (!lastPaymentAttempt) {
       return;
     }
-    await runPaymentFlow(lastPaymentAttempt.paymentMethod, lastPaymentAttempt.proofFile, lastPaymentAttempt.splitPayments);
+    await runPaymentFlow(lastPaymentAttempt.paymentMethod, lastPaymentAttempt.proofFile, lastPaymentAttempt.splitPayments, lastPaymentAttempt.tipAmount);
   };
 
   const handleBackToCheckout = () => {

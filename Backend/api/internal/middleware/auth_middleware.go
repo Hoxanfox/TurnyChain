@@ -1,4 +1,3 @@
-
 // =================================================================
 // ARCHIVO 7: /internal/middleware/auth_middleware.go (NUEVO ARCHIVO)
 // Propósito: Middleware para proteger rutas.
@@ -67,6 +66,24 @@ func Protected(sessionRepo repository.SessionRepository) fiber.Handler {
 		c.Locals("user_id", userID)
 		c.Locals("user_role", claims["role"])
 
+		return c.Next()
+	}
+}
+
+func RequireRole(roles ...string) fiber.Handler {
+	allowed := make(map[string]struct{}, len(roles))
+	for _, role := range roles {
+		allowed[role] = struct{}{}
+	}
+
+	return func(c *fiber.Ctx) error {
+		role, ok := c.Locals("user_role").(string)
+		if !ok {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Role not available"})
+		}
+		if _, ok := allowed[role]; !ok {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Insufficient permissions"})
+		}
 		return c.Next()
 	}
 }

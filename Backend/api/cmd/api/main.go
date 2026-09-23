@@ -21,8 +21,8 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/recover"
-	"github.com/prometheus/client_golang/prometheus"
 	_ "github.com/lib/pq"
+	"github.com/prometheus/client_golang/prometheus"
 	_ "time/tzdata"
 )
 
@@ -53,6 +53,9 @@ func main() {
 	if err := applyEmployeeAttendanceMigrations(db); err != nil {
 		log.Fatalf("Error aplicando migraciones de asistencia: %v", err)
 	}
+	if err := applyInventoryReceiptMigrations(db); err != nil {
+		log.Fatalf("Error aplicando migraciones de recepciones: %v", err)
+	}
 
 	wsHub := wshub.NewHub()
 	go wsHub.Run()
@@ -71,6 +74,7 @@ func main() {
 	sessionRepo := repository.NewSessionRepository(db)
 	menuRepo := repository.NewMenuRepository(db)
 	orderRepo := repository.NewOrderRepository(db)
+	inventoryReceiptRepo := repository.NewInventoryReceiptRepository(db)
 
 	// Iniciar worker de Blockchain en segundo plano
 	StartBlockchainWorker(orderRepo, blockchainService)
@@ -94,6 +98,7 @@ func main() {
 	kitchenTicketService := service.NewKitchenTicketService(orderRepo, printerRepo, stationRepo, wsHub, menuRepo)
 	orderService := service.NewOrderService(orderRepo, tableRepo, menuRepo, ingredientRepo, accompanimentRepo, wsHub, blockchainService, kitchenTicketService, cashRegisterRepo)
 	invoiceService := service.NewInvoiceService(orderRepo)
+	inventoryReceiptService := service.NewInventoryReceiptService(inventoryReceiptRepo)
 	tableService := service.NewTableService(tableRepo)
 	categoryService := service.NewCategoryService(categoryRepo)
 	ingredientService := service.NewIngredientService(ingredientRepo)
@@ -113,6 +118,7 @@ func main() {
 	menuHandler := handler.NewMenuHandler(menuService)
 	orderHandler := handler.NewOrderHandler(orderService)
 	invoiceHandler := handler.NewInvoiceHandler(invoiceService)
+	inventoryReceiptHandler := handler.NewInventoryReceiptHandler(inventoryReceiptService)
 	tableHandler := handler.NewTableHandler(tableService)
 	categoryHandler := handler.NewCategoryHandler(categoryService)
 	ingredientHandler := handler.NewIngredientHandler(ingredientService)
@@ -183,7 +189,7 @@ func main() {
 	app.Static("/api/static", uploadsDir)
 
 	// Setup router and pass the cash register repository to setup the middleware
-	router.SetupRoutes(app, authHandler, userHandler, menuHandler, orderHandler, invoiceHandler, tableHandler, categoryHandler, ingredientHandler, accompanimentHandler, wsHandler, stationHandler, printerHandler, kitchenTicketHandler, backupHandler, cashRegisterHandler, settingHandler, bankTransferHandler, sessionRepo, cashRegisterRepo, employeeHandler, attendanceHandler)
+	router.SetupRoutes(app, authHandler, userHandler, menuHandler, orderHandler, invoiceHandler, inventoryReceiptHandler, tableHandler, categoryHandler, ingredientHandler, accompanimentHandler, wsHandler, stationHandler, printerHandler, kitchenTicketHandler, backupHandler, cashRegisterHandler, settingHandler, bankTransferHandler, sessionRepo, cashRegisterRepo, employeeHandler, attendanceHandler)
 
 	// Alias explícitos para compatibilidad de rutas de impresión de cocina.
 	app.Post("/api/orders/:orderId/kitchen-tickets/print/caja", middleware.Protected(sessionRepo), kitchenTicketHandler.PrintGlobalCashTicket)
@@ -364,5 +370,55 @@ func applyEmployeeAttendanceMigrations(db *sql.DB) error {
 	}
 
 	log.Println("Migraciones de asistencia verificadas: employees, attendance_records")
+	return nil
+}
+
+func applyInventoryReceiptMigrations(db *sql.DB) error {
+	statements := []string{
+		`CREATE TABLE IF NOT EXISTS inventory_receipts (
+			id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+			receipt_number varchar(40) UNIQUE NOT NULL,
+			received_by uuid NOT NULL REFERENCES users(id),
+			supplier_name varchar(255) NOT NULL DEFAULT '',
+			notes text NULL,
+			status varchar(20) NOT NULL DEFAULT 'registered' CHECK (status IN ('registered', 'cancelled')),
+			total numeric(14, 2) NOT NULL DEFAULT 0,
+			created_at timestamptz NOT NULL DEFAULT now()
+		)`,
+		`CREATE TABLE IF NOT EXISTS inventory_receipt_drafts (
+			user_id uuid PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+			payload jsonb NOT NULL,
+			updated_at timestamptz NOT NULL DEFAULT now()
+		)`,
+		`CREATE TABLE IF NOT EXISTS inventory_receipt_lines (
+			id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+			receipt_id uuid NOT NULL REFERENCES inventory_receipts(id) ON DELETE CASCADE,
+			item_name varchar(255) NOT NULL,
+			quantity numeric(14, 3) NOT NULL CHECK (quantity > 0),
+			portion_quantities numeric(14, 3)[] NOT NULL DEFAULT '{}',
+			unit varchar(10) NOT NULL CHECK (unit IN ('kg', 'g', 'lb', 'unidad', 'caja')),
+			unit_cost numeric(14, 2) NOT NULL CHECK (unit_cost >= 0),
+			line_total numeric(14, 2) NOT NULL CHECK (line_total >= 0)
+		)`,
+		`ALTER TABLE inventory_receipt_lines ADD COLUMN IF NOT EXISTS portion_quantities numeric(14, 3)[] NOT NULL DEFAULT '{}'`,
+		`CREATE TABLE IF NOT EXISTS inventory_stock (
+			item_name varchar(255) NOT NULL,
+			unit varchar(10) NOT NULL CHECK (unit IN ('kg', 'g', 'lb', 'unidad', 'caja')),
+			quantity numeric(14, 3) NOT NULL DEFAULT 0 CHECK (quantity >= 0),
+			total_cost numeric(14, 2) NOT NULL DEFAULT 0 CHECK (total_cost >= 0),
+			updated_at timestamptz NOT NULL DEFAULT now(),
+			PRIMARY KEY (item_name, unit)
+		)`,
+		`CREATE INDEX IF NOT EXISTS inventory_receipts_created_at_idx ON inventory_receipts (created_at DESC)`,
+		`CREATE INDEX IF NOT EXISTS inventory_receipt_lines_receipt_id_idx ON inventory_receipt_lines (receipt_id)`,
+	}
+
+	for _, stmt := range statements {
+		if _, err := db.Exec(stmt); err != nil {
+			return err
+		}
+	}
+
+	log.Println("Migraciones de recepciones verificadas: inventory_receipts, inventory_receipt_lines")
 	return nil
 }

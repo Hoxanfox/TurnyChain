@@ -11,7 +11,7 @@ interface CheckoutBeforeSendModalProps {
   orderTotal: number;
   tableNumber: number;
   onClose: () => void;
-  onConfirm: (paymentMethod: 'efectivo' | 'transferencia' | 'mixto', proofFile: File | null, splitPayments?: PaymentInput[]) => Promise<boolean> | boolean;
+  onConfirm: (paymentMethod: 'efectivo' | 'transferencia' | 'mixto', proofFile: File | null, splitPayments?: PaymentInput[], tipAmount?: number) => Promise<boolean> | boolean;
   externalSubmitting?: boolean;
   isOnline?: boolean;
 }
@@ -26,6 +26,7 @@ const CheckoutBeforeSendModal: React.FC<CheckoutBeforeSendModalProps> = ({
   const [isCompressing, setIsCompressing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
+  const [tipAmount, setTipAmount] = useState<number | ''>('');
 
   // Estados para Mixto
   const [splitPayments, setSplitPayments] = useState<PaymentInput[]>([]);
@@ -42,7 +43,9 @@ const CheckoutBeforeSendModal: React.FC<CheckoutBeforeSendModalProps> = ({
   const splitCameraInputRef = useRef<HTMLInputElement>(null);
 
   const totalPaid = splitPayments.reduce((sum, p) => sum + p.amount, 0);
-  const remaining = orderTotal - totalPaid;
+  const tip = typeof tipAmount === 'number' ? tipAmount : 0;
+  const totalToCollect = orderTotal + tip;
+  const remaining = totalToCollect - totalPaid;
 
   // Formateador de moneda
   const formatMoney = (amount: number) =>
@@ -158,6 +161,11 @@ const CheckoutBeforeSendModal: React.FC<CheckoutBeforeSendModalProps> = ({
       return;
     }
 
+    if (remaining < 0) {
+      setError('Los pagos agregados superan el total de la cuenta');
+      return;
+    }
+
     // Validaciones
     if (paymentMethod === 'transferencia' && !proofImage) {
       setError("Por favor adjunta la foto del comprobante");
@@ -181,7 +189,7 @@ const CheckoutBeforeSendModal: React.FC<CheckoutBeforeSendModalProps> = ({
 
     try {
       // Confirmar y enviar datos de pago al padre
-      const ok = await onConfirm(paymentMethod, proofImage, paymentMethod === 'mixto' ? splitPayments : undefined);
+      const ok = await onConfirm(paymentMethod, proofImage, paymentMethod === 'mixto' ? splitPayments : undefined, tip);
       if (!ok) {
         setIsSubmitting(false);
       }
@@ -284,6 +292,27 @@ const CheckoutBeforeSendModal: React.FC<CheckoutBeforeSendModalProps> = ({
           <span className="text-4xl font-black text-gray-800 tracking-tight">
             {formatMoney(orderTotal)}
           </span>
+          <div className="mt-3 flex items-center justify-center gap-2">
+            <label htmlFor="before-send-tip" className="text-sm font-semibold text-gray-600">Propina:</label>
+            <div className="relative w-32">
+              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-500 font-bold">$</span>
+              <input
+                id="before-send-tip"
+                type="number"
+                min="0"
+                step="100"
+                value={tipAmount}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  setTipAmount(value === '' ? '' : Math.max(0, Number(value)));
+                }}
+                disabled={isSubmitting || externalSubmitting}
+                placeholder="0"
+                className="w-full pl-6 pr-2 py-1 bg-white border border-green-200 rounded-lg text-right font-bold text-gray-800 focus:outline-none focus:border-green-500"
+              />
+            </div>
+          </div>
+          {tip > 0 && <p className="mt-2 text-sm font-bold text-green-700">Total a cobrar: {formatMoney(totalToCollect)}</p>}
         </div>
 
         {/* SELECCIÓN DE MÉTODO (TABS) */}

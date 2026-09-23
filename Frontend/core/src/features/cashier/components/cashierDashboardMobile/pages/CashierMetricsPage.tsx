@@ -5,12 +5,18 @@ import { useProductMetrics } from '../hooks/useProductMetrics';
 import { MetricsSummaryCard } from '../components/metrics/MetricsSummaryCard';
 import { WaiterMetricsChart } from '../components/metrics/WaiterMetricsChart';
 import { WaiterMetricsList } from '../components/metrics/WaiterMetricsList';
-import { ProductMetricsChart } from '../components/metrics/ProductMetricsChart';
 import { ProductMetricsList } from '../components/metrics/ProductMetricsList';
 import { formatMoney } from '../utils/invoiceHistoryFormatters';
 import { useCashierWebSocket } from '../../../../../hooks/useCashierWebSocket';
 
 type Tab = 'waiters' | 'products';
+
+interface MetricsSocketMessage {
+  type: string;
+  payload?: {
+    status?: string;
+  };
+}
 
 const CashierMetricsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -32,13 +38,12 @@ const CashierMetricsPage: React.FC = () => {
   const {
     metrics: productMetrics,
     summary: productSummary,
-    daysInPeriod,
     isLoading: productLoading,
     error: productError,
     loadData: loadProductData
   } = useProductMetrics();
 
-  useCashierWebSocket(undefined, (message: any) => {
+  useCashierWebSocket(undefined, (message: MetricsSocketMessage) => {
     if (['ORDER_STATUS_UPDATED', 'ORDER_MANAGED', 'ORDER_UPDATED'].includes(message.type)) {
       if (message.payload && message.payload.status === 'pagado') {
         console.log('🔄 Actualizando métricas por venta pagada...');
@@ -88,13 +93,16 @@ const CashierMetricsPage: React.FC = () => {
       searchParams.set('to', endStr);
     }
 
-    // Force navigation/re-render by replacing state and emitting a custom event or reloading data
-    window.history.replaceState(null, '', `?${searchParams.toString()}`);
-    
-    // Forzar recarga en el hook de productos
-    setTimeout(() => {
-      loadProductData();
-    }, 50);
+    navigate(`?${searchParams.toString()}`, { replace: true });
+  };
+
+  const handleProductDateChange = (date: string) => {
+    const searchParams = new URLSearchParams(window.location.search);
+    searchParams.delete('month');
+    searchParams.delete('from');
+    searchParams.delete('to');
+    searchParams.set('day', date);
+    navigate(`?${searchParams.toString()}`, { replace: true });
   };
 
   const searchParams = new URLSearchParams(window.location.search);
@@ -166,6 +174,14 @@ const CashierMetricsPage: React.FC = () => {
                 </>
               ) : (
                 <>
+                  <label htmlFor="product-date" className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-2">Día</label>
+                  <input
+                    id="product-date"
+                    type="date"
+                    value={searchParams.get('day') || new Date().toISOString().split('T')[0]}
+                    onChange={(event) => handleProductDateChange(event.target.value)}
+                    className="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-rose-500/20"
+                  />
                   <button
                     onClick={() => handleQuickFilter('today')}
                     className={`px-4 py-1.5 rounded-xl text-sm font-bold transition-all ${activeProductFilter === 'today' ? 'bg-rose-100 text-rose-700' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}
@@ -268,14 +284,7 @@ const CashierMetricsPage: React.FC = () => {
             {productError && <div className="py-10 text-center text-rose-500 font-bold bg-white rounded-3xl border border-slate-100 shadow-sm">{productError}</div>}
             
             {!productLoading && !productError && (
-              <div className="grid gap-6 md:grid-cols-12">
-                <div className="md:col-span-7">
-                  <ProductMetricsChart metrics={productMetrics} />
-                </div>
-                <div className="md:col-span-5">
-                  <ProductMetricsList metrics={productMetrics} daysInPeriod={daysInPeriod} />
-                </div>
-              </div>
+              <ProductMetricsList metrics={productMetrics} />
             )}
           </div>
         )}
