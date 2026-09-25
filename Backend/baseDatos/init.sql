@@ -43,16 +43,9 @@ CREATE TABLE "inventory_receipt_lines" (
   "receipt_id" uuid NOT NULL REFERENCES "inventory_receipts"("id") ON DELETE CASCADE,
   "item_name" varchar(255) NOT NULL,
   "quantity" numeric(14, 3) NOT NULL CHECK (quantity > 0),
-  "portion_quantities" numeric(14, 3)[] NOT NULL DEFAULT '{}',
   "unit" varchar(10) NOT NULL CHECK (unit IN ('kg', 'g', 'lb', 'unidad', 'caja')),
   "unit_cost" numeric(14, 2) NOT NULL CHECK (unit_cost >= 0),
   "line_total" numeric(14, 2) NOT NULL CHECK (line_total >= 0)
-);
-
-CREATE TABLE "inventory_receipt_drafts" (
-  "user_id" uuid PRIMARY KEY REFERENCES "users"("id") ON DELETE CASCADE,
-  "payload" jsonb NOT NULL,
-  "updated_at" timestamptz NOT NULL DEFAULT (now())
 );
 
 CREATE TABLE "inventory_stock" (

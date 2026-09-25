@@ -30,7 +30,6 @@ type InventoryReceiptLine struct {
 	ID        uuid.UUID `json:"id"`
 	ItemName  string    `json:"item_name"`
 	Quantity  float64   `json:"quantity"`
-	Portions  []float64 `json:"portions,omitempty"`
 	Unit      string    `json:"unit"`
 	UnitCost  float64   `json:"unit_cost"`
 	LineTotal float64   `json:"line_total"`

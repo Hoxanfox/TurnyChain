@@ -264,7 +264,14 @@ const WaiterDashboard: React.FC = () => {
 
   // Si es desktop, renderizar la vista de escritorio
   if (isDesktop) {
-    return <WaiterDashboardDesktop sendMessage={sendMessage} />;
+    return (
+      <WaiterDashboardDesktop
+        sendMessage={sendMessage}
+        hasWsNotification={hasWsNotification}
+        lastWsNotification={lastWsNotification}
+        onClearWsNotification={() => setHasWsNotification(false)}
+      />
+    );
   }
 
   const handleConfirmCustomization = (customizationData: CustomizationData) => {

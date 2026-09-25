@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	_ "time/tzdata"
+
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/handler"
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/middleware"
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/repository"
@@ -23,7 +25,6 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	_ "github.com/lib/pq"
 	"github.com/prometheus/client_golang/prometheus"
-	_ "time/tzdata"
 )
 
 func main() {
@@ -385,22 +386,15 @@ func applyInventoryReceiptMigrations(db *sql.DB) error {
 			total numeric(14, 2) NOT NULL DEFAULT 0,
 			created_at timestamptz NOT NULL DEFAULT now()
 		)`,
-		`CREATE TABLE IF NOT EXISTS inventory_receipt_drafts (
-			user_id uuid PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-			payload jsonb NOT NULL,
-			updated_at timestamptz NOT NULL DEFAULT now()
-		)`,
 		`CREATE TABLE IF NOT EXISTS inventory_receipt_lines (
 			id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
 			receipt_id uuid NOT NULL REFERENCES inventory_receipts(id) ON DELETE CASCADE,
 			item_name varchar(255) NOT NULL,
 			quantity numeric(14, 3) NOT NULL CHECK (quantity > 0),
-			portion_quantities numeric(14, 3)[] NOT NULL DEFAULT '{}',
 			unit varchar(10) NOT NULL CHECK (unit IN ('kg', 'g', 'lb', 'unidad', 'caja')),
 			unit_cost numeric(14, 2) NOT NULL CHECK (unit_cost >= 0),
 			line_total numeric(14, 2) NOT NULL CHECK (line_total >= 0)
 		)`,
-		`ALTER TABLE inventory_receipt_lines ADD COLUMN IF NOT EXISTS portion_quantities numeric(14, 3)[] NOT NULL DEFAULT '{}'`,
 		`CREATE TABLE IF NOT EXISTS inventory_stock (
 			item_name varchar(255) NOT NULL,
 			unit varchar(10) NOT NULL CHECK (unit IN ('kg', 'g', 'lb', 'unidad', 'caja')),
@@ -411,6 +405,23 @@ func applyInventoryReceiptMigrations(db *sql.DB) error {
 		)`,
 		`CREATE INDEX IF NOT EXISTS inventory_receipts_created_at_idx ON inventory_receipts (created_at DESC)`,
 		`CREATE INDEX IF NOT EXISTS inventory_receipt_lines_receipt_id_idx ON inventory_receipt_lines (receipt_id)`,
+		`DO $$
+		DECLARE
+			column_exists boolean;
+		BEGIN
+			SELECT EXISTS (
+				SELECT 1
+				FROM information_schema.columns
+				WHERE table_schema = current_schema()
+				  AND table_name = 'inventory_receipt_lines'
+				  AND column_name = 'portion_quantities'
+			) INTO column_exists;
+
+			IF column_exists THEN
+				ALTER TABLE inventory_receipt_lines
+					ALTER COLUMN portion_quantities SET DEFAULT '{}';
+			END IF;
+		END $$`,
 	}
 
 	for _, stmt := range statements {

@@ -43,6 +43,7 @@ export const useWebSockets = () => {
     const token = localStorage.getItem('token') || '';
     if (!token) {
       console.log('⚠️ [WebSocket] Token no encontrado. Omitiendo conexión.');
+      isConnecting.current = false;
       return;
     }
 
@@ -157,7 +158,7 @@ export const useWebSockets = () => {
 
       if (ws.current) {
         if (ws.current.readyState === WebSocket.OPEN || ws.current.readyState === WebSocket.CONNECTING) {
-          ws.current.close();
+          ws.current.close(1000, 'Component unmounted');
         }
         ws.current = null;
       }

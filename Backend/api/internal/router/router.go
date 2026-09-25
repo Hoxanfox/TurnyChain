@@ -99,13 +99,7 @@ func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *
 	inventory := protected.Group("/inventory")
 	inventory.Get("/stock", inventoryReceiptHandler.GetStock)
 	inventoryReceipts := inventory.Group("/receipts")
-	inventoryReceipts.Get("/draft", middleware.RequireRole("mesero", "cajero", "admin"), inventoryReceiptHandler.GetDraft)
-	inventoryReceipts.Put("/draft", middleware.RequireRole("mesero", "cajero", "admin"), inventoryReceiptHandler.SaveDraft)
-	inventoryReceipts.Delete("/draft", middleware.RequireRole("mesero", "cajero", "admin"), inventoryReceiptHandler.DeleteDraft)
 	inventoryReceipts.Post("/", middleware.RequireRole("mesero", "cajero", "admin"), inventoryReceiptHandler.Create)
-	inventoryReceipts.Get("/", middleware.RequireRole("mesero", "cajero", "admin"), inventoryReceiptHandler.GetHistory)
-	inventoryReceipts.Put("/:id", middleware.RequireRole("cajero", "admin"), inventoryReceiptHandler.Update)
-	inventoryReceipts.Delete("/:id", middleware.RequireRole("cajero", "admin"), inventoryReceiptHandler.Delete)
 
 	// Rutas de Mesas
 	tables := protected.Group("/tables")

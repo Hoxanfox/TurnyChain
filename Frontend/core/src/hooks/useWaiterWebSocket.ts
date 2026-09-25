@@ -369,7 +369,7 @@ export const useWaiterWebSocket = (
       lastRefreshByOrder.current = {};
 
       if (ws.current && ws.current.readyState !== WebSocket.CLOSED && ws.current.readyState !== WebSocket.CLOSING) {
-        ws.current.close();
+        ws.current.close(1000, 'Component unmounted');
       }
 
       ws.current = null;

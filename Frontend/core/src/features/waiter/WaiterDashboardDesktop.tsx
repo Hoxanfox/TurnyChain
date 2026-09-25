@@ -2,7 +2,7 @@
 // ARCHIVO: /src/features/waiter/WaiterDashboardDesktop.tsx
 // Vista de escritorio con layout de columnas
 // =================================================================
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { addNewOrder } from '../shared/orders/api/ordersSlice.ts';
@@ -45,15 +45,22 @@ import {
 import DeliveryInfoModal from './components/DeliveryInfoModal';
 // Importar toast para versión desktop
 import toast, { Toaster } from 'react-hot-toast';
-import { useWaiterWebSocket } from '../../hooks/useWaiterWebSocket';
 import { useWaiterGamification } from './hooks/useWaiterGamification';
 import './styles/Gamification.css';
 
 interface WaiterDashboardDesktopProps {
   sendMessage?: (type: string, payload: any) => void;
+  hasWsNotification: boolean;
+  lastWsNotification: string | null;
+  onClearWsNotification: () => void;
 }
 
-const WaiterDashboardDesktop: React.FC<WaiterDashboardDesktopProps> = ({ sendMessage }) => {
+const WaiterDashboardDesktop: React.FC<WaiterDashboardDesktopProps> = ({
+  sendMessage,
+  hasWsNotification,
+  lastWsNotification,
+  onClearWsNotification,
+}) => {
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
   const { tables } = useSelector((state: RootState) => state.tables);
@@ -106,27 +113,8 @@ const WaiterDashboardDesktop: React.FC<WaiterDashboardDesktopProps> = ({ sendMes
     }
   };
 
-  const [hasWsNotification, setHasWsNotification] = useState(false);
-  const [lastWsNotification, setLastWsNotification] = useState<string | null>(null);
   const [showQRModal, setShowQRModal] = useState(false);
   const [showPanicModal, setShowPanicModal] = useState(false);
-
-  const handleWaiterWsNotification = useCallback((options: { title: string; message: string; type: 'info' | 'success' | 'warning' | 'error'; orderId?: string }) => {
-    if (options.orderId) {
-      toast.dismiss(`print-status-${options.orderId}`);
-    }
-
-    const isPayment = options.title.toLowerCase().includes('pago') || 
-                      options.message.toLowerCase().includes('pago') ||
-                      options.title.toLowerCase().includes('cobro');
-
-    if (isPayment) {
-      setHasWsNotification(true);
-      setLastWsNotification(options.message || options.title);
-    }
-  }, []);
-
-  useWaiterWebSocket(handleWaiterWsNotification);
 
   // 🆕 MEJORA UX #1: Persistencia del carrito (versión desktop)
   useEffect(() => {
@@ -655,7 +643,7 @@ const WaiterDashboardDesktop: React.FC<WaiterDashboardDesktopProps> = ({ sendMes
             <h1 
               onClick={() => {
                 if (hasWsNotification) {
-                  setHasWsNotification(false);
+                  onClearWsNotification();
                 }
               }}
               className={`font-bold cursor-pointer inline-block ${hasWsNotification ? 'drop-shadow-md text-yellow-300' : ''} ${isMaestro ? 'maestro-text text-2xl tracking-wide' : 'text-xl text-white'}`}

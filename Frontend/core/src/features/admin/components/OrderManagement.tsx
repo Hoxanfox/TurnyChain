@@ -3,7 +3,7 @@
 // =================================================================
 import React, { useEffect, useState, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchActiveOrders, cancelOrderAsAdmin, orderAdded, orderUpdated } from '../../shared/orders/api/ordersSlice.ts';
+import { fetchActiveOrders, cancelOrderAsAdmin } from '../../shared/orders/api/ordersSlice.ts';
 import type { AppDispatch, RootState } from '../../../app/store';
 import OrderDetailModal from '../../shared/orders/components/OrderDetailModal.tsx';
 import OrderGridView from '../../shared/orders/components/OrderGridView.tsx';
@@ -17,24 +17,6 @@ const OrderManagement: React.FC = () => {
 
   useEffect(() => {
     dispatch(fetchActiveOrders());
-    
-    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const token = localStorage.getItem('token') || '';
-    if (!token) {
-      return () => {};
-    }
-    const wsUrl = `${protocol}://${window.location.host}/ws?token=${encodeURIComponent(token)}`;
-    const ws = new WebSocket(wsUrl);
-
-    ws.onmessage = (event) => {
-      const message = JSON.parse(event.data);
-      if (message.type === 'NEW_PENDING_ORDER') {
-        dispatch(orderAdded(message.payload as Order));
-      } else if (['ORDER_STATUS_UPDATED', 'ORDER_MANAGED'].includes(message.type)) {
-        dispatch(orderUpdated(message.payload as Order));
-      }
-    };
-    return () => { ws.close(); };
   }, [dispatch]);
 
   const ordersByTable = useMemo(() => {
