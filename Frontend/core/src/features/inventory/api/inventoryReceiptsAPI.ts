@@ -52,6 +52,13 @@ export const createInventoryReceipt = async (
   return response.data;
 };
 
+export const getInventoryReceipts = async (token: string): Promise<InventoryReceipt[]> => {
+  const response = await axios.get<InventoryReceipt[]>(API_URL, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
+};
+
 export const getInventoryStock = async (token: string): Promise<InventoryStock[]> => {
   const response = await axios.get<InventoryStock[]>('/api/inventory/stock', {
     headers: { Authorization: `Bearer ${token}` },

@@ -12,7 +12,12 @@ import (
 
 type InventoryReceiptService interface {
 	CreateReceipt(receivedBy uuid.UUID, payload CreateInventoryReceiptPayload) (*domain.InventoryReceipt, error)
+	GetReceipts() ([]domain.InventoryReceipt, error)
 	GetStock() ([]domain.InventoryStock, error)
+}
+
+func (s *inventoryReceiptService) GetReceipts() ([]domain.InventoryReceipt, error) {
+	return s.repo.GetReceipts()
 }
 
 func (s *inventoryReceiptService) GetStock() ([]domain.InventoryStock, error) {

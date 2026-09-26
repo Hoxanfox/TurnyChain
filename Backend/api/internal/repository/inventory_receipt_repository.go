@@ -8,7 +8,56 @@ import (
 
 type InventoryReceiptRepository interface {
 	CreateReceipt(receipt *domain.InventoryReceipt) error
+	GetReceipts() ([]domain.InventoryReceipt, error)
 	GetStock() ([]domain.InventoryStock, error)
+}
+
+func (r *postgresInventoryReceiptRepository) GetReceipts() ([]domain.InventoryReceipt, error) {
+	rows, err := r.db.Query(`
+		SELECT id, receipt_number, received_by, supplier_name, COALESCE(notes, ''), status, total, created_at
+		FROM inventory_receipts
+		ORDER BY created_at DESC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	receipts := make([]domain.InventoryReceipt, 0)
+	for rows.Next() {
+		var receipt domain.InventoryReceipt
+		if err := rows.Scan(&receipt.ID, &receipt.ReceiptNumber, &receipt.ReceivedBy, &receipt.SupplierName, &receipt.Notes, &receipt.Status, &receipt.Total, &receipt.CreatedAt); err != nil {
+			return nil, err
+		}
+		receipt.Lines = make([]domain.InventoryReceiptLine, 0)
+		lineRows, err := r.db.Query(`
+			SELECT id, item_name, quantity, unit, unit_cost, line_total
+			FROM inventory_receipt_lines
+			WHERE receipt_id = $1
+			ORDER BY id ASC
+		`, receipt.ID)
+		if err != nil {
+			return nil, err
+		}
+		for lineRows.Next() {
+			var line domain.InventoryReceiptLine
+			if err := lineRows.Scan(&line.ID, &line.ItemName, &line.Quantity, &line.Unit, &line.UnitCost, &line.LineTotal); err != nil {
+				lineRows.Close()
+				return nil, err
+			}
+			receipt.Lines = append(receipt.Lines, line)
+		}
+		if err := lineRows.Err(); err != nil {
+			lineRows.Close()
+			return nil, err
+		}
+		lineRows.Close()
+		receipts = append(receipts, receipt)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return receipts, nil
 }
 
 func (r *postgresInventoryReceiptRepository) GetStock() ([]domain.InventoryStock, error) {

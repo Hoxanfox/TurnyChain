@@ -32,6 +32,14 @@ func (h *InventoryReceiptHandler) Create(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusCreated).JSON(receipt)
 }
 
+func (h *InventoryReceiptHandler) GetAll(c *fiber.Ctx) error {
+	receipts, err := h.service.GetReceipts()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	return c.JSON(receipts)
+}
+
 func (h *InventoryReceiptHandler) GetStock(c *fiber.Ctx) error {
 	stock, err := h.service.GetStock()
 	if err != nil {

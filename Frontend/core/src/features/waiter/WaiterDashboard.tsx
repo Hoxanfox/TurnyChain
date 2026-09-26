@@ -850,7 +850,17 @@ const WaiterDashboard: React.FC = () => {
                     >
                       <span className="text-lg">🤝</span> Cobrar a Compañeros
                     </button>
-                    
+
+                    <button
+                      onClick={() => {
+                        navigate('/inventory/receipts/new');
+                        setShowToolsMenu(false);
+                      }}
+                      className="w-full text-left px-4 py-3 hover:bg-amber-50 text-amber-700 font-medium flex items-center gap-3 transition-colors border-t border-gray-50"
+                    >
+                      <span className="text-lg">📦</span> Registrar mercancía
+                    </button>
+
                     {user?.role === 'cajero' && (
                       <button
                         onClick={() => navigate('/dashboard')}

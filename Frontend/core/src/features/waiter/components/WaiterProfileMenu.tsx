@@ -126,12 +126,6 @@ const WaiterProfileMenu: React.FC = () => {
           {/* Cerrar sesión */}
           <div className="p-3">
             <button
-              onClick={() => navigate('/inventory/receipts/new')}
-              className="w-full mb-2 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition-all font-semibold text-sm"
-            >
-              Registrar mercancía
-            </button>
-            <button
               onClick={handleLogout}
               className="w-full py-2.5 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 active:scale-95 text-white rounded-lg transition-all font-semibold text-sm flex items-center justify-center gap-2 shadow-sm"
             >
