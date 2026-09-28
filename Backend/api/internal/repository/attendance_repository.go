@@ -13,6 +13,7 @@ type AttendanceRepository interface {
 	GetTodayRecords() ([]domain.AttendanceRecord, error)
 	GetRecordsByDate(date time.Time) ([]domain.AttendanceRecord, error)
 	GetRecordsByDateRange(start, end time.Time) ([]domain.AttendanceRecord, error)
+	ReplaceRecordByDate(record *domain.AttendanceRecord) (*domain.AttendanceRecord, error)
 	UpdateTodayArrival(employeeID uuid.UUID, newTime time.Time) error
 }
 
@@ -32,6 +33,49 @@ func (r *attendanceRepository) CreateRecord(record *domain.AttendanceRecord) (*d
 	query := "INSERT INTO attendance_records (id, employee_id, action, timestamp) VALUES ($1, $2, $3, $4) RETURNING id"
 	err := r.db.QueryRow(query, record.ID, record.EmployeeID, record.Action, record.Timestamp).Scan(&record.ID)
 	if err != nil {
+		return nil, err
+	}
+	return record, nil
+}
+
+func (r *attendanceRepository) ReplaceRecordByDate(record *domain.AttendanceRecord) (*domain.AttendanceRecord, error) {
+	if record.Timestamp.IsZero() {
+		record.Timestamp = time.Now()
+	}
+	localTime := record.Timestamp.In(time.Local)
+	startOfDay := time.Date(localTime.Year(), localTime.Month(), localTime.Day(), 0, 0, 0, 0, time.Local)
+	endOfDay := startOfDay.Add(24 * time.Hour)
+
+	tx, err := r.db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.Exec(
+		"DELETE FROM attendance_records WHERE employee_id = $1 AND timestamp >= $2 AND timestamp < $3",
+		record.EmployeeID, startOfDay, endOfDay,
+	); err != nil {
+		return nil, err
+	}
+
+	if record.Action == "RESET" {
+		if err := tx.Commit(); err != nil {
+			return nil, err
+		}
+		record.ID = uuid.Nil
+		return record, nil
+	}
+
+	record.ID = uuid.New()
+	if _, err := tx.Exec(
+		"INSERT INTO attendance_records (id, employee_id, action, timestamp) VALUES ($1, $2, $3, $4)",
+		record.ID, record.EmployeeID, record.Action, record.Timestamp,
+	); err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
 	return record, nil
@@ -105,18 +149,33 @@ func (r *attendanceRepository) GetRecordsByDate(date time.Time) ([]domain.Attend
 }
 
 func (r *attendanceRepository) UpdateTodayArrival(employeeID uuid.UUID, newTime time.Time) error {
+	localTime := newTime.In(time.Local)
+	startOfDay := time.Date(localTime.Year(), localTime.Month(), localTime.Day(), 0, 0, 0, 0, time.Local)
+	endOfDay := startOfDay.Add(24 * time.Hour)
 	query := `
 		UPDATE attendance_records
 		SET timestamp = $1
 		WHERE id = (
 			SELECT id FROM attendance_records
 			WHERE employee_id = $2 AND action = 'ENTRADA'
+			  AND timestamp >= $3 AND timestamp < $4
 			ORDER BY timestamp DESC
 			LIMIT 1
 		)
 	`
-	_, err := r.db.Exec(query, newTime, employeeID)
-	return err
+	result, err := r.db.Exec(query, newTime, employeeID, startOfDay, endOfDay)
+	if err != nil {
+		return err
+	}
+
+	updatedRows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if updatedRows == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
 }
 
 func (r *attendanceRepository) GetRecordsByDateRange(start, end time.Time) ([]domain.AttendanceRecord, error) {

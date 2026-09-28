@@ -119,6 +119,10 @@ export const useCashierWebSocket = (
           }));
           break;
 
+        case 'ATTENDANCE_UPDATED':
+          // CashierDashboard reenvía este evento a los componentes de asistencias.
+          break;
+
         default:
           console.log('📬 [Cajero] Evento no manejado:', message.type);
       }

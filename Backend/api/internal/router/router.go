@@ -60,6 +60,7 @@ func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *
 	// Rutas de Asistencia
 	attendance := protected.Group("/attendance")
 	attendance.Post("/", attendanceHandler.RegisterAttendance)
+	attendance.Put("/status", attendanceHandler.SetAttendanceStatus)
 	attendance.Get("/today", attendanceHandler.GetTodayAttendanceStatus)
 	attendance.Put("/today", attendanceHandler.UpdateTodayArrival)
 	attendance.Get("/report", attendanceHandler.GetAttendanceReport)

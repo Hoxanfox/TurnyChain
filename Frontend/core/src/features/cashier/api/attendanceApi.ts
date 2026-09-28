@@ -30,6 +30,7 @@ export interface AttendanceRecord {
 
 export interface DailyAttendance {
   date: string;
+  status: 'ENTRADA' | 'DESCANSO' | 'FALTA' | 'SIN_MARCAR';
   arrival_time?: string | null;
   departure_time?: string | null;
 }
@@ -39,6 +40,11 @@ export interface AttendanceReport {
   name: string;
   role: string;
   days_worked: number;
+  days_rest: number;
+  days_absent: number;
+  days_unmarked: number;
+  days_31_excluded: number;
+  liquidation_days: number;
   records: DailyAttendance[];
 }
 
@@ -59,6 +65,15 @@ export const attendanceApi = {
       employee_id: employeeId,
       action: action,
       timestamp: timestamp,
+    }, getAuthHeaders());
+    return response.data;
+  },
+
+  setAttendanceStatus: async (employeeId: string, action: string, timestamp: string): Promise<AttendanceRecord> => {
+    const response = await axios.put(`${API_URL}/attendance/status`, {
+      employee_id: employeeId,
+      action,
+      timestamp,
     }, getAuthHeaders());
     return response.data;
   },

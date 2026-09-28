@@ -10,6 +10,7 @@ import (
 
 type AttendanceService interface {
 	RegisterAttendance(employeeID uuid.UUID, action string, customTime *time.Time) (*domain.AttendanceRecord, error)
+	SetAttendanceStatus(employeeID uuid.UUID, action string, customTime time.Time) (*domain.AttendanceRecord, error)
 	GetTodayAttendanceStatus() ([]domain.EmployeeAttendance, error)
 	GetAttendanceStatusByDate(date time.Time) ([]domain.EmployeeAttendance, error)
 	GetAttendanceReport(start, end time.Time) ([]domain.AttendanceReport, error)
@@ -45,6 +46,18 @@ func (s *attendanceService) RegisterAttendance(employeeID uuid.UUID, action stri
 	return s.attendanceRepo.CreateRecord(record)
 }
 
+func (s *attendanceService) SetAttendanceStatus(employeeID uuid.UUID, action string, customTime time.Time) (*domain.AttendanceRecord, error) {
+	if _, err := s.employeeRepo.GetEmployeeByID(employeeID); err != nil {
+		return nil, err
+	}
+
+	return s.attendanceRepo.ReplaceRecordByDate(&domain.AttendanceRecord{
+		EmployeeID: employeeID,
+		Action:     action,
+		Timestamp:  customTime,
+	})
+}
+
 func (s *attendanceService) GetTodayAttendanceStatus() ([]domain.EmployeeAttendance, error) {
 	return s.GetAttendanceStatusByDate(time.Now())
 }
@@ -70,7 +83,7 @@ func (s *attendanceService) GetAttendanceStatusByDate(date time.Time) ([]domain.
 			if _, exists := firstEntradaMap[rec.EmployeeID]; !exists {
 				firstEntradaMap[rec.EmployeeID] = rec.Timestamp.Format(time.RFC3339)
 			}
-		} else if rec.Action == "SALIDA" || rec.Action == "RESET" || rec.Action == "FALTA" {
+		} else if rec.Action == "SALIDA" || rec.Action == "RESET" || rec.Action == "FALTA" || rec.Action == "DESCANSO" || rec.Action == "INICIO_DESCANSO" {
 			delete(firstEntradaMap, rec.EmployeeID)
 		}
 	}
@@ -81,6 +94,8 @@ func (s *attendanceService) GetAttendanceStatusByDate(date time.Time) ([]domain.
 		if val, ok := latestStatusMap[emp.ID]; ok {
 			if val == "RESET" {
 				status = "SALIDA"
+			} else if val == "INICIO_DESCANSO" {
+				status = "DESCANSO"
 			} else {
 				status = val
 			}
@@ -129,7 +144,8 @@ func (s *attendanceService) GetAttendanceReport(start, end time.Time) ([]domain.
 	}
 
 	for _, rec := range records {
-		dateStr := rec.Timestamp.Format("2006-01-02")
+		localTimestamp := rec.Timestamp.In(time.Local)
+		dateStr := localTimestamp.Format("2006-01-02")
 		empTrack, ok := tracking[rec.EmployeeID]
 		if !ok {
 			continue
@@ -145,11 +161,11 @@ func (s *attendanceService) GetAttendanceReport(start, end time.Time) ([]domain.
 
 		if rec.Action == "ENTRADA" {
 			if dayTrack.Arrival == nil {
-				t := rec.Timestamp.Format(time.RFC3339)
+				t := localTimestamp.Format(time.RFC3339)
 				dayTrack.Arrival = &t
 			}
 		} else if rec.Action == "SALIDA" {
-			t := rec.Timestamp.Format(time.RFC3339)
+			t := localTimestamp.Format(time.RFC3339)
 			dayTrack.Departure = &t
 		} else if rec.Action == "RESET" || rec.Action == "FALTA" {
 			dayTrack.Arrival = nil
@@ -160,24 +176,66 @@ func (s *attendanceService) GetAttendanceReport(start, end time.Time) ([]domain.
 	report := make([]domain.AttendanceReport, 0, len(employees))
 	for _, emp := range employees {
 		empTrack := tracking[emp.ID]
-		dailyRecords := make([]domain.DailyAttendance, 0, len(empTrack))
-		
-		for dateStr, dt := range empTrack {
-			if dt.Arrival != nil && dt.LatestAction != "FALTA" && dt.LatestAction != "RESET" {
-				dailyRecords = append(dailyRecords, domain.DailyAttendance{
-					Date:          dateStr,
-					ArrivalTime:   dt.Arrival,
-					DepartureTime: dt.Departure,
-				})
+		dailyRecords := make([]domain.DailyAttendance, 0)
+		for date := start; !date.After(end); date = date.AddDate(0, 0, 1) {
+			dateStr := date.Format("2006-01-02")
+			dt, ok := empTrack[dateStr]
+			status := "SIN_MARCAR"
+			var arrivalTime, departureTime *string
+			if ok {
+				status = dt.LatestAction
+				if status == "RESET" || status == "SALIDA" {
+					status = "SIN_MARCAR"
+				}
+				if status != "ENTRADA" && status != "DESCANSO" && status != "INICIO_DESCANSO" && status != "FALTA" {
+					status = "SIN_MARCAR"
+				}
+				arrivalTime = dt.Arrival
+				departureTime = dt.Departure
+			}
+			if status == "INICIO_DESCANSO" {
+				status = "DESCANSO"
+			}
+			dailyRecords = append(dailyRecords, domain.DailyAttendance{
+				Date:          dateStr,
+				Status:        status,
+				ArrivalTime:   arrivalTime,
+				DepartureTime: departureTime,
+			})
+		}
+
+		daysWorked := 0
+		daysRest := 0
+		daysAbsent := 0
+		daysUnmarked := 0
+		days31Excluded := 0
+		for _, dailyRecord := range dailyRecords {
+			if dailyRecord.Date[len(dailyRecord.Date)-2:] == "31" {
+				days31Excluded++
+			}
+			switch dailyRecord.Status {
+			case "ENTRADA":
+				daysWorked++
+			case "DESCANSO":
+				daysRest++
+			case "FALTA":
+				daysAbsent++
+			case "SIN_MARCAR":
+				daysUnmarked++
 			}
 		}
 
 		report = append(report, domain.AttendanceReport{
-			EmployeeID: emp.ID,
-			Name:       emp.Name,
-			Role:       emp.Role,
-			DaysWorked: len(dailyRecords),
-			Records:    dailyRecords,
+			EmployeeID:      emp.ID,
+			Name:            emp.Name,
+			Role:            emp.Role,
+			DaysWorked:      daysWorked,
+			DaysRest:        daysRest,
+			DaysAbsent:      daysAbsent,
+			DaysUnmarked:    daysUnmarked,
+			Days31Excluded:  days31Excluded,
+			LiquidationDays: daysWorked + daysRest - days31Excluded,
+			Records:         dailyRecords,
 		})
 	}
 

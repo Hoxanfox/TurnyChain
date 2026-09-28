@@ -21,7 +21,7 @@ interface AttendanceNotebookModalProps {
 
 interface AttendanceCalendarProps {
   month: Date;
-  workedDates: Set<string>;
+  dailyStatuses: Map<string, string>;
 }
 
 const WEEKDAYS = ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom'];
@@ -32,7 +32,7 @@ const formatMonthLabel = (date: Date) =>
 const dateKey = (year: number, month: number, day: number) =>
   `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
-const CalendarMonth: React.FC<AttendanceCalendarProps> = ({ month, workedDates }) => {
+const CalendarMonth: React.FC<AttendanceCalendarProps> = ({ month, dailyStatuses }) => {
   const year = month.getFullYear();
   const monthIndex = month.getMonth();
   const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
@@ -41,7 +41,7 @@ const CalendarMonth: React.FC<AttendanceCalendarProps> = ({ month, workedDates }
     if (index < firstDayOffset) return null;
     const day = index - firstDayOffset + 1;
     const key = dateKey(year, monthIndex, day);
-    return { day, key, worked: workedDates.has(key) };
+    return { day, key, status: dailyStatuses.get(key) || 'SIN_MARCAR' };
   });
 
   return (
@@ -61,11 +61,15 @@ const CalendarMonth: React.FC<AttendanceCalendarProps> = ({ month, workedDates }
           {cells.map((cell, index) => cell ? (
             <div
               key={cell.key}
-              title={cell.worked ? `Trabajo registrado: ${cell.key}` : cell.key}
+              title={`${cell.key}: ${cell.status === 'ENTRADA' ? 'Día trabajado' : cell.status === 'DESCANSO' ? 'Día de descanso' : cell.status === 'FALTA' ? 'No llegó' : 'Sin marcar'}`}
               className={`aspect-square min-h-8 md:min-h-10 rounded-lg flex items-center justify-center text-xs md:text-sm font-semibold transition-colors ${
-                cell.worked
+                cell.status === 'ENTRADA'
                   ? 'bg-emerald-500 text-white shadow-sm ring-2 ring-emerald-100'
-                  : 'bg-slate-50 text-slate-500'
+                  : cell.status === 'DESCANSO'
+                    ? 'bg-purple-500 text-white shadow-sm ring-2 ring-purple-100'
+                    : cell.status === 'FALTA'
+                      ? 'bg-red-500 text-white shadow-sm ring-2 ring-red-100'
+                      : 'bg-slate-200 text-slate-500 border border-slate-300'
               }`}
             >
               {cell.day}
@@ -354,8 +358,11 @@ export const AttendanceNotebookModal: React.FC<AttendanceNotebookModalProps> = (
                     ))}
                   </select>
                 </div>
-                <div className="flex items-center gap-3 text-xs font-semibold text-slate-500">
-                  <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-emerald-500" /> Día trabajado</span>
+                <div className="flex flex-wrap items-center gap-3 text-xs font-semibold text-slate-500">
+                  <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-emerald-500" /> Trabajó</span>
+                  <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-purple-500" /> Descansó</span>
+                  <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-red-500" /> No llegó</span>
+                  <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-slate-200 border border-slate-300" /> Sin marcar</span>
                   <span>{calendarMonths.length} {calendarMonths.length === 1 ? 'mes' : 'meses'}</span>
                 </div>
               </div>
@@ -377,7 +384,7 @@ export const AttendanceNotebookModal: React.FC<AttendanceNotebookModalProps> = (
               ) : (
                 <div className="space-y-4">
                   {visibleReports.map(report => {
-                    const workedDates = new Set(report.records.map(record => record.date));
+                    const dailyStatuses = new Map(report.records.map(record => [record.date, record.status]));
                     return (
                       <div key={report.employee_id} className="space-y-3">
                         <div className="flex items-center justify-between gap-3 px-1">
@@ -395,9 +402,34 @@ export const AttendanceNotebookModal: React.FC<AttendanceNotebookModalProps> = (
                             <span className="text-[10px] text-gray-500 font-semibold uppercase">Días trabajados</span>
                           </div>
                         </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                          <div className="rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2">
+                            <span className="block text-lg font-black text-emerald-700">{report.days_worked}</span>
+                            <span className="text-[10px] font-bold uppercase text-emerald-700">Trabajados</span>
+                          </div>
+                          <div className="rounded-lg border border-purple-100 bg-purple-50 px-3 py-2">
+                            <span className="block text-lg font-black text-purple-700">{report.days_rest}</span>
+                            <span className="text-[10px] font-bold uppercase text-purple-700">Descansos</span>
+                          </div>
+                          <div className="rounded-lg border border-red-100 bg-red-50 px-3 py-2">
+                            <span className="block text-lg font-black text-red-700">{report.days_absent}</span>
+                            <span className="text-[10px] font-bold uppercase text-red-700">No trabajados</span>
+                          </div>
+                          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                            <span className="block text-lg font-black text-slate-700">{report.days_31_excluded}</span>
+                            <span className="text-[10px] font-bold uppercase text-slate-600">Días 31 no liquidables</span>
+                          </div>
+                          <div className="col-span-2 sm:col-span-1 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2">
+                            <span className="block text-lg font-black text-indigo-700">{report.liquidation_days}</span>
+                            <span className="text-[10px] font-bold uppercase text-indigo-700">Liquidación</span>
+                          </div>
+                        </div>
+                        <p className="text-[11px] text-slate-500">
+                          Liquidación = días trabajados + días de descanso - días 31 no liquidables. Las faltas y los días sin marcar no reducen este cálculo.
+                        </p>
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                           {calendarMonths.map(month => (
-                            <CalendarMonth key={`${report.employee_id}-${month.toISOString()}`} month={month} workedDates={workedDates} />
+                            <CalendarMonth key={`${report.employee_id}-${month.toISOString()}`} month={month} dailyStatuses={dailyStatuses} />
                           ))}
                         </div>
                       </div>
@@ -426,7 +458,7 @@ export const AttendanceNotebookModal: React.FC<AttendanceNotebookModalProps> = (
                   >
                     <div className="flex items-center gap-4">
                       <div className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold text-white shrink-0 ${
-                        emp.current_state === 'ENTRADA' ? 'bg-emerald-500' : emp.current_state === 'FALTA' ? 'bg-red-500' : 'bg-gray-400'
+                        emp.current_state === 'ENTRADA' ? 'bg-emerald-500' : emp.current_state === 'DESCANSO' ? 'bg-purple-500' : emp.current_state === 'FALTA' ? 'bg-red-500' : 'bg-gray-400'
                       }`}>
                         {emp.name.charAt(0).toUpperCase()}
                       </div>
@@ -438,9 +470,9 @@ export const AttendanceNotebookModal: React.FC<AttendanceNotebookModalProps> = (
                           </span>
                           <span>•</span>
                           <span className={`font-semibold ${
-                            emp.current_state === 'ENTRADA' ? 'text-emerald-600' : emp.current_state === 'FALTA' ? 'text-red-600' : 'text-gray-500'
+                            emp.current_state === 'ENTRADA' ? 'text-emerald-600' : emp.current_state === 'DESCANSO' ? 'text-purple-600' : emp.current_state === 'FALTA' ? 'text-red-600' : 'text-gray-500'
                           }`}>
-                            {emp.current_state === 'ENTRADA' ? 'Asistió' : emp.current_state === 'FALTA' ? 'Falta (No Llegó)' : 'Sin marcar'}
+                            {emp.current_state === 'ENTRADA' ? 'Asistió' : emp.current_state === 'DESCANSO' ? 'Descansó' : emp.current_state === 'FALTA' ? 'Falta (No Llegó)' : 'Sin marcar'}
                           </span>
                           
                           {/* Hora de llegada y Edición */}
@@ -488,13 +520,13 @@ export const AttendanceNotebookModal: React.FC<AttendanceNotebookModalProps> = (
                     </div>
 
                     <div className="flex items-center gap-2 sm:shrink-0 mt-3 sm:mt-0">
-                      {emp.current_state === 'FALTA' ? (
+                      {emp.current_state === 'FALTA' || emp.current_state === 'DESCANSO' ? (
                         <button
                           onClick={() => handleAction(emp.id, 'RESET')}
                           className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-bold text-sm transition-colors bg-gray-100 text-gray-700 hover:bg-gray-200 hover:shadow-sm"
                         >
                           <X className="w-4 h-4" />
-                          <span>Deshacer Falta</span>
+                          <span>{emp.current_state === 'DESCANSO' ? 'Deshacer Descanso' : 'Deshacer Falta'}</span>
                         </button>
                       ) : emp.current_state === 'ENTRADA' ? (
                         <button
@@ -512,6 +544,13 @@ export const AttendanceNotebookModal: React.FC<AttendanceNotebookModalProps> = (
                           >
                             <X className="w-4 h-4" />
                             <span>No Llegó</span>
+                          </button>
+
+                          <button
+                            onClick={() => handleAction(emp.id, 'DESCANSO')}
+                            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-bold text-sm transition-colors bg-purple-50 text-purple-600 hover:bg-purple-100 hover:shadow-sm"
+                          >
+                            <span>Descanso</span>
                           </button>
 
                           <button

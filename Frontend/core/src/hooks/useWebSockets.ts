@@ -94,6 +94,10 @@ export const useWebSockets = () => {
           }
         }
 
+        if (message.type === 'ATTENDANCE_UPDATED') {
+          window.dispatchEvent(new Event('attendance_updated'));
+        }
+
         // Lógica para el menú
         if (message.type === 'MENU_ITEM_ADDED') {
           dispatch(menuItemAdded(message.payload as MenuItem));

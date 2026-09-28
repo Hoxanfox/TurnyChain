@@ -2,12 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { attendanceApi, type EmployeeAttendance } from '../../../cashier/api/attendanceApi';
 import { FaCalendarAlt, FaCheck, FaTimes, FaUndo, FaClock, FaEdit, FaSave } from 'react-icons/fa';
 
+const getLocalDateKey = () => {
+  const date = new Date();
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+};
+
 const AttendanceAdminManagement: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState(() => {
-    return new Date().toISOString().split('T')[0];
+    return getLocalDateKey();
   });
   const [employees, setEmployees] = useState<EmployeeAttendance[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [actionEmployeeId, setActionEmployeeId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Time editing state
@@ -53,7 +59,19 @@ const AttendanceAdminManagement: React.FC = () => {
     loadAttendance();
   }, [selectedDate]);
 
+  useEffect(() => {
+    const handleAttendanceUpdate = () => {
+      loadAttendance();
+    };
+
+    window.addEventListener('attendance_updated', handleAttendanceUpdate);
+    return () => window.removeEventListener('attendance_updated', handleAttendanceUpdate);
+  }, [selectedDate]);
+
   const handleAction = async (employeeId: string, action: string) => {
+    if (actionEmployeeId) return;
+
+    setActionEmployeeId(employeeId);
     try {
       // Create a timestamp using the current time but applied to the selected date.
       // This ensures that sequential clicks generate sequential timestamps,
@@ -63,11 +81,13 @@ const AttendanceAdminManagement: React.FC = () => {
       now.setFullYear(parseInt(year), parseInt(month) - 1, parseInt(day));
       const timestamp = now.toISOString();
 
-      await attendanceApi.registerAttendance(employeeId, action, timestamp);
+      await attendanceApi.setAttendanceStatus(employeeId, action, timestamp);
       await loadAttendance(); // Re-sync with backend
     } catch (err) {
       console.error('Error registering attendance', err);
       setError('Error al registrar la asistencia.');
+    } finally {
+      setActionEmployeeId(null);
     }
   };
 
@@ -96,10 +116,6 @@ const AttendanceAdminManagement: React.FC = () => {
     const isoTime = customTime.toISOString();
     
     try {
-      // NOTE: In the backend UpdateTodayArrival currently modifies the first record 
-      // of the CURRENT DAY if it doesn't take the date into account. 
-      // If we want it to work for past dates perfectly, we might need a specific endpoint. 
-      // For now, we will use the generic attendance register to override or update.
       await attendanceApi.updateTodayArrival(empId, isoTime);
       await loadAttendance();
     } catch (err) {
@@ -175,6 +191,7 @@ const AttendanceAdminManagement: React.FC = () => {
                       <div className="flex items-center gap-3">
                         <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs ${
                           emp.current_state === 'ENTRADA' ? 'bg-emerald-500' : 
+                          emp.current_state === 'DESCANSO' ? 'bg-purple-500' :
                           emp.current_state === 'FALTA' ? 'bg-red-500' : 'bg-gray-400'
                         }`}>
                           {emp.name.charAt(0).toUpperCase()}
@@ -199,7 +216,12 @@ const AttendanceAdminManagement: React.FC = () => {
                           <FaTimes size={10} /> Falta
                         </span>
                       )}
-                      {emp.current_state !== 'ENTRADA' && emp.current_state !== 'FALTA' && (
+                      {emp.current_state === 'DESCANSO' && (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-purple-100 text-purple-800 text-xs font-bold">
+                          Descansó
+                        </span>
+                      )}
+                      {emp.current_state !== 'ENTRADA' && emp.current_state !== 'FALTA' && emp.current_state !== 'DESCANSO' && (
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 text-xs font-bold">
                           Sin Marcar
                         </span>
@@ -242,26 +264,36 @@ const AttendanceAdminManagement: React.FC = () => {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-center gap-2">
-                        {emp.current_state === 'FALTA' || emp.current_state === 'ENTRADA' ? (
+                        {emp.current_state === 'FALTA' || emp.current_state === 'ENTRADA' || emp.current_state === 'DESCANSO' ? (
                           <button
                             onClick={() => handleAction(emp.id, 'RESET')}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md text-xs font-bold transition-colors"
+                            disabled={actionEmployeeId === emp.id}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md text-xs font-bold transition-colors disabled:opacity-50 disabled:cursor-wait"
                           >
-                            <FaUndo size={12} /> Deshacer
+                            <FaUndo size={12} /> Deshacer {emp.current_state === 'DESCANSO' ? 'descanso' : ''}
                           </button>
                         ) : (
                           <>
                             <button
                               onClick={() => handleAction(emp.id, 'ENTRADA')}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md text-xs font-bold transition-colors border border-emerald-200"
+                              disabled={actionEmployeeId === emp.id}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md text-xs font-bold transition-colors border border-emerald-200 disabled:opacity-50 disabled:cursor-wait"
                             >
                               <FaCheck size={12} /> Llegó
                             </button>
                             <button
                               onClick={() => handleAction(emp.id, 'FALTA')}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 rounded-md text-xs font-bold transition-colors border border-red-200"
+                              disabled={actionEmployeeId === emp.id}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 rounded-md text-xs font-bold transition-colors border border-red-200 disabled:opacity-50 disabled:cursor-wait"
                             >
                               <FaTimes size={12} /> Faltó
+                            </button>
+                            <button
+                              onClick={() => handleAction(emp.id, 'DESCANSO')}
+                              disabled={actionEmployeeId === emp.id}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-md text-xs font-bold transition-colors border border-purple-200 disabled:opacity-50 disabled:cursor-wait"
+                            >
+                              Descanso
                             </button>
                           </>
                         )}
