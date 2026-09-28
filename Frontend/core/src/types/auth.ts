@@ -7,8 +7,11 @@ export interface LoginCredentials {
   password: string;
 }
 
+export type UserRole = 'admin' | 'gerente' | 'cajero' | 'mesero';
+
 export interface User {
   id: string;
   username: string;
-  role: 'admin' | 'cajero' | 'mesero' | null;
+  role: UserRole | null;
+  roles: UserRole[];
 }

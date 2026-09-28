@@ -62,13 +62,21 @@ axios.interceptors.response.use(
   (error) => {
     if (axios.isAxiosError(error)) {
       const status = error.response?.status;
-      if (status === 401 || status === 403) {
+      if (status === 401) {
         redirectToLoginWithMessage('Sesion revocada. Inicia sesion nuevamente.');
       }
     }
     return Promise.reject(error);
   }
 );
+
+axios.interceptors.request.use((config) => {
+  const activeRole = localStorage.getItem('user_role');
+  if (activeRole) {
+    config.headers.set('X-Active-Role', activeRole);
+  }
+  return config;
+});
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

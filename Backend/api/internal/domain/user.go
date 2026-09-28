@@ -10,5 +10,6 @@ type User struct {
 	Username     string    `json:"username" db:"username"`
 	PasswordHash string    `json:"-" db:"password_hash"`
 	Role         string    `json:"role" db:"role"`
+	Roles        []string  `json:"roles,omitempty" db:"-"`
 	IsActive     bool      `json:"is_active" db:"is_active"`
 }

@@ -101,7 +101,7 @@ func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *
 	inventory.Get("/stock", inventoryReceiptHandler.GetStock)
 	inventoryReceipts := inventory.Group("/receipts")
 	inventoryReceipts.Get("/", inventoryReceiptHandler.GetAll)
-	inventoryReceipts.Post("/", middleware.RequireRole("mesero", "cajero", "admin"), inventoryReceiptHandler.Create)
+	inventoryReceipts.Post("/", middleware.RequireRole("mesero", "cajero", "gerente", "admin"), inventoryReceiptHandler.Create)
 
 	// Rutas de Mesas
 	tables := protected.Group("/tables")

@@ -16,11 +16,16 @@ interface EditUserModalProps {
 const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose }) => {
   const dispatch = useDispatch<AppDispatch>();
   const [username, setUsername] = useState(user.username);
-  const [role, setRole] = useState(user.role);
+  const [roles, setRoles] = useState(user.roles?.length ? user.roles : [user.role]);
+
+  const toggleRole = (role: 'admin' | 'gerente' | 'cajero' | 'mesero') => {
+    setRoles(current => current.includes(role) ? current.filter(item => item !== role) : [...current, role]);
+  };
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    dispatch(editUser({ id: user.id, username, role }));
+    if (roles.length === 0) return;
+    dispatch(editUser({ id: user.id, username, roles }));
     onClose();
   };
 
@@ -41,15 +46,14 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose }) => {
           </div>
           <div className="mb-4">
             <label htmlFor="edit-role" className="block text-sm font-medium text-gray-700">Rol</label>
-            <select
-              id="edit-role"
-              value={role}
-              onChange={(e) => setRole(e.target.value as 'cajero' | 'mesero')}
-              className="mt-1 block w-full px-3 py-2 border rounded-md"
-            >
-              <option value="mesero">Mesero</option>
-              <option value="cajero">Cajero</option>
-            </select>
+            <div className="mt-1 flex flex-wrap gap-3 rounded-md border px-3 py-2 text-sm">
+              {(['mesero', 'cajero', 'gerente', 'admin'] as const).map(option => (
+                <label key={option} className="flex items-center gap-1.5">
+                  <input type="checkbox" checked={roles.includes(option)} onChange={() => toggleRole(option)} />
+                  {option[0].toUpperCase() + option.slice(1)}
+                </label>
+              ))}
+            </div>
           </div>
           <div className="mt-6 flex justify-end space-x-2">
             <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">Cancelar</button>

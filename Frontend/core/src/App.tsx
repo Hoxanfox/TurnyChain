@@ -20,6 +20,7 @@ import CashierMetricsPage from './features/cashier/components/cashierDashboardMo
 import CashierInvoiceHistoryPage from './features/cashier/components/cashierDashboardMobile/pages/CashierInvoiceHistoryPage';
 import InventoryReceiptPage from './features/inventory/InventoryReceiptPage';
 import InventoryReceiptHistoryPage from './features/inventory/InventoryReceiptHistoryPage';
+import ManagerDashboard from './features/manager/ManagerDashboard';
 
 // Componente para gestionar la conexión WebSocket global
 const WebSocketManager: React.FC = () => {
@@ -30,6 +31,7 @@ const WebSocketManager: React.FC = () => {
 const DashboardRedirect: React.FC<{ user: User | null }> = ({ user }) => {
   switch (user?.role) {
     case 'admin': return <AdminDashboard />;
+    case 'gerente': return <ManagerDashboard />;
     case 'cajero': return <CashierDashboard />;
     case 'mesero': return <WaiterDashboard />;
     default: return <Navigate to="/login" />;

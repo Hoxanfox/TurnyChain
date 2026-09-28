@@ -91,13 +91,21 @@ func (s *authService) Login(username, password, deviceID string) (string, error)
 
 	// 3. Crear los claims (la información dentro del token)
 	claims := jwt.MapClaims{
-		"sub":  user.ID,
-		"role": user.Role,
-		"sid":  sessionID.String(),
-		"exp":  expiration.Unix(),
+		"sub":   user.ID,
+		"role":  firstRole(user.Roles, user.Role),
+		"roles": user.Roles,
+		"sid":   sessionID.String(),
+		"exp":   expiration.Unix(),
 	}
 
 	// 4. Crear y firmar el token
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString(JWT_SECRET_KEY)
+}
+
+func firstRole(roles []string, fallback string) string {
+	if len(roles) > 0 {
+		return roles[0]
+	}
+	return strings.TrimSpace(strings.Split(fallback, ",")[0])
 }

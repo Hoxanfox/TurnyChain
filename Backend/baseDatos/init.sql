@@ -10,7 +10,7 @@ CREATE TABLE "users" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   "username" varchar(100) UNIQUE NOT NULL,
   "password_hash" text NOT NULL,
-  "role" varchar(20) NOT NULL CHECK (role IN ('mesero', 'cajero', 'admin')),
+  "role" varchar(255) NOT NULL,
   "is_active" boolean NOT NULL DEFAULT true,
   "created_at" timestamptz NOT NULL DEFAULT (now())
 );

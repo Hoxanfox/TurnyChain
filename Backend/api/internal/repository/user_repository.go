@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/domain"
 	"github.com/google/uuid"
+	"strings"
 )
 
 type UserRepository interface {
@@ -29,11 +30,15 @@ func NewUserRepository(db *sql.DB) UserRepository {
 
 func (r *userRepository) CreateUser(user *domain.User) (*domain.User, error) {
 	user.ID = uuid.New()
+	if len(user.Roles) > 0 {
+		user.Role = strings.Join(user.Roles, ",")
+	}
 	query := "INSERT INTO users (id, username, password_hash, role) VALUES ($1, $2, $3, $4)"
 	_, err := r.db.Exec(query, user.ID, user.Username, user.PasswordHash, user.Role)
 	if err != nil {
 		return nil, err
 	}
+	user.Roles = splitRoles(user.Role)
 	user.PasswordHash = ""
 	return user, nil
 }
@@ -43,6 +48,7 @@ func (r *userRepository) GetUserByUsername(username string) (*domain.User, error
 	user := &domain.User{}
 	query := "SELECT id, username, password_hash, role, is_active FROM users WHERE username = $1 AND is_active = true"
 	err := r.db.QueryRow(query, username).Scan(&user.ID, &user.Username, &user.PasswordHash, &user.Role, &user.IsActive)
+	user.Roles = splitRoles(user.Role)
 	return user, err
 }
 
@@ -50,26 +56,30 @@ func (r *userRepository) GetUserByID(id uuid.UUID) (*domain.User, error) {
 	user := &domain.User{}
 	query := "SELECT id, username, password_hash, role, is_active FROM users WHERE id = $1 AND is_active = true"
 	err := r.db.QueryRow(query, id).Scan(&user.ID, &user.Username, &user.PasswordHash, &user.Role, &user.IsActive)
+	user.Roles = splitRoles(user.Role)
 	return user, err
 }
 
 // GetUsers ahora solo devuelve usuarios activos.
 func (r *userRepository) GetUsers() ([]domain.User, error) {
-    query := "SELECT id, username, role, is_active FROM users WHERE is_active = true"
-    rows, err := r.db.Query(query)
-    if err != nil { return nil, err }
-    defer rows.Close()
+	query := "SELECT id, username, role, is_active FROM users WHERE is_active = true"
+	rows, err := r.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
 
-    // CORRECCIÓN: Inicializamos la slice.
-    users := make([]domain.User, 0)
-    for rows.Next() {
-        var user domain.User
-        if err := rows.Scan(&user.ID, &user.Username, &user.Role, &user.IsActive); err != nil {
-            return nil, err
-        }
-        users = append(users, user)
-    }
-    return users, nil
+	// CORRECCIÓN: Inicializamos la slice.
+	users := make([]domain.User, 0)
+	for rows.Next() {
+		var user domain.User
+		if err := rows.Scan(&user.ID, &user.Username, &user.Role, &user.IsActive); err != nil {
+			return nil, err
+		}
+		user.Roles = splitRoles(user.Role)
+		users = append(users, user)
+	}
+	return users, nil
 }
 
 // UpdateUser actualiza un usuario en la base de datos. // <-- NUEVO
@@ -79,8 +89,27 @@ func (r *userRepository) UpdateUser(user *domain.User) (*domain.User, error) {
 	if err != nil {
 		return nil, err
 	}
+	user.Roles = splitRoles(user.Role)
 	user.PasswordHash = ""
 	return user, nil
+}
+
+func splitRoles(raw string) []string {
+	parts := strings.Split(raw, ",")
+	roles := make([]string, 0, len(parts))
+	seen := make(map[string]struct{})
+	for _, part := range parts {
+		role := strings.ToLower(strings.TrimSpace(part))
+		if role == "" {
+			continue
+		}
+		if _, exists := seen[role]; exists {
+			continue
+		}
+		seen[role] = struct{}{}
+		roles = append(roles, role)
+	}
+	return roles
 }
 
 func (r *userRepository) UpdateUserPassword(userID uuid.UUID, passwordHash string) error {

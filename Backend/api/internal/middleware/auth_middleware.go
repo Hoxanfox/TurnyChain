@@ -64,7 +64,31 @@ func Protected(sessionRepo repository.SessionRepository) fiber.Handler {
 		}
 
 		c.Locals("user_id", userID)
-		c.Locals("user_role", claims["role"])
+		activeRole, _ := claims["role"].(string)
+		availableRoles := []string{activeRole}
+		if rawRoles, ok := claims["roles"].([]interface{}); ok {
+			for _, rawRole := range rawRoles {
+				if roleValue, ok := rawRole.(string); ok {
+					availableRoles = append(availableRoles, roleValue)
+				}
+			}
+		}
+		requestedRole := strings.ToLower(strings.TrimSpace(c.Get("X-Active-Role")))
+		if requestedRole != "" {
+			validRequestedRole := false
+			for _, availableRole := range availableRoles {
+				if requestedRole == availableRole {
+					validRequestedRole = true
+					break
+				}
+			}
+			if !validRequestedRole {
+				return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Role is not assigned to this user"})
+			}
+			activeRole = requestedRole
+		}
+		c.Locals("user_role", activeRole)
+		c.Locals("user_roles", availableRoles)
 
 		return c.Next()
 	}
@@ -77,11 +101,29 @@ func RequireRole(roles ...string) fiber.Handler {
 	}
 
 	return func(c *fiber.Ctx) error {
-		role, ok := c.Locals("user_role").(string)
-		if !ok {
+		role, _ := c.Locals("user_role").(string)
+		userRoles := []string{role}
+		switch rawRoles := c.Locals("user_roles").(type) {
+		case []string:
+			userRoles = append(userRoles, rawRoles...)
+		case []interface{}:
+			for _, rawRole := range rawRoles {
+				if roleValue, ok := rawRole.(string); ok {
+					userRoles = append(userRoles, roleValue)
+				}
+			}
+		}
+		if role == "" {
 			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Role not available"})
 		}
-		if _, ok := allowed[role]; !ok {
+		allowedRole := false
+		for _, userRole := range userRoles {
+			if _, ok := allowed[userRole]; ok {
+				allowedRole = true
+				break
+			}
+		}
+		if !allowedRole {
 			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Insufficient permissions"})
 		}
 		return c.Next()

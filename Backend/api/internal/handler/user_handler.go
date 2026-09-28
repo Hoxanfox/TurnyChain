@@ -8,6 +8,7 @@ import (
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/service"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
+	"strings"
 )
 
 type UserHandler struct {
@@ -19,15 +20,17 @@ func NewUserHandler(s service.UserService) *UserHandler {
 }
 
 type CreateUserPayload struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-	Role     string `json:"role"`
+	Username string   `json:"username"`
+	Password string   `json:"password"`
+	Role     string   `json:"role"`
+	Roles    []string `json:"roles"`
 }
 
 // UpdateUserPayload define la estructura para actualizar un usuario. // <-- NUEVO
 type UpdateUserPayload struct {
-	Username string `json:"username"`
-	Role     string `json:"role"`
+	Username string   `json:"username"`
+	Role     string   `json:"role"`
+	Roles    []string `json:"roles"`
 }
 
 type UpdateUserPasswordPayload struct {
@@ -39,7 +42,11 @@ func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
 	if err := c.BodyParser(payload); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse JSON"})
 	}
-	user, err := h.userService.CreateUser(payload.Username, payload.Password, payload.Role)
+	role := payload.Role
+	if len(payload.Roles) > 0 {
+		role = strings.Join(payload.Roles, ",")
+	}
+	user, err := h.userService.CreateUser(payload.Username, payload.Password, role)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not create user"})
 	}
@@ -47,11 +54,11 @@ func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
 }
 
 func (h *UserHandler) GetUsers(c *fiber.Ctx) error {
-    users, err := h.userService.GetUsers()
-    if err != nil {
-        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not retrieve users"})
-    }
-    return c.JSON(users)
+	users, err := h.userService.GetUsers()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not retrieve users"})
+	}
+	return c.JSON(users)
 }
 
 // UpdateUser maneja la actualización de un usuario. // <-- NUEVO
@@ -66,7 +73,11 @@ func (h *UserHandler) UpdateUser(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse JSON"})
 	}
 
-	user, err := h.userService.UpdateUser(id, payload.Username, payload.Role)
+	role := payload.Role
+	if len(payload.Roles) > 0 {
+		role = strings.Join(payload.Roles, ",")
+	}
+	user, err := h.userService.UpdateUser(id, payload.Username, role)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not update user"})
 	}

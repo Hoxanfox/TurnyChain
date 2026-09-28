@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { logout } from '../../../../../features/auth/authSlice';
-import type { AppDispatch } from '../../../../../app/store';
+import { logout, setActiveRole } from '../../../../../features/auth/authSlice';
+import type { AppDispatch, RootState } from '../../../../../app/store';
+import type { UserRole } from '../../../../../types/auth';
+import { useSelector } from 'react-redux';
 import { useAttendanceAlert } from '../../../hooks/useAttendanceAlert';
 
 interface CashierMobileHeaderProps {
@@ -31,6 +33,8 @@ export const CashierMobileHeader: React.FC<CashierMobileHeaderProps> = ({
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
+  const user = useSelector((state: RootState) => state.auth.user);
+  const roles = user?.roles?.length ? user.roles : user?.role ? [user.role] : [];
 
   const { unmarkedAttendanceCount } = useAttendanceAlert(!!onOpenAttendanceModal);
   const showAttendanceAlert = unmarkedAttendanceCount > 0;
@@ -129,6 +133,19 @@ export const CashierMobileHeader: React.FC<CashierMobileHeaderProps> = ({
                 onClick={() => setIsProfileMenuOpen(false)}
               ></div>
               <div className="absolute right-0 top-12 w-48 bg-white rounded-xl shadow-xl border border-slate-100 z-50 overflow-hidden py-1 animate-in fade-in slide-in-from-top-2">
+                {roles.length > 1 && (
+                  <select
+                    value={user?.role || roles[0]}
+                    onChange={(event) => {
+                      dispatch(setActiveRole(event.target.value as UserRole));
+                      window.location.assign('/dashboard');
+                    }}
+                    className="mx-3 mb-2 mt-1 w-[calc(100%-1.5rem)] rounded-lg border border-slate-200 px-2 py-2 text-sm font-semibold text-slate-700"
+                    aria-label="Cambiar perfil activo"
+                  >
+                    {roles.map(role => <option key={role} value={role}>{role[0].toUpperCase() + role.slice(1)}</option>)}
+                  </select>
+                )}
                 <button
                   onClick={handleLogout}
                   className="w-full text-left px-4 py-3 text-red-600 font-semibold hover:bg-red-50 flex items-center gap-2 transition-colors"

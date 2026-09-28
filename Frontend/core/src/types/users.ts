@@ -5,20 +5,22 @@
 export interface User {
   id: string;
   username: string;
-  role: 'admin' | 'cajero' | 'mesero';
+  role: 'admin' | 'gerente' | 'cajero' | 'mesero';
+  roles: Array<'admin' | 'gerente' | 'cajero' | 'mesero'>;
 }
 
 export interface NewUser {
   username: string;
   password: string;
-  role: 'cajero' | 'mesero';
+  roles: Array<'admin' | 'gerente' | 'cajero' | 'mesero'>;
 }
 
 export interface UpdateUser {
   id: string;
   username?: string;
   // CORRECCIÓN: El rol a actualizar puede ser cualquiera de los roles existentes.
-  role?: 'admin' | 'cajero' | 'mesero';
+  role?: 'admin' | 'gerente' | 'cajero' | 'mesero';
+  roles?: Array<'admin' | 'gerente' | 'cajero' | 'mesero'>;
 }
 
 export interface UpdateUserPassword {

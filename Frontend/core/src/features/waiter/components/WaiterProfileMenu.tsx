@@ -5,13 +5,15 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { logout } from '../../auth/authSlice';
+import { logout, setActiveRole } from '../../auth/authSlice';
 import type { AppDispatch, RootState } from '../../../app/store';
+import type { UserRole } from '../../../types/auth';
 
 const WaiterProfileMenu: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
   const { user } = useSelector((state: RootState) => state.auth);
+  const roles = user?.roles?.length ? user.roles : user?.role ? [user.role] : [];
   const { myOrders } = useSelector((state: RootState) => state.orders);
 
   const [isOpen, setIsOpen] = useState(false);
@@ -125,6 +127,19 @@ const WaiterProfileMenu: React.FC = () => {
 
           {/* Cerrar sesión */}
           <div className="p-3">
+            {roles.length > 1 && (
+              <select
+                value={user?.role || roles[0]}
+                onChange={(event) => {
+                  dispatch(setActiveRole(event.target.value as UserRole));
+                  window.location.assign('/dashboard');
+                }}
+                className="mb-3 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold"
+                aria-label="Cambiar perfil activo"
+              >
+                {roles.map(role => <option key={role} value={role}>{role[0].toUpperCase() + role.slice(1)}</option>)}
+              </select>
+            )}
             <button
               onClick={handleLogout}
               className="w-full py-2.5 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 active:scale-95 text-white rounded-lg transition-all font-semibold text-sm flex items-center justify-center gap-2 shadow-sm"
