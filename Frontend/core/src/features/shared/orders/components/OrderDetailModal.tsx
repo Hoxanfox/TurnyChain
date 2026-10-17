@@ -121,6 +121,9 @@ const PaymentInfoSection: React.FC<PaymentInfoSectionProps> = ({ order }) => {
                               timeStyle: 'short'
                             })}
                           </p>
+                          <p className="mt-1 text-xs font-semibold text-indigo-700">
+                            Cobrado por: {payment.collector_name || order.waiter_name || 'Usuario no identificado'}
+                          </p>
                         </div>
                       </div>
 

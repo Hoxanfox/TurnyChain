@@ -25,8 +25,8 @@ type OrderService interface {
 	UpdateOrderStatus(orderID, userID uuid.UUID, newStatus string) (*domain.Order, error)
 	UpdateOrderItems(orderID uuid.UUID, items []domain.OrderItem) (*domain.Order, error)
 	ManageOrderAsAdmin(orderID uuid.UUID, status *string, newWaiterID *uuid.UUID) (*domain.Order, error)
-	AddPaymentProof(orderID uuid.UUID, method string, proofPath string) (*domain.Order, error)
-	AddSplitPayments(orderID uuid.UUID, payments []domain.Payment) (*domain.Order, error)
+	AddPaymentProof(orderID, userID uuid.UUID, method string, proofPath string) (*domain.Order, error)
+	AddSplitPayments(orderID, userID uuid.UUID, payments []domain.Payment) (*domain.Order, error)
 	GetWaiterApprovedStats(userRole string, start time.Time, end time.Time, groupBy string) ([]domain.WaiterApprovedStat, error)
 	GetProductSalesStats(userRole string, start time.Time, end time.Time) ([]domain.ProductSalesStat, error)
 	NotarizeOrderNow(orderID uuid.UUID) (*domain.Order, error)
@@ -560,7 +560,7 @@ func (s *orderService) ManageOrderAsAdmin(orderID uuid.UUID, status *string, new
 	return managedOrder, nil
 }
 
-func (s *orderService) AddPaymentProof(orderID uuid.UUID, method string, proofPath string) (*domain.Order, error) {
+func (s *orderService) AddPaymentProof(orderID, userID uuid.UUID, method string, proofPath string) (*domain.Order, error) {
 	// Validar método
 	if method != "transferencia" && method != "efectivo" {
 		return nil, errors.New("método de pago inválido")
@@ -571,7 +571,7 @@ func (s *orderService) AddPaymentProof(orderID uuid.UUID, method string, proofPa
 	log.Printf("   - Ruta comprobante: %s", proofPath)
 
 	// Delegar al repositorio. El repositorio pone el status en 'por_verificar' cuando corresponda.
-	order, err := s.orderRepo.AddPaymentProof(orderID, method, proofPath)
+	order, err := s.orderRepo.AddPaymentProof(orderID, userID, method, proofPath)
 	if err != nil {
 		log.Printf("❌ [Backend] Error al actualizar orden %s: %v", orderID.String(), err)
 		return nil, err
@@ -599,7 +599,7 @@ func (s *orderService) AddPaymentProof(orderID uuid.UUID, method string, proofPa
 	return order, nil
 }
 
-func (s *orderService) AddSplitPayments(orderID uuid.UUID, payments []domain.Payment) (*domain.Order, error) {
+func (s *orderService) AddSplitPayments(orderID, userID uuid.UUID, payments []domain.Payment) (*domain.Order, error) {
 	if len(payments) == 0 {
 		return nil, errors.New("no payments provided")
 	}
@@ -616,6 +616,7 @@ func (s *orderService) AddSplitPayments(orderID uuid.UUID, payments []domain.Pay
 
 	for i := range payments {
 		payments[i].CashSessionID = sessionID
+		payments[i].CollectorID = &userID
 	}
 
 	order, err := s.orderRepo.AddSplitPayments(orderID, payments)

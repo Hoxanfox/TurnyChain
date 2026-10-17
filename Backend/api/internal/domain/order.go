@@ -128,6 +128,8 @@ type OrderItem struct {
 type Payment struct {
 	ID               uuid.UUID `json:"id" db:"id"`
 	OrderID          uuid.UUID `json:"order_id" db:"order_id"`
+	CollectorID      *uuid.UUID `json:"collector_id,omitempty" db:"created_by_user_id"`
+	CollectorName    string    `json:"collector_name,omitempty" db:"collector_name"`
 	Amount           float64   `json:"amount" db:"amount"`
 	Method           string    `json:"method" db:"payment_method"`
 	PaymentProofPath *string    `json:"payment_proof_path,omitempty" db:"payment_proof_path"`

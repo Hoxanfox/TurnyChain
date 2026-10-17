@@ -117,6 +117,9 @@ export const QuickProofView: React.FC<QuickProofViewProps> = ({
                         <p className="text-xs text-gray-500 mt-0.5">
                           {new Date(p.created_at || activeOrder.created_at).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}
                         </p>
+                        <p className="text-xs font-semibold text-indigo-700 mt-0.5">
+                          Cobrado por: {p.collector_name || activeOrder.waiter_name || 'Usuario no identificado'}
+                        </p>
                       </div>
                       <div className="text-right flex flex-col items-end gap-2">
                         <p className="font-bold text-blue-900">${p.amount.toLocaleString('es-CO')}</p>

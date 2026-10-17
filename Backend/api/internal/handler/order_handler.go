@@ -515,7 +515,7 @@ func (h *OrderHandler) UploadPaymentProof(c *fiber.Ctx) error {
 		proofPath = "/static/proofs/" + filename
 	}
 
-	order, err := h.orderService.AddPaymentProof(orderID, method, proofPath)
+	order, err := h.orderService.AddPaymentProof(orderID, userID, method, proofPath)
 	if err != nil {
 		// Intentar limpiar el archivo si DB falla
 		if savedFilePath != "" {
@@ -597,7 +597,7 @@ func (h *OrderHandler) UploadSplitPayments(c *fiber.Ctx) error {
 		payments = append(payments, payment)
 	}
 
-	order, err := h.orderService.AddSplitPayments(orderID, payments)
+	order, err := h.orderService.AddSplitPayments(orderID, userID, payments)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "could not update order with split payments"})
 	}
@@ -699,7 +699,7 @@ func (h *OrderHandler) CreateOrderWithPayment(c *fiber.Ctx) error {
 	}
 
 	// 6. Actualizar la orden con los datos de pago
-	updatedOrder, err := h.orderService.AddPaymentProof(order.ID, paymentMethod, proofPath)
+	updatedOrder, err := h.orderService.AddPaymentProof(order.ID, waiterID, paymentMethod, proofPath)
 	if err != nil {
 		// Si falla, intentar limpiar el archivo
 		if proofPath != "" {

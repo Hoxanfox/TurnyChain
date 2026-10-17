@@ -24,7 +24,7 @@ type OrderRepository interface {
 	UpdateOrderStatus(orderID, userID uuid.UUID, status string) (*domain.Order, error)
 	ManageOrder(orderID uuid.UUID, updates map[string]interface{}) (*domain.Order, error)
 	UpdateOrderItems(orderID uuid.UUID, items []domain.OrderItem, newTotal float64) error
-	AddPaymentProof(orderID uuid.UUID, method string, proofPath string) (*domain.Order, error)
+	AddPaymentProof(orderID, userID uuid.UUID, method string, proofPath string) (*domain.Order, error)
 	AddSplitPayments(orderID uuid.UUID, payments []domain.Payment) (*domain.Order, error)
 	UpdateOrderBlockchainTxHash(orderID uuid.UUID, txHash string) error
 	GetInvoiceHistory(query string, from *time.Time, to *time.Time, limit int, offset int) ([]domain.InvoiceHistoryItem, error)
@@ -458,7 +458,7 @@ func (r *orderRepository) loadOrderItems(orderID uuid.UUID) ([]domain.OrderItem,
 }
 
 func (r *orderRepository) loadOrderPayments(orderID uuid.UUID) ([]domain.Payment, error) {
-	paymentsQuery := `SELECT id, amount, payment_method, payment_proof_path, created_at FROM order_payments WHERE order_id = $1 ORDER BY created_at ASC`
+	paymentsQuery := `SELECT op.id, op.amount, op.payment_method, op.payment_proof_path, op.created_at, op.created_by_user_id, u.username FROM order_payments op LEFT JOIN users u ON u.id = op.created_by_user_id WHERE op.order_id = $1 ORDER BY op.created_at ASC`
 	rows, err := r.db.Query(paymentsQuery, orderID)
 	if err != nil {
 		return nil, err
@@ -469,10 +469,16 @@ func (r *orderRepository) loadOrderPayments(orderID uuid.UUID) ([]domain.Payment
 	for rows.Next() {
 		var p domain.Payment
 		var proofPath sql.NullString
-		if err := rows.Scan(&p.ID, &p.Amount, &p.Method, &proofPath, &p.CreatedAt); err != nil {
+		var collectorID, collectorName sql.NullString
+		if err := rows.Scan(&p.ID, &p.Amount, &p.Method, &proofPath, &p.CreatedAt, &collectorID, &collectorName); err != nil {
 			return nil, err
 		}
 		p.OrderID = orderID
+		if collectorID.Valid {
+			id, err := uuid.Parse(collectorID.String)
+			if err == nil { p.CollectorID = &id }
+		}
+		if collectorName.Valid { p.CollectorName = collectorName.String }
 		if proofPath.Valid {
 			path := proofPath.String
 			p.PaymentProofPath = &path
@@ -926,7 +932,7 @@ func (r *orderRepository) UpdateOrderItems(orderID uuid.UUID, items []domain.Ord
 	return tx.Commit()
 }
 
-func (r *orderRepository) AddPaymentProof(orderID uuid.UUID, method string, proofPath string) (*domain.Order, error) {
+func (r *orderRepository) AddPaymentProof(orderID, userID uuid.UUID, method string, proofPath string) (*domain.Order, error) {
 	order := &domain.Order{}
 
 	// Determinar el nuevo estado según el método de pago
@@ -1022,6 +1028,14 @@ func (r *orderRepository) AddPaymentProof(orderID uuid.UUID, method string, proo
 		return nil, err
 	}
 
+	// Un pago nuevo reemplaza el intento anterior y conserva quién lo registró.
+	_, err = r.db.Exec(`DELETE FROM order_payments WHERE order_id = $1`, orderID)
+	if err != nil { return nil, err }
+	var proofValue interface{}
+	if proofPath != "" { proofValue = proofPath }
+	_, err = r.db.Exec(`INSERT INTO order_payments (order_id, amount, payment_method, payment_proof_path, created_by_user_id) SELECT $1, o.total, $2, $3, $4 FROM orders o WHERE o.id = $1`, orderID, method, proofValue, userID)
+	if err != nil { return nil, err }
+
 	if deliveryAddress.Valid {
 		addr := deliveryAddress.String
 		order.DeliveryAddress = &addr
@@ -1076,8 +1090,8 @@ func (r *orderRepository) AddSplitPayments(orderID uuid.UUID, payments []domain.
 
 	// Insert payments
 	for _, p := range payments {
-		_, err = tx.Exec(`INSERT INTO order_payments (order_id, amount, payment_method, payment_proof_path, cash_session_id) VALUES ($1, $2, $3, $4, $5)`,
-			orderID, p.Amount, p.Method, p.PaymentProofPath, p.CashSessionID)
+		_, err = tx.Exec(`INSERT INTO order_payments (order_id, amount, payment_method, payment_proof_path, cash_session_id, created_by_user_id) VALUES ($1, $2, $3, $4, $5, $6)`,
+			orderID, p.Amount, p.Method, p.PaymentProofPath, p.CashSessionID, p.CollectorID)
 		if err != nil {
 			return nil, err
 		}

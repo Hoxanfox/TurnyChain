@@ -293,6 +293,7 @@ func applyOrderPaymentsMigration(db *sql.DB) error {
 		)`,
 		`CREATE INDEX IF NOT EXISTS order_payments_order_id_idx ON order_payments (order_id)`,
 		`ALTER TABLE order_payments ADD COLUMN IF NOT EXISTS cash_session_id uuid REFERENCES cash_register_sessions(id) ON DELETE SET NULL`,
+		`ALTER TABLE order_payments ADD COLUMN IF NOT EXISTS created_by_user_id uuid REFERENCES users(id) ON DELETE SET NULL`,
 	}
 
 	for _, stmt := range statements {

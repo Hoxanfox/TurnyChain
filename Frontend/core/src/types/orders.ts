@@ -35,6 +35,8 @@ export interface OrderItem {
 export interface Payment {
   id: string;
   order_id: string;
+  collector_id?: string;
+  collector_name?: string;
   amount: number;
   method: string; // "transferencia" | "efectivo"
   payment_proof_path?: string; // Ruta de la imagen del comprobante
