@@ -344,6 +344,27 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
     setError(null);
 
     try {
+      // El WebSocket puede dejar la lista local atrasada. Siempre valida el estado
+      // real antes de reenviar un pago, especialmente después de por_verificar.
+      const liveOrders = await Promise.all(targetOrderIds.map((id) => getOrderDetails(id, token)));
+      const alreadyPaid = liveOrders.filter((order) => order.status === 'pagado');
+      if (alreadyPaid.length > 0) {
+        setError(
+          alreadyPaid.length === 1
+            ? 'Esta comanda ya fue pagada. Se actualizó su estado y no se reenviará el cobro.'
+            : `${alreadyPaid.length} comandas ya fueron pagadas. No se reenviará el cobro.`
+        );
+        return;
+      }
+
+      const unavailableOrders = liveOrders.filter((order) =>
+        !['entregado', 'pendiente_aprobacion', 'por_verificar'].includes(order.status)
+      );
+      if (unavailableOrders.length > 0) {
+        setError('La comanda cambió de estado y ya no está disponible para cobro. Actualiza la lista e inténtalo de nuevo.');
+        return;
+      }
+
       if (groupOrderInfos && groupOrderInfos.length > 0) {
         let paymentPool = payments.map(p => ({ ...p, remaining: p.amount }));
 

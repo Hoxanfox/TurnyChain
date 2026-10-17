@@ -30,6 +30,7 @@ export const useWaiterWebSocket = (
   const ws = useRef<WebSocket | null>(null);
   const heartbeatInterval = useRef<ReturnType<typeof setInterval> | null>(null);
   const refreshDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fallbackRefreshInterval = useRef<ReturnType<typeof setInterval> | null>(null);
   const reconnectTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttempts = useRef(0);
   const shouldReconnect = useRef(true);
@@ -351,6 +352,15 @@ export const useWaiterWebSocket = (
 
     connectWebSocket();
 
+    // Respaldo HTTP para cuando el WebSocket está caído o pierde eventos.
+    const refreshOrdersFallback = () => {
+      dispatch(fetchMyOrders());
+      dispatch(fetchActiveOrders({ teamOrders: true }));
+    };
+    fallbackRefreshInterval.current = setInterval(refreshOrdersFallback, 30000);
+    window.addEventListener('online', refreshOrdersFallback);
+    window.addEventListener('focus', refreshOrdersFallback);
+
     return () => {
       shouldReconnect.current = false;
 
@@ -365,6 +375,13 @@ export const useWaiterWebSocket = (
         clearTimeout(refreshDebounce.current);
         refreshDebounce.current = null;
       }
+
+      if (fallbackRefreshInterval.current) {
+        clearInterval(fallbackRefreshInterval.current);
+        fallbackRefreshInterval.current = null;
+      }
+      window.removeEventListener('online', refreshOrdersFallback);
+      window.removeEventListener('focus', refreshOrdersFallback);
 
       lastRefreshByOrder.current = {};
 
