@@ -642,7 +642,7 @@ func (r *orderRepository) LinkOrderToParent(orderID, parentOrderID uuid.UUID) (*
 
 func (r *orderRepository) UpdateOrderStatus(orderID, userID uuid.UUID, status string) (*domain.Order, error) {
 	order := &domain.Order{}
-	query := `UPDATE orders SET status = $1, cashier_id = CASE WHEN $1 = 'pagado' THEN $2 ELSE cashier_id END WHERE id = $3
+	query := `UPDATE orders SET status = $1, cashier_id = CASE WHEN $1::text = 'pagado' THEN $2 ELSE cashier_id END WHERE id = $3
 	          RETURNING id, waiter_id, cashier_id, table_number, status, total, order_type, delivery_address, delivery_phone, delivery_notes, payment_method, payment_proof_path, blockchain_tx_hash, print_status, print_attempts, last_print_error, printed_at, last_print_attempt_at, created_at, updated_at`
 
 	var deliveryAddress sql.NullString

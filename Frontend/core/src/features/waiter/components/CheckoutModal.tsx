@@ -87,7 +87,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [token, targetOrderKey, activeOrders, myOrders]);
+  }, [token, targetOrderKey]);
 
   const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
   const tip = typeof tipAmount === 'number' ? tipAmount : 0;
