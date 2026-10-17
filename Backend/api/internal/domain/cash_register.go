@@ -29,6 +29,7 @@ type CashRegisterExpense struct {
 	SessionID   uuid.UUID `json:"session_id" db:"session_id"`
 	Amount      float64   `json:"amount" db:"amount"`
 	Description string    `json:"description" db:"description"`
+	PaymentMethod string  `json:"payment_method" db:"payment_method"`
 	ImagePath   *string   `json:"image_path,omitempty" db:"image_path"`
 	CreatedAt   time.Time `json:"created_at" db:"created_at"`
 }
@@ -39,6 +40,8 @@ type CashRegisterSessionDetails struct {
 	TotalCashSales            float64               `json:"total_cash_sales"`
 	TotalTransfer             float64               `json:"total_transfer"`
 	TotalExpenses             float64               `json:"total_expenses"`
+	TotalCashExpenses         float64               `json:"total_cash_expenses"`
+	TotalTransferExpenses     float64               `json:"total_transfer_expenses"`
 	ExpectedCash              float64               `json:"expected_cash"`
 	CashTransactionsCount     int                   `json:"cash_transactions_count"`
 	TransferTransactionsCount int                   `json:"transfer_transactions_count"`
@@ -53,6 +56,8 @@ type CashRegisterClosingDetails struct {
 	TotalCashSales            float64               `json:"total_cash_sales"`
 	TotalTransfer             float64               `json:"total_transfer"`
 	TotalExpenses             float64               `json:"total_expenses"`
+	TotalCashExpenses         float64               `json:"total_cash_expenses"`
+	TotalTransferExpenses     float64               `json:"total_transfer_expenses"`
 	ExpectedCash              float64               `json:"expected_cash"`
 	CashOrdersCount           int                   `json:"cash_orders_count"`
 	TransferOrdersCount       int                   `json:"transfer_orders_count"`

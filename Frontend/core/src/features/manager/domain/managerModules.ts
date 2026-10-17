@@ -1,4 +1,4 @@
-export type ManagerModule = 'overview' | 'inventory' | 'attendance' | 'reports' | 'employees';
+export type ManagerModule = 'overview' | 'inventory' | 'attendance' | 'reports' | 'employees' | 'payables';
 
 export interface ManagerModuleDefinition {
   id: ManagerModule;
@@ -13,4 +13,5 @@ export const managerModules: ManagerModuleDefinition[] = [
   { id: 'attendance', label: 'Asistencias', description: 'Asistencia y liquidaciones', icon: '◷' },
   { id: 'reports', label: 'Reportes', description: 'Métricas para decidir', icon: '▥' },
   { id: 'employees', label: 'Empleados', description: 'Datos y estado del equipo', icon: '◎' },
+  { id: 'payables', label: 'Cuentas por pagar', description: 'Facturas y pagos de proveedores', icon: '▤' },
 ];

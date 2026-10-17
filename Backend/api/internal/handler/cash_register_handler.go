@@ -59,6 +59,13 @@ func (h *CashRegisterHandler) GetClosingDetails(c *fiber.Ctx) error {
 func (h *CashRegisterHandler) AddExpense(c *fiber.Ctx) error {
 	amountStr := c.FormValue("amount")
 	description := c.FormValue("description")
+	paymentMethod := c.FormValue("payment_method")
+	if paymentMethod == "" {
+		paymentMethod = "efectivo"
+	}
+	if paymentMethod != "efectivo" && paymentMethod != "transferencia" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid payment method"})
+	}
 
 	var amount float64
 	if _, err := fmt.Sscanf(amountStr, "%f", &amount); err != nil {
@@ -89,7 +96,7 @@ func (h *CashRegisterHandler) AddExpense(c *fiber.Ctx) error {
 		imagePath = &relativePath
 	}
 
-	expense, err := h.Service.AddExpense(amount, description, imagePath)
+	expense, err := h.Service.AddExpense(amount, description, paymentMethod, imagePath)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}

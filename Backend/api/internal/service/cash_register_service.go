@@ -14,7 +14,7 @@ type CashRegisterService interface {
 	OpenSession(initialCash float64, initialTransfer float64) (*domain.CashRegisterSession, error)
 	GetCurrentSessionDetails() (*domain.CashRegisterSessionDetails, error)
 	GetClosingSessionDetails() (*domain.CashRegisterClosingDetails, error)
-	AddExpense(amount float64, description string, imagePath *string) (*domain.CashRegisterExpense, error)
+	AddExpense(amount float64, description string, paymentMethod string, imagePath *string) (*domain.CashRegisterExpense, error)
 	CloseSession(finalCashActual float64, finalTransferActual float64, justification *string) (*domain.CashRegisterSession, error)
 }
 
@@ -91,8 +91,15 @@ func (s *cashRegisterService) GetCurrentSessionDetails() (*domain.CashRegisterSe
 	}
 
 	var totalExpenses float64
+	var totalCashExpenses float64
+	var totalTransferExpenses float64
 	for _, e := range expenses {
 		totalExpenses += e.Amount
+		if e.PaymentMethod == "transferencia" {
+			totalTransferExpenses += e.Amount
+		} else {
+			totalCashExpenses += e.Amount
+		}
 	}
 
 
@@ -123,15 +130,18 @@ func (s *cashRegisterService) GetCurrentSessionDetails() (*domain.CashRegisterSe
 		return nil, err
 	}
 
-	expectedCash := session.InitialCash + totalCashSales - totalExpenses
+	expectedCash := session.InitialCash + totalCashSales - totalCashExpenses
+	expectedTransfer := session.InitialTransfer + totalTransferSales - totalTransferExpenses
 
 	return &domain.CashRegisterSessionDetails{
 		Session:                   session,
 		Expenses:                  expenses,
 		TotalCashSales:            totalCashSales,
-		TotalTransfer:             totalTransferSales + session.InitialTransfer,
 		TotalExpenses:             totalExpenses,
+		TotalCashExpenses:         totalCashExpenses,
+		TotalTransferExpenses:     totalTransferExpenses,
 		ExpectedCash:              expectedCash,
+		TotalTransfer:             expectedTransfer,
 		CashTransactionsCount:     cashCount,
 		TransferTransactionsCount: transferCount,
 		CashOrdersCount:           cashOrders,
@@ -140,7 +150,7 @@ func (s *cashRegisterService) GetCurrentSessionDetails() (*domain.CashRegisterSe
 	}, nil
 }
 
-func (s *cashRegisterService) AddExpense(amount float64, description string, imagePath *string) (*domain.CashRegisterExpense, error) {
+func (s *cashRegisterService) AddExpense(amount float64, description string, paymentMethod string, imagePath *string) (*domain.CashRegisterExpense, error) {
 	session, err := s.repo.GetOpenSession()
 	if err != nil {
 		return nil, err
@@ -154,6 +164,7 @@ func (s *cashRegisterService) AddExpense(amount float64, description string, ima
 		SessionID:   session.ID,
 		Amount:      amount,
 		Description: description,
+		PaymentMethod: paymentMethod,
 		ImagePath:   imagePath,
 		CreatedAt:   time.Now(),
 	}
@@ -218,8 +229,15 @@ func (s *cashRegisterService) GetClosingSessionDetails() (*domain.CashRegisterCl
 	}
 
 	var totalExpenses float64
+	var totalCashExpenses float64
+	var totalTransferExpenses float64
 	for _, e := range expenses {
 		totalExpenses += e.Amount
+		if e.PaymentMethod == "transferencia" {
+			totalTransferExpenses += e.Amount
+		} else {
+			totalCashExpenses += e.Amount
+		}
 	}
 
 	loc := time.Local
@@ -255,14 +273,17 @@ func (s *cashRegisterService) GetClosingSessionDetails() (*domain.CashRegisterCl
 		return nil, err
 	}
 
-	expectedCash := session.InitialCash + totalCashSales - totalExpenses
+	expectedCash := session.InitialCash + totalCashSales - totalCashExpenses
+	expectedTransfer := session.InitialTransfer + totalTransferSales - totalTransferExpenses
 
 	return &domain.CashRegisterClosingDetails{
 		Session:             session,
 		Expenses:            expenses,
 		TotalCashSales:      totalCashSales,
-		TotalTransfer:       totalTransferSales + session.InitialTransfer,
+		TotalTransfer:       expectedTransfer,
 		TotalExpenses:       totalExpenses,
+		TotalCashExpenses:   totalCashExpenses,
+		TotalTransferExpenses: totalTransferExpenses,
 		ExpectedCash:        expectedCash,
 		CashOrdersCount:     cashOrders,
 		TransferOrdersCount: transferOrders,

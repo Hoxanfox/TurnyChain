@@ -432,7 +432,18 @@ func (s *orderService) EditOrder(orderID, userID uuid.UUID, userRole string, edi
 		newHistoryEntry.Changes = fmt.Sprintf("Cambio de Total: de $%.2f a $%.2f", order.Total, newTotal)
 	}
 
-	err = s.orderRepo.UpdateOrderWithEditHistory(orderID, newStatus, items, newTotal, newHistoryEntry, editReq.OverridePayments)
+	if editReq.TableNumber != nil {
+		if order.OrderType != "mesa" {
+			return nil, errors.New("solo las órdenes de mesa pueden cambiar de mesa")
+		}
+		if _, err := s.tableRepo.GetByNumber(*editReq.TableNumber); err != nil {
+			return nil, errors.New("la mesa seleccionada no es válida o no está activa")
+		}
+	}
+	if editReq.OrderType != nil && *editReq.OrderType != "mesa" && *editReq.OrderType != "llevar" && *editReq.OrderType != "domicilio" {
+		return nil, errors.New("order_type inválido")
+	}
+	err = s.orderRepo.UpdateOrderWithEditHistory(orderID, newStatus, items, newTotal, newHistoryEntry, editReq.OverridePayments, editReq.TableNumber, editReq.OrderType)
 	if err != nil {
 		return nil, err
 	}

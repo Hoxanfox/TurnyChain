@@ -5,7 +5,7 @@
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { addNewOrder } from '../shared/orders/api/ordersSlice.ts';
+import { addNewOrder, fetchMyOrders } from '../shared/orders/api/ordersSlice.ts';
 import { fetchTables } from '../admin/components/tables/api/tablesSlice.ts';
 import { formatMoney } from '../../utils/formatUtils.ts';
 import type { AppDispatch, RootState } from '../../app/store';
@@ -64,7 +64,7 @@ const WaiterDashboardDesktop: React.FC<WaiterDashboardDesktopProps> = ({
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
   const { tables } = useSelector((state: RootState) => state.tables);
-  const { createOrderStatus } = useSelector((state: RootState) => state.orders);
+  const { createOrderStatus, myOrders } = useSelector((state: RootState) => state.orders);
   const { token, user } = useSelector((state: RootState) => state.auth);
   const { status } = useSelector((state: RootState) => state.tables);
 
@@ -98,6 +98,18 @@ const WaiterDashboardDesktop: React.FC<WaiterDashboardDesktopProps> = ({
   const [isSendWithoutChargeModalOpen, setIsSendWithoutChargeModalOpen] = useState(false);
   const [pendingSendWithoutChargeNotes, setPendingSendWithoutChargeNotes] = useState<string>('');
   const [isOnline, setIsOnline] = useState<boolean>(isClientOnline());
+
+  const waiterHeaderTone = (() => {
+    const orders = myOrders || [];
+    const hasToCollect = orders.some((order) => order.status === 'entregado' || order.status === 'pendiente_aprobacion');
+    const hasVerification = orders.some((order) => order.status === 'por_verificar');
+    const allPaid = orders.length > 0 && orders.every((order) => order.status === 'pagado');
+
+    if (hasToCollect) return 'from-red-600 via-red-700 to-rose-800';
+    if (hasVerification) return 'from-amber-500 via-yellow-600 to-orange-600';
+    if (allPaid) return 'from-green-600 via-emerald-700 to-teal-800';
+    return 'from-indigo-600 to-indigo-700';
+  })();
 
   // 🏆 Hook de Gamificación
   const { isMaestro, isCelebrating, stopCelebrating } = useWaiterGamification();
@@ -157,6 +169,7 @@ const WaiterDashboardDesktop: React.FC<WaiterDashboardDesktopProps> = ({
 
   useEffect(() => {
     dispatch(fetchTables());
+    dispatch(fetchMyOrders());
   }, [dispatch]);
 
   useEffect(() => {
@@ -636,7 +649,7 @@ const WaiterDashboardDesktop: React.FC<WaiterDashboardDesktopProps> = ({
         )}
 
         {/* Header - Compacto */}
-        <header className="relative px-6 py-2.5 flex justify-between items-center shadow-md transition-all duration-500 bg-gradient-to-r from-indigo-600 to-indigo-700">
+        <header className={`relative px-6 py-2.5 flex justify-between items-center shadow-md transition-all duration-500 bg-gradient-to-r ${waiterHeaderTone}`}>
           <div className="gamification-bg-container rounded-b-lg">
           </div>
           <div className="flex items-center gap-4 z-10">

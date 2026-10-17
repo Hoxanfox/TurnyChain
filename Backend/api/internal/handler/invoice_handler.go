@@ -78,3 +78,41 @@ func (h *InvoiceHandler) GetInvoiceHistory(c *fiber.Ctx) error {
 
 	return c.JSON(items)
 }
+
+// GetDailySales devuelve las ventas agregadas por día (órdenes pagadas).
+// Acepta from/to (YYYY-MM-DD). Si no se envían, usa los últimos 365 días.
+func (h *InvoiceHandler) GetDailySales(c *fiber.Ctx) error {
+	fromParam := strings.TrimSpace(c.Query("from"))
+	toParam := strings.TrimSpace(c.Query("to"))
+
+	loc := time.Local
+	if bogota, err := time.LoadLocation("America/Bogota"); err == nil {
+		loc = bogota
+	}
+
+	now := time.Now().In(loc)
+	to := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc).AddDate(0, 0, 1)
+	from := to.AddDate(0, 0, -365)
+
+	if toParam != "" {
+		parsed, err := time.ParseInLocation("2006-01-02", toParam, loc)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "to invalido, formato YYYY-MM-DD"})
+		}
+		to = time.Date(parsed.Year(), parsed.Month(), parsed.Day(), 0, 0, 0, 0, loc).AddDate(0, 0, 1)
+	}
+	if fromParam != "" {
+		parsed, err := time.ParseInLocation("2006-01-02", fromParam, loc)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "from invalido, formato YYYY-MM-DD"})
+		}
+		from = time.Date(parsed.Year(), parsed.Month(), parsed.Day(), 0, 0, 0, 0, loc)
+	}
+
+	stats, err := h.invoiceService.GetDailySales(from, to)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "No se pudieron obtener las ventas diarias"})
+	}
+
+	return c.JSON(stats)
+}

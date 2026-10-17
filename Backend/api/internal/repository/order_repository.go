@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -27,6 +28,7 @@ type OrderRepository interface {
 	AddSplitPayments(orderID uuid.UUID, payments []domain.Payment) (*domain.Order, error)
 	UpdateOrderBlockchainTxHash(orderID uuid.UUID, txHash string) error
 	GetInvoiceHistory(query string, from *time.Time, to *time.Time, limit int, offset int) ([]domain.InvoiceHistoryItem, error)
+	GetDailySales(start time.Time, end time.Time) ([]domain.DailySalesStat, error)
 	GetWaiterApprovedStats(start time.Time, end time.Time, groupBy string) ([]domain.WaiterApprovedStat, error)
 	GetProductSalesStats(start time.Time, end time.Time) ([]domain.ProductSalesStat, error)
 	UpdateOrderPrintStatus(orderID uuid.UUID, status string, incrementAttempts int, lastError *string, printedAt *time.Time) (*domain.Order, error)
@@ -34,7 +36,7 @@ type OrderRepository interface {
 	GetOrderIDsByPrintStatus(statuses []string) ([]uuid.UUID, error)
 	GetRecoverableOrderIDsByPrintStatus(statuses []string, createdAfter *time.Time, lastAttemptAfter *time.Time) ([]uuid.UUID, error)
 	GetRetryableFailedOrderIDs(createdAfter *time.Time, lastAttemptBefore time.Time, maxAttempts int, tableNumber *int) ([]uuid.UUID, error)
-	UpdateOrderWithEditHistory(orderID uuid.UUID, newStatus string, items []domain.OrderItem, newTotal float64, newHistoryEntry domain.EditHistoryEntry, overridePayments []domain.Payment) error
+	UpdateOrderWithEditHistory(orderID uuid.UUID, newStatus string, items []domain.OrderItem, newTotal float64, newHistoryEntry domain.EditHistoryEntry, overridePayments []domain.Payment, tableNumber *int, orderType *string) error
 	GetPendingBlockchainOrders(cooldown time.Duration) ([]domain.Order, error)
 	GetPendingBlockchainOrderCount(cooldown time.Duration) (int, error)
 }
@@ -511,12 +513,14 @@ func (r *orderRepository) loadOrderLinkedTransfers(orderID uuid.UUID) ([]domain.
 
 func (r *orderRepository) GetOrderByID(orderID uuid.UUID) (*domain.Order, error) {
 	order := &domain.Order{}
-	orderQuery := `SELECT o.id, o.parent_order_id, o.waiter_id, u.username as waiter_name, o.cashier_id, o.table_number, o.status, o.total, o.order_type, o.customer_name, o.delivery_address, o.delivery_phone, o.delivery_notes, o.payment_method, o.payment_proof_path, o.blockchain_tx_hash, o.print_status, o.print_attempts, o.last_print_error, o.printed_at, o.last_print_attempt_at, o.created_at, o.updated_at 
+	orderQuery := `SELECT o.id, o.parent_order_id, o.waiter_id, u.username as waiter_name, o.cashier_id, cu.username as cashier_name, o.table_number, o.status, o.total, o.order_type, o.customer_name, o.delivery_address, o.delivery_phone, o.delivery_notes, o.payment_method, o.payment_proof_path, o.blockchain_tx_hash, o.print_status, o.print_attempts, o.last_print_error, o.printed_at, o.last_print_attempt_at, o.created_at, o.updated_at
 	               FROM orders o
 	               LEFT JOIN users u ON o.waiter_id = u.id
+	               LEFT JOIN users cu ON o.cashier_id = cu.id
 	               WHERE o.id = $1`
 	var parentOrderID sql.NullString
 	var waiterName sql.NullString
+	var cashierName sql.NullString
 	var customerName sql.NullString
 	var paymentMethod sql.NullString
 	var paymentProof sql.NullString
@@ -529,7 +533,7 @@ func (r *orderRepository) GetOrderByID(orderID uuid.UUID) (*domain.Order, error)
 	var deliveryAddress sql.NullString
 	var deliveryPhone sql.NullString
 	var deliveryNotes sql.NullString
-	err := r.db.QueryRow(orderQuery, orderID).Scan(&order.ID, &parentOrderID, &order.WaiterID, &waiterName, &order.CashierID, &order.TableNumber, &order.Status, &order.Total, &order.OrderType, &customerName, &deliveryAddress, &deliveryPhone, &deliveryNotes, &paymentMethod, &paymentProof, &blockchainTxHash, &printStatus, &printAttempts, &lastPrintError, &printedAt, &lastPrintAttemptAt, &order.CreatedAt, &order.UpdatedAt)
+	err := r.db.QueryRow(orderQuery, orderID).Scan(&order.ID, &parentOrderID, &order.WaiterID, &waiterName, &order.CashierID, &cashierName, &order.TableNumber, &order.Status, &order.Total, &order.OrderType, &customerName, &deliveryAddress, &deliveryPhone, &deliveryNotes, &paymentMethod, &paymentProof, &blockchainTxHash, &printStatus, &printAttempts, &lastPrintError, &printedAt, &lastPrintAttemptAt, &order.CreatedAt, &order.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -539,6 +543,9 @@ func (r *orderRepository) GetOrderByID(orderID uuid.UUID) (*domain.Order, error)
 	}
 	if waiterName.Valid {
 		order.WaiterName = waiterName.String
+	}
+	if cashierName.Valid {
+		order.CashierName = cashierName.String
 	}
 	if customerName.Valid {
 		name := customerName.String
@@ -635,7 +642,7 @@ func (r *orderRepository) LinkOrderToParent(orderID, parentOrderID uuid.UUID) (*
 
 func (r *orderRepository) UpdateOrderStatus(orderID, userID uuid.UUID, status string) (*domain.Order, error) {
 	order := &domain.Order{}
-	query := `UPDATE orders SET status = $1, cashier_id = $2 WHERE id = $3 
+	query := `UPDATE orders SET status = $1, cashier_id = CASE WHEN $1 = 'pagado' THEN $2 ELSE cashier_id END WHERE id = $3
 	          RETURNING id, waiter_id, cashier_id, table_number, status, total, order_type, delivery_address, delivery_phone, delivery_notes, payment_method, payment_proof_path, blockchain_tx_hash, print_status, print_attempts, last_print_error, printed_at, last_print_attempt_at, created_at, updated_at`
 
 	var deliveryAddress sql.NullString
@@ -1253,6 +1260,43 @@ func (r *orderRepository) GetInvoiceHistory(query string, from *time.Time, to *t
 	return items, nil
 }
 
+// GetDailySales agrega las ventas (órdenes pagadas) por día en la zona horaria de Bogotá.
+func (r *orderRepository) GetDailySales(start time.Time, end time.Time) ([]domain.DailySalesStat, error) {
+	query := `
+		SELECT
+			to_char(o.updated_at AT TIME ZONE 'America/Bogota', 'YYYY-MM-DD') as sale_date,
+			COALESCE(SUM(o.total), 0) as total,
+			COUNT(*) as order_count
+		FROM orders o
+		WHERE o.status = 'pagado'
+		  AND o.updated_at >= $1
+		  AND o.updated_at < $2
+		GROUP BY sale_date
+		ORDER BY sale_date ASC
+	`
+
+	rows, err := r.db.Query(query, start, end)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	stats := make([]domain.DailySalesStat, 0)
+	for rows.Next() {
+		var stat domain.DailySalesStat
+		if err := rows.Scan(&stat.Date, &stat.Total, &stat.OrderCount); err != nil {
+			return nil, err
+		}
+		stats = append(stats, stat)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return stats, nil
+}
+
 func (r *orderRepository) GetProductSalesStats(start time.Time, end time.Time) ([]domain.ProductSalesStat, error) {
 	query := `
 		SELECT 
@@ -1431,7 +1475,7 @@ func (r *orderRepository) GetRetryableFailedOrderIDs(createdAfter *time.Time, la
 	return ids, nil
 }
 
-func (r *orderRepository) UpdateOrderWithEditHistory(orderID uuid.UUID, newStatus string, items []domain.OrderItem, newTotal float64, newHistoryEntry domain.EditHistoryEntry, overridePayments []domain.Payment) error {
+func (r *orderRepository) UpdateOrderWithEditHistory(orderID uuid.UUID, newStatus string, items []domain.OrderItem, newTotal float64, newHistoryEntry domain.EditHistoryEntry, overridePayments []domain.Payment, tableNumber *int, orderType *string) error {
 	tx, err := r.db.Begin()
 	if err != nil {
 		return err
@@ -1507,17 +1551,28 @@ func (r *orderRepository) UpdateOrderWithEditHistory(orderID uuid.UUID, newStatu
 		}
 	}
 
-	// Actualizar orden
+	// Actualizar orden y, cuando vienen informados, sus metadatos operativos.
+	setTable := "table_number = table_number"
+	setType := "order_type = order_type"
+	args := []interface{}{newStatus, newTotal, editHistory, orderID}
+	if tableNumber != nil {
+		setTable = "table_number = $4"
+		args = []interface{}{newStatus, newTotal, editHistory, *tableNumber, orderID}
+	}
+	if orderType != nil {
+		setType = fmt.Sprintf("order_type = $%d", len(args))
+		last := args[len(args)-1]
+		args = append(args[:len(args)-1], *orderType, last)
+	}
+	whereArg := len(args)
 	if finalPaymentMethod != "" {
-		_, err = tx.Exec(`UPDATE orders 
-						  SET status = $1, total = $2, edit_history = $3, payment_method = $4, updated_at = CURRENT_TIMESTAMP 
-						  WHERE id = $5`,
-			newStatus, newTotal, editHistory, finalPaymentMethod, orderID)
+		setPayment := fmt.Sprintf("payment_method = $%d", whereArg)
+		last := args[len(args)-1]
+		args = append(args[:len(args)-1], finalPaymentMethod, last)
+		whereArg = len(args)
+		_, err = tx.Exec(fmt.Sprintf("UPDATE orders SET status = $1, total = $2, edit_history = $3, %s, %s, %s, updated_at = CURRENT_TIMESTAMP WHERE id = $%d", setTable, setType, setPayment, whereArg), args...)
 	} else {
-		_, err = tx.Exec(`UPDATE orders 
-						  SET status = $1, total = $2, edit_history = $3, updated_at = CURRENT_TIMESTAMP 
-						  WHERE id = $4`,
-			newStatus, newTotal, editHistory, orderID)
+		_, err = tx.Exec(fmt.Sprintf("UPDATE orders SET status = $1, total = $2, edit_history = $3, %s, %s, updated_at = CURRENT_TIMESTAMP WHERE id = $%d", setTable, setType, whereArg), args...)
 	}
 
 	if err != nil {

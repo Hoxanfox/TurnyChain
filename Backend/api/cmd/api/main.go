@@ -57,6 +57,9 @@ func main() {
 	if err := applyInventoryReceiptMigrations(db); err != nil {
 		log.Fatalf("Error aplicando migraciones de recepciones: %v", err)
 	}
+	if err := applySupplierInvoiceMigrations(db); err != nil {
+		log.Fatalf("Error aplicando migraciones de cuentas por pagar: %v", err)
+	}
 
 	wsHub := wshub.NewHub()
 	go wsHub.Run()
@@ -76,6 +79,7 @@ func main() {
 	menuRepo := repository.NewMenuRepository(db)
 	orderRepo := repository.NewOrderRepository(db)
 	inventoryReceiptRepo := repository.NewInventoryReceiptRepository(db)
+	supplierInvoiceRepo := repository.NewSupplierInvoiceRepository(db)
 
 	// Iniciar worker de Blockchain en segundo plano
 	StartBlockchainWorker(orderRepo, blockchainService)
@@ -100,6 +104,7 @@ func main() {
 	orderService := service.NewOrderService(orderRepo, tableRepo, menuRepo, ingredientRepo, accompanimentRepo, wsHub, blockchainService, kitchenTicketService, cashRegisterRepo)
 	invoiceService := service.NewInvoiceService(orderRepo)
 	inventoryReceiptService := service.NewInventoryReceiptService(inventoryReceiptRepo)
+	supplierInvoiceService := service.NewSupplierInvoiceService(supplierInvoiceRepo)
 	tableService := service.NewTableService(tableRepo)
 	categoryService := service.NewCategoryService(categoryRepo)
 	ingredientService := service.NewIngredientService(ingredientRepo)
@@ -120,6 +125,7 @@ func main() {
 	orderHandler := handler.NewOrderHandler(orderService)
 	invoiceHandler := handler.NewInvoiceHandler(invoiceService)
 	inventoryReceiptHandler := handler.NewInventoryReceiptHandler(inventoryReceiptService)
+	supplierInvoiceHandler := handler.NewSupplierInvoiceHandler(supplierInvoiceService)
 	tableHandler := handler.NewTableHandler(tableService)
 	categoryHandler := handler.NewCategoryHandler(categoryService)
 	ingredientHandler := handler.NewIngredientHandler(ingredientService)
@@ -190,7 +196,7 @@ func main() {
 	app.Static("/api/static", uploadsDir)
 
 	// Setup router and pass the cash register repository to setup the middleware
-	router.SetupRoutes(app, authHandler, userHandler, menuHandler, orderHandler, invoiceHandler, inventoryReceiptHandler, tableHandler, categoryHandler, ingredientHandler, accompanimentHandler, wsHandler, stationHandler, printerHandler, kitchenTicketHandler, backupHandler, cashRegisterHandler, settingHandler, bankTransferHandler, sessionRepo, cashRegisterRepo, employeeHandler, attendanceHandler)
+	router.SetupRoutes(app, authHandler, userHandler, menuHandler, orderHandler, invoiceHandler, inventoryReceiptHandler, supplierInvoiceHandler, tableHandler, categoryHandler, ingredientHandler, accompanimentHandler, wsHandler, stationHandler, printerHandler, kitchenTicketHandler, backupHandler, cashRegisterHandler, settingHandler, bankTransferHandler, sessionRepo, cashRegisterRepo, employeeHandler, attendanceHandler)
 
 	// Alias explícitos para compatibilidad de rutas de impresión de cocina.
 	app.Post("/api/orders/:orderId/kitchen-tickets/print/caja", middleware.Protected(sessionRepo), kitchenTicketHandler.PrintGlobalCashTicket)
@@ -321,6 +327,7 @@ func applyCashRegisterMigrations(db *sql.DB) error {
 			image_path text NULL,
 			created_at timestamptz NOT NULL DEFAULT now()
 		)`,
+		`ALTER TABLE cash_register_expenses ADD COLUMN IF NOT EXISTS payment_method varchar(20) NOT NULL DEFAULT 'efectivo'`,
 		`ALTER TABLE cash_register_sessions ADD COLUMN IF NOT EXISTS final_transfer_expected numeric(12, 2) NULL`,
 		`ALTER TABLE cash_register_sessions ADD COLUMN IF NOT EXISTS final_transfer_actual numeric(12, 2) NULL`,
 		`ALTER TABLE cash_register_sessions ADD COLUMN IF NOT EXISTS transfer_discrepancy numeric(12, 2) NULL`,
@@ -433,5 +440,41 @@ func applyInventoryReceiptMigrations(db *sql.DB) error {
 	}
 
 	log.Println("Migraciones de recepciones verificadas: inventory_receipts, inventory_receipt_lines")
+	return nil
+}
+
+func applySupplierInvoiceMigrations(db *sql.DB) error {
+	statements := []string{
+		`CREATE TABLE IF NOT EXISTS supplier_invoices (
+			id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+			invoice_number varchar(120) NOT NULL,
+			supplier_name varchar(255) NOT NULL,
+			issue_date date NOT NULL,
+			due_date date NULL,
+			total numeric(14,2) NOT NULL CHECK (total > 0),
+			notes text NULL,
+			attachment_path text NULL,
+			created_by uuid NOT NULL REFERENCES users(id),
+			created_at timestamptz NOT NULL DEFAULT now(),
+			updated_at timestamptz NOT NULL DEFAULT now()
+		)`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS supplier_invoices_number_idx ON supplier_invoices (invoice_number)`,
+		`CREATE TABLE IF NOT EXISTS supplier_invoice_payments (
+			id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+			invoice_id uuid NOT NULL REFERENCES supplier_invoices(id) ON DELETE CASCADE,
+			amount numeric(14,2) NOT NULL CHECK (amount > 0),
+			payment_method varchar(30) NOT NULL,
+			payment_date date NOT NULL,
+			reference varchar(180) NULL,
+			notes text NULL,
+			created_by uuid NOT NULL REFERENCES users(id),
+			created_at timestamptz NOT NULL DEFAULT now()
+		)`,
+		`CREATE INDEX IF NOT EXISTS supplier_invoice_payments_invoice_idx ON supplier_invoice_payments (invoice_id, payment_date)`,
+	}
+	for _, statement := range statements {
+		if _, err := db.Exec(statement); err != nil { return err }
+	}
+	log.Println("Migraciones verificadas: supplier_invoices, supplier_invoice_payments")
 	return nil
 }

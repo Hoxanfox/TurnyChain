@@ -103,16 +103,16 @@ func (r *postgresCashRegisterRepository) CloseSession(session *domain.CashRegist
 
 func (r *postgresCashRegisterRepository) AddExpense(expense *domain.CashRegisterExpense) error {
 	query := `
-		INSERT INTO cash_register_expenses (id, session_id, amount, description, image_path, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO cash_register_expenses (id, session_id, amount, description, payment_method, image_path, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 	`
-	_, err := r.db.Exec(query, expense.ID, expense.SessionID, expense.Amount, expense.Description, expense.ImagePath, expense.CreatedAt)
+	_, err := r.db.Exec(query, expense.ID, expense.SessionID, expense.Amount, expense.Description, expense.PaymentMethod, expense.ImagePath, expense.CreatedAt)
 	return err
 }
 
 func (r *postgresCashRegisterRepository) GetExpensesBySession(sessionID uuid.UUID) ([]domain.CashRegisterExpense, error) {
 	query := `
-		SELECT id, session_id, amount, description, image_path, created_at
+		SELECT id, session_id, amount, description, COALESCE(payment_method, 'efectivo'), image_path, created_at
 		FROM cash_register_expenses
 		WHERE session_id = $1
 		ORDER BY created_at ASC
@@ -126,7 +126,7 @@ func (r *postgresCashRegisterRepository) GetExpensesBySession(sessionID uuid.UUI
 	var expenses []domain.CashRegisterExpense
 	for rows.Next() {
 		var e domain.CashRegisterExpense
-		if err := rows.Scan(&e.ID, &e.SessionID, &e.Amount, &e.Description, &e.ImagePath, &e.CreatedAt); err != nil {
+		if err := rows.Scan(&e.ID, &e.SessionID, &e.Amount, &e.Description, &e.PaymentMethod, &e.ImagePath, &e.CreatedAt); err != nil {
 			return nil, err
 		}
 		expenses = append(expenses, e)

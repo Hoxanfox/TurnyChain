@@ -307,7 +307,17 @@ const PaymentsSlide: React.FC<PaymentsSlideProps> = ({
           </div>
         )}
         {/* Header de la orden */}
-        <div className={`p-3 border-b ${isColleagueOrder ? 'bg-gradient-to-r from-amber-50 to-orange-50' : 'bg-gradient-to-r from-indigo-50 to-blue-50'}`}>
+        <div className={`p-3 border-b ${
+          isPorCobrar
+            ? 'bg-gradient-to-r from-red-100 to-rose-100'
+            : order.status === 'por_verificar'
+            ? 'bg-gradient-to-r from-yellow-100 to-amber-100'
+            : order.status === 'pagado'
+            ? 'bg-gradient-to-r from-green-100 to-emerald-100'
+            : isColleagueOrder
+            ? 'bg-gradient-to-r from-amber-50 to-orange-50'
+            : 'bg-gradient-to-r from-indigo-50 to-blue-50'
+        }`}>
           <div className="flex justify-between items-start">
             <div>
               <h3 className="font-bold text-lg text-gray-800">Mesa {order.table_number}{isChild ? ' • Adicional' : ''}</h3>

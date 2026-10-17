@@ -7,7 +7,7 @@ import { ManagerDashboardMobile } from './presentation/ManagerDashboardMobile';
 
 const ManagerDashboard: React.FC = () => {
   const isDesktop = useIsDesktop();
-  const [activeModule, setActiveModule] = useState<ManagerModule>('overview');
+  const [activeModule, setActiveModule] = useState<ManagerModule>('reports');
   const { reports } = useManagerSummary();
 
   const props = { activeModule, onModuleChange: setActiveModule, reports };

@@ -78,7 +78,7 @@ const WaiterDashboard: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
   const { tables } = useSelector((state: RootState) => state.tables);
-  const { createOrderStatus } = useSelector((state: RootState) => state.orders);
+  const { createOrderStatus, myOrders } = useSelector((state: RootState) => state.orders);
   const { token, user } = useSelector((state: RootState) => state.auth);
   const swiperRef = useRef<SwiperType | null>(null);
   const isDesktop = useIsDesktop();
@@ -187,6 +187,18 @@ const WaiterDashboard: React.FC = () => {
   const [pendingSendWithoutChargeNotes, setPendingSendWithoutChargeNotes] = useState<string>('');
   const [isOnline, setIsOnline] = useState<boolean>(isClientOnline());
 
+  const waiterHeaderTone = (() => {
+    const orders = myOrders || [];
+    const hasToCollect = orders.some((order) => order.status === 'entregado' || order.status === 'pendiente_aprobacion');
+    const hasVerification = orders.some((order) => order.status === 'por_verificar');
+    const allPaid = orders.length > 0 && orders.every((order) => order.status === 'pagado');
+
+    if (hasToCollect) return 'from-red-600 via-red-700 to-rose-800';
+    if (hasVerification) return 'from-amber-500 via-yellow-600 to-orange-600';
+    if (allPaid) return 'from-green-600 via-emerald-700 to-teal-800';
+    return 'from-indigo-600 to-indigo-700';
+  })();
+
   const buildRequestId = () =>
     globalThis.crypto?.randomUUID?.() ||
     `req-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
@@ -241,6 +253,7 @@ const WaiterDashboard: React.FC = () => {
 
   useEffect(() => {
     dispatch(fetchTables());
+    dispatch(fetchMyOrders());
   }, [dispatch]);
 
   useEffect(() => {
@@ -761,7 +774,7 @@ const WaiterDashboard: React.FC = () => {
           </div>
         )}
 
-        <header className="relative z-50 px-4 py-2 flex justify-between items-center shadow-md transition-all duration-500 bg-gradient-to-r from-indigo-600 to-indigo-700">
+        <header className={`relative z-50 px-4 py-2 flex justify-between items-center shadow-md transition-all duration-500 bg-gradient-to-r ${waiterHeaderTone}`}>
           {/* Capa de Fondos Gamificación */}
           <div className="gamification-bg-container rounded-b-lg">
           </div>

@@ -55,6 +55,7 @@ export interface Order {
   parent_order_id?: string;
   waiter_id: string;
   waiter_name?: string;
+  cashier_name?: string;
   table_number: number;
   status: string;
   total: number;
@@ -129,4 +130,6 @@ export interface EditOrderRequest {
   remove_items?: number[];
   edit_reason?: string; // Razón de la edición
   override_payments?: Partial<Payment>[];
+  table_number?: number;
+  order_type?: string;
 }

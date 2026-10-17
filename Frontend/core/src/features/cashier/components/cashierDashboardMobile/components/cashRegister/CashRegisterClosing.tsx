@@ -130,6 +130,10 @@ export const CashRegisterClosing: React.FC<CashRegisterClosingProps> = ({ detail
           <span className="text-gray-500">Gastos de Caja (-):</span>
           <span className="font-bold text-red-600">-${details.total_expenses.toLocaleString('es-CO')}</span>
         </div>
+        <div className="flex justify-between text-[11px] text-gray-500">
+          <span>De efectivo / de transferencia:</span>
+          <span>${details.total_cash_expenses.toLocaleString('es-CO')} / ${details.total_transfer_expenses.toLocaleString('es-CO')}</span>
+        </div>
         <div className="flex justify-between border-t border-gray-200 pt-1 font-bold">
           <span className="text-purple-700">Órdenes con Pago Mixto:</span>
           <span className="text-purple-800 bg-purple-100 px-1.5 py-0.2 rounded text-[10px]">

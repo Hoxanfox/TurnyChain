@@ -3,7 +3,7 @@ import { MdClose, MdAttachMoney, MdPhoneAndroid, MdCameraAlt, MdDelete, MdAdd, M
 import { FaQrcode } from 'react-icons/fa';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../../../app/store';
-import { uploadSplitPayments, updateOrderStatus, searchBankTransfers, linkBankTransfer } from '../../shared/orders/api/ordersAPI.ts';
+import { getOrderDetails, uploadSplitPayments, updateOrderStatus, searchBankTransfers, linkBankTransfer } from '../../shared/orders/api/ordersAPI.ts';
 import type { PaymentInput } from '../../shared/orders/api/ordersAPI.ts';
 import { compressImage, validateImageFile } from '../../../utils/imageUtils';
 import QRModal from './QRModal';
@@ -24,6 +24,8 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
   orderId, groupOrderInfos, orderTotal, tableNumber, forcePaidAfterCheckout = false, onClose, onSuccess
 }) => {
   const token = useSelector((state: RootState) => state.auth.token);
+  const activeOrders = useSelector((state: RootState) => state.orders.activeOrders);
+  const myOrders = useSelector((state: RootState) => state.orders.myOrders);
   const targetOrderIds = groupOrderInfos && groupOrderInfos.length > 0 ? groupOrderInfos.map(info => info.id) : [orderId];
   const isGlobalCheckout = groupOrderInfos && groupOrderInfos.length > 1;
 
@@ -46,9 +48,46 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [isCompressing, setIsCompressing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
+  const [hasReadOrder, setHasReadOrder] = useState(false);
+  const [readbackOrders, setReadbackOrders] = useState<import('../../../types/orders').Order[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  const targetOrderKey = targetOrderIds.join('|');
+
+  React.useEffect(() => {
+    let cancelled = false;
+    setHasReadOrder(false);
+
+    const loadReadbackOrders = async () => {
+      const knownOrders = targetOrderIds
+        .map((id) => activeOrders.find((order) => order.id === id) || myOrders.find((order) => order.id === id))
+        .filter((order): order is import('../../../types/orders').Order => Boolean(order));
+
+      if (!token) {
+        if (!cancelled) setReadbackOrders(knownOrders);
+        return;
+      }
+
+      const details = await Promise.all(targetOrderIds.map(async (id) => {
+        try {
+          return await getOrderDetails(id, token);
+        } catch {
+          return knownOrders.find((order) => order.id === id);
+        }
+      }));
+
+      if (!cancelled) {
+        setReadbackOrders(details.filter((order): order is import('../../../types/orders').Order => Boolean(order)));
+      }
+    };
+
+    void loadReadbackOrders();
+    return () => {
+      cancelled = true;
+    };
+  }, [token, targetOrderKey, activeOrders, myOrders]);
 
   const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
   const tip = typeof tipAmount === 'number' ? tipAmount : 0;
@@ -57,6 +96,78 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
   const formatMoney = (amount: number) =>
     new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(amount);
+
+  if (!hasReadOrder) {
+    const readbackTotal = readbackOrders.reduce((sum, order) => sum + order.total, 0);
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+        <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+          <div className="flex items-center justify-between bg-slate-900 px-5 py-4 text-white">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">Confirmación antes del cobro</p>
+              <h2 className="mt-1 text-xl font-bold">Lee la comanda al cliente</h2>
+              <p className="mt-1 text-sm text-slate-300">Mesa {tableNumber}{readbackOrders.length > 1 ? ` · ${readbackOrders.length} comandas` : ''}</p>
+            </div>
+            <button onClick={onClose} className="rounded-full p-2 text-2xl hover:bg-white/10" aria-label="Cerrar">×</button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-5">
+            <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+              Confirma con el cliente cada producto, cantidad y valor antes de continuar al cobro.
+            </div>
+
+            {readbackOrders.length === 0 ? (
+              <p className="py-8 text-center text-sm text-slate-500">Cargando el detalle de la comanda...</p>
+            ) : (
+              <div className="space-y-4">
+                {readbackOrders.map((order, orderIndex) => (
+                  <section key={order.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <div>
+                        <h3 className="font-bold text-slate-900">{readbackOrders.length > 1 ? `Comanda ${orderIndex + 1}` : 'Resumen de la comanda'}</h3>
+                        <p className="text-xs text-slate-500">{order.waiter_name || 'Mesero'} · Mesa {order.table_number}</p>
+                      </div>
+                      <span className="font-bold text-slate-900">{formatMoney(order.total)}</span>
+                    </div>
+                    <div className="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
+                      {(order.items || []).map((item, itemIndex) => (
+                        <div key={`${order.id}-${itemIndex}`} className="flex items-start justify-between gap-4 px-3 py-2.5 text-sm">
+                          <div>
+                            <p className="font-semibold text-slate-800">{item.quantity}x {item.menu_item_name}</p>
+                            {item.notes && <p className="text-xs text-slate-500">Nota: {item.notes}</p>}
+                          </div>
+                          <span className="whitespace-nowrap font-semibold text-slate-700">{formatMoney(item.quantity * item.price_at_order)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                ))}
+              </div>
+            )}
+
+            {readbackOrders.length > 1 && (
+              <div className="mt-4 flex items-center justify-between border-t border-slate-200 pt-4 text-lg font-extrabold text-slate-900">
+                <span>Total grupo</span>
+                <span>{formatMoney(readbackTotal)}</span>
+              </div>
+            )}
+          </div>
+
+          <div className="flex gap-3 border-t border-slate-200 bg-white p-4">
+            <button onClick={onClose} className="flex-1 rounded-lg border border-slate-300 px-4 py-3 font-semibold text-slate-700 hover:bg-slate-50">No, volver</button>
+            <button
+              onClick={() => setHasReadOrder(true)}
+              disabled={readbackOrders.length === 0}
+              className="flex-1 rounded-lg bg-emerald-600 px-4 py-3 font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Sí, continuar al cobro
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const handleStartAddingPayment = (method: 'efectivo' | 'transferencia') => {
     setPaymentState('adding_payment');
@@ -72,9 +183,6 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
     }
   };
 
-  const activeOrders = useSelector((state: RootState) => state.orders.activeOrders);
-  const myOrders = useSelector((state: RootState) => state.orders.myOrders);
-  
   const orderCreatedAt = targetOrderIds.reduce((oldest, id) => {
     const order = activeOrders.find(o => o.id === id) || myOrders.find(o => o.id === id);
     if (!order) return oldest;

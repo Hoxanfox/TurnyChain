@@ -20,16 +20,17 @@ export const TableCard: React.FC<TableCardProps> = ({ tableNumber, orders, onVie
 
   // Determinar el estado predominante de la mesa
   const getTableStatus = () => {
+    if (toCollect > 0) return 'danger';
     if (pendingVerification > 0) return 'warning';
     if (cancelled > 0 && paid === orders.length - cancelled) return 'cancelled';
     if (paid === orders.length) return 'success';
-    if (toCollect > 0) return 'info';
     return 'default';
   };
 
   const status = getTableStatus();
 
   const statusStyles = {
+    danger:    'from-red-600 to-rose-700',
     warning:   'from-orange-500 to-red-500 animate-pulse',
     cancelled: 'from-red-400 to-rose-500',
     success:   'from-green-500 to-emerald-600',

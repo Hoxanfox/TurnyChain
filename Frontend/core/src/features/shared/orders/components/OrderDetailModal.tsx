@@ -55,6 +55,16 @@ const PaymentInfoSection: React.FC<PaymentInfoSectionProps> = ({ order }) => {
         
         {/* BODY */}
         <div className="p-5 bg-slate-50">
+          <div className="grid gap-2 sm:grid-cols-2 mb-5">
+            <div className="bg-white rounded-xl border border-slate-200 p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Pago enviado por</p>
+              <p className="mt-1 font-bold text-slate-800">{order.waiter_name || 'Mesero sin nombre'}</p>
+            </div>
+            <div className="bg-white rounded-xl border border-slate-200 p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Aprobado por cajero</p>
+              <p className="mt-1 font-bold text-slate-800">{order.cashier_name || 'Pendiente de aprobación'}</p>
+            </div>
+          </div>
           <div className="grid gap-2 sm:grid-cols-3 mb-5">
             <div className="bg-white rounded-xl border border-slate-200 p-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Cuenta</p>
@@ -279,6 +289,7 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ orderId, onClose, e
   const [editedQuantity, setEditedQuantity] = useState<number | ''>(1);
   const [editedPrice, setEditedPrice] = useState<number | ''>(0);
   const [editedNotes, setEditedNotes] = useState<string>('');
+  const [editedTableNumber, setEditedTableNumber] = useState<number | ''>('');
   const [reasonModal, setReasonModal] = useState<{isOpen: boolean, action: 'edit' | 'delete' | null, index: number | null}>({ isOpen: false, action: null, index: null });
   const [reasonText, setReasonText] = useState('');
   const [isTransferSearchOpen, setIsTransferSearchOpen] = useState(false);
@@ -299,6 +310,28 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ orderId, onClose, e
       dispatch(fetchOrderDetails(currentOrderId));
     }
   }, [currentOrderId, dispatch]);
+
+  useEffect(() => {
+    if (selectedOrderDetails) {
+      setEditedTableNumber(selectedOrderDetails.table_number);
+    }
+  }, [selectedOrderDetails]);
+
+  const handleSaveTable = async () => {
+    if (!selectedOrderDetails || editedTableNumber === '' || editedTableNumber === selectedOrderDetails.table_number) return;
+    try {
+      await dispatch(updateOrder({
+        orderId: selectedOrderDetails.id,
+        editRequest: {
+          table_number: editedTableNumber,
+          edit_reason: 'Cambio de mesa realizado por cajero'
+        }
+      })).unwrap();
+      dispatch(fetchOrderDetails(selectedOrderDetails.id));
+    } catch (error: any) {
+      alert(`Error al cambiar la mesa: ${error}`);
+    }
+  };
 
   useEffect(() => {
     dispatch(fetchActiveOrders({ teamOrders: true }));
@@ -598,6 +631,32 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ orderId, onClose, e
                       {selectedOrderDetails.order_type === 'domicilio' && ' (Virtual 9998)'}
                     </p>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {editable && selectedOrderDetails.order_type === 'mesa' && selectedOrderDetails.status !== 'pagado' && (
+              <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <label htmlFor="order-table-number" className="block text-sm font-bold text-amber-900">Cambiar número de mesa</label>
+                    <input
+                      id="order-table-number"
+                      type="number"
+                      min="1"
+                      value={editedTableNumber}
+                      onChange={(event) => setEditedTableNumber(event.target.value === '' ? '' : Number(event.target.value))}
+                      className="mt-1 w-full sm:w-40 rounded-md border border-amber-300 bg-white px-3 py-2 font-semibold"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSaveTable}
+                    disabled={editedTableNumber === '' || editedTableNumber === selectedOrderDetails.table_number}
+                    className="rounded-md bg-amber-600 px-4 py-2 font-semibold text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Guardar mesa
+                  </button>
                 </div>
               </div>
             )}

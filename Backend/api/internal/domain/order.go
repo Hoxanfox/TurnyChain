@@ -48,6 +48,7 @@ type Order struct {
 	WaiterID      uuid.UUID   `json:"waiter_id" db:"waiter_id"`
 	WaiterName    string      `json:"waiter_name,omitempty" db:"waiter_name"`
 	CashierID     *uuid.UUID  `json:"cashier_id,omitempty" db:"cashier_id"`
+	CashierName   string      `json:"cashier_name,omitempty" db:"cashier_name"`
 	TableID       uuid.UUID   `json:"table_id" db:"table_id"`
 	TableNumber   int         `json:"table_number" db:"table_number"`
 	Status        string      `json:"status" db:"status"`

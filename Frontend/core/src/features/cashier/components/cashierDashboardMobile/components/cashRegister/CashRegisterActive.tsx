@@ -11,6 +11,7 @@ interface CashRegisterActiveProps {
 export const CashRegisterActive: React.FC<CashRegisterActiveProps> = ({ details, onExpenseAdded, onGoToClosing }) => {
   const [expenseAmount, setExpenseAmount] = useState('');
   const [expenseDesc, setExpenseDesc] = useState('');
+  const [expensePaymentMethod, setExpensePaymentMethod] = useState<'efectivo' | 'transferencia'>('efectivo');
   const [expenseFile, setExpenseFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -22,9 +23,10 @@ export const CashRegisterActive: React.FC<CashRegisterActiveProps> = ({ details,
 
     setIsSubmitting(true);
     try {
-      await addExpense(amount, expenseDesc, expenseFile || undefined);
+      await addExpense(amount, expenseDesc, expensePaymentMethod, expenseFile || undefined);
       setExpenseAmount('');
       setExpenseDesc('');
+      setExpensePaymentMethod('efectivo');
       setExpenseFile(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
       onExpenseAdded();
@@ -104,7 +106,8 @@ export const CashRegisterActive: React.FC<CashRegisterActiveProps> = ({ details,
           <div className="grid grid-cols-2 gap-3">
             <div className="bg-red-50 rounded-xl p-3 border border-red-100">
               <p className="text-[10px] font-bold text-red-700 uppercase tracking-wide">Gastos Realizados</p>
-              <p className="text-base font-extrabold text-red-900">-${details.total_expenses.toLocaleString('es-CO')}</p>
+                <p className="text-base font-extrabold text-red-900">-${details.total_expenses.toLocaleString('es-CO')}</p>
+                <p className="mt-1 text-[10px] text-red-700">Efectivo: ${details.total_cash_expenses.toLocaleString('es-CO')} · Transferencia: ${details.total_transfer_expenses.toLocaleString('es-CO')}</p>
               <span className="mt-1.5 text-[10px] bg-red-200 text-red-800 px-1.5 py-0.5 rounded font-bold inline-block">
                 {details.expenses?.length || 0} gastos
               </span>
@@ -170,6 +173,17 @@ export const CashRegisterActive: React.FC<CashRegisterActiveProps> = ({ details,
               />
             </div>
             <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1">Medio de salida</label>
+              <select
+                value={expensePaymentMethod}
+                onChange={(e) => setExpensePaymentMethod(e.target.value as 'efectivo' | 'transferencia')}
+                className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-semibold focus:border-red-400 focus:ring-2 focus:ring-red-100 outline-none"
+              >
+                <option value="efectivo">Efectivo</option>
+                <option value="transferencia">Transferencia</option>
+              </select>
+            </div>
+            <div>
               <label className="block text-xs font-bold text-gray-700 mb-1">Recibo (Opcional)</label>
               <input 
                 type="file" 
@@ -202,6 +216,7 @@ export const CashRegisterActive: React.FC<CashRegisterActiveProps> = ({ details,
                <div key={exp.id} className="p-2 border border-gray-100 rounded-lg flex justify-between items-center text-sm">
                  <div>
                    <p className="font-semibold text-gray-800">{exp.description}</p>
+                   <p className="text-[10px] text-gray-500 capitalize">Salida por {exp.payment_method}</p>
                    <p className="text-xs text-gray-500">{new Date(exp.created_at).toLocaleTimeString()}</p>
                  </div>
                  <div className="text-right">

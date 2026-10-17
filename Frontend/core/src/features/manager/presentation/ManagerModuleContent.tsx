@@ -4,6 +4,8 @@ import InventoryReceiptPage from '../../inventory/InventoryReceiptPage';
 import type { ManagerModule } from '../domain/managerModules';
 import type { AttendanceReport } from '../../cashier/api/attendanceApi';
 import { ManagerAttendancePanel } from './ManagerAttendancePanel';
+import { ManagerSalesReport } from './ManagerSalesReport';
+import { SupplierInvoicesPage } from './SupplierInvoicesPage';
 
 interface ManagerModuleContentProps {
   activeModule: ManagerModule;
@@ -14,6 +16,8 @@ export const ManagerModuleContent: React.FC<ManagerModuleContentProps> = ({ acti
   if (activeModule === 'attendance') return <ManagerAttendancePanel reports={reports} />;
   if (activeModule === 'employees') return <EmployeeManagement />;
   if (activeModule === 'inventory') return <InventoryReceiptPage />;
+  if (activeModule === 'reports') return <ManagerSalesReport />;
+  if (activeModule === 'payables') return <SupplierInvoicesPage />;
 
   const worked = reports.reduce((sum, report) => sum + report.days_worked, 0);
   const rest = reports.reduce((sum, report) => sum + report.days_rest, 0);
@@ -23,9 +27,7 @@ export const ManagerModuleContent: React.FC<ManagerModuleContentProps> = ({ acti
     <section className="space-y-5">
       <div>
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Vista de gerente</p>
-        <h2 className="mt-1 text-2xl font-black text-slate-900">
-          {activeModule === 'reports' ? 'Métricas de operación' : 'Resumen de la jornada'}
-        </h2>
+        <h2 className="mt-1 text-2xl font-black text-slate-900">Resumen de la jornada</h2>
         <p className="mt-1 text-sm text-slate-500">Datos de asistencias de los últimos siete días.</p>
       </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">

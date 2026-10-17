@@ -24,6 +24,7 @@ export interface CashRegisterExpense {
   session_id: string;
   amount: number;
   description: string;
+  payment_method: 'efectivo' | 'transferencia';
   image_path?: string;
   created_at: string;
 }
@@ -34,6 +35,8 @@ export interface CashRegisterSessionDetails {
   total_cash_sales: number;
   total_transfer: number;
   total_expenses: number;
+  total_cash_expenses: number;
+  total_transfer_expenses: number;
   expected_cash: number;
   cash_transactions_count: number;
   transfer_transactions_count: number;
@@ -48,6 +51,8 @@ export interface CashRegisterClosingDetails {
   total_cash_sales: number;
   total_transfer: number;
   total_expenses: number;
+  total_cash_expenses: number;
+  total_transfer_expenses: number;
   expected_cash: number;
   cash_orders_count: number;
   transfer_orders_count: number;
@@ -79,10 +84,11 @@ export const getClosingSessionDetails = async (): Promise<CashRegisterClosingDet
   return response.data;
 };
 
-export const addExpense = async (amount: number, description: string, image?: File): Promise<CashRegisterExpense> => {
+export const addExpense = async (amount: number, description: string, paymentMethod: 'efectivo' | 'transferencia', image?: File): Promise<CashRegisterExpense> => {
   const formData = new FormData();
   formData.append('amount', amount.toString());
   formData.append('description', description);
+  formData.append('payment_method', paymentMethod);
   if (image) {
     formData.append('image', image);
   }

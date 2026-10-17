@@ -10,6 +10,7 @@ import (
 // InvoiceService define operaciones de historial de facturas.
 type InvoiceService interface {
 	GetInvoiceHistory(query string, from *time.Time, to *time.Time, limit int, offset int) ([]domain.InvoiceHistoryItem, error)
+	GetDailySales(from time.Time, to time.Time) ([]domain.DailySalesStat, error)
 }
 
 type invoiceService struct {
@@ -22,4 +23,8 @@ func NewInvoiceService(orderRepo repository.OrderRepository) InvoiceService {
 
 func (s *invoiceService) GetInvoiceHistory(query string, from *time.Time, to *time.Time, limit int, offset int) ([]domain.InvoiceHistoryItem, error) {
 	return s.orderRepo.GetInvoiceHistory(query, from, to, limit, offset)
+}
+
+func (s *invoiceService) GetDailySales(from time.Time, to time.Time) ([]domain.DailySalesStat, error) {
+	return s.orderRepo.GetDailySales(from, to)
 }
