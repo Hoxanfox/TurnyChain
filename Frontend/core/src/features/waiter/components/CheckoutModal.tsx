@@ -97,6 +97,12 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const formatMoney = (amount: number) =>
     new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(amount);
 
+  React.useEffect(() => {
+    return () => {
+      if (currentPreviewUrl) URL.revokeObjectURL(currentPreviewUrl);
+    };
+  }, [currentPreviewUrl]);
+
   if (!hasReadOrder) {
     const readbackTotal = readbackOrders.reduce((sum, order) => sum + order.total, 0);
 
@@ -398,12 +404,6 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
       setIsSubmitting(false);
     }
   };
-
-  React.useEffect(() => {
-    return () => {
-      if (currentPreviewUrl) URL.revokeObjectURL(currentPreviewUrl);
-    };
-  }, [currentPreviewUrl]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
