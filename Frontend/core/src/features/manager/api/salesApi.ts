@@ -15,6 +15,18 @@ export interface DailySalesPoint {
   order_count: number;
 }
 
+export interface MonthlySalesPoint {
+  month: string;
+  total: number;
+  order_count: number;
+}
+
+export interface YearlySalesPoint {
+  year: string;
+  total: number;
+  order_count: number;
+}
+
 /**
  * Obtiene las ventas agregadas por día (órdenes pagadas) entre dos fechas.
  * Si no se envían fechas, el backend devuelve los últimos 365 días.
@@ -28,4 +40,18 @@ export const getDailySales = async (from?: string, to?: string): Promise<DailySa
     },
   });
   return response.data as DailySalesPoint[];
+};
+
+export const getMonthlySales = async (from?: string, to?: string): Promise<MonthlySalesPoint[]> => {
+  const response = await axios.get(`${API_URL}/invoices/monthly-sales`, {
+    ...getAuthHeaders(), params: { from: from || undefined, to: to || undefined },
+  });
+  return response.data as MonthlySalesPoint[];
+};
+
+export const getYearlySales = async (from?: string, to?: string): Promise<YearlySalesPoint[]> => {
+  const response = await axios.get(`${API_URL}/invoices/yearly-sales`, {
+    ...getAuthHeaders(), params: { from: from || undefined, to: to || undefined },
+  });
+  return response.data as YearlySalesPoint[];
 };

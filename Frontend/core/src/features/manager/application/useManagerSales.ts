@@ -1,5 +1,56 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { getDailySales, type DailySalesPoint } from '../api/salesApi';
+import {
+  getDailySales,
+  getMonthlySales,
+  getYearlySales,
+  type DailySalesPoint,
+  type MonthlySalesPoint,
+  type YearlySalesPoint,
+} from '../api/salesApi';
+
+const bogotaParts = (date: Date) => {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(date);
+  return Object.fromEntries(parts.filter((part) => part.type !== 'literal').map((part) => [part.type, part.value]));
+};
+
+const currentMonth = () => {
+  const parts = bogotaParts(new Date());
+  return `${parts.year}-${parts.month}`;
+};
+
+const monthRange = (month: string) => {
+  const [year, monthNumber] = month.split('-').map(Number);
+  const start = new Date(Date.UTC(year, monthNumber - 1, 1));
+  const next = new Date(Date.UTC(year, monthNumber, 1));
+  return {
+    from: `${year}-${String(monthNumber).padStart(2, '0')}-01`,
+    to: `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, '0')}-01`,
+    days: Math.round((next.getTime() - start.getTime()) / 86400000),
+  };
+};
+
+const fillRecentMonths = (points: MonthlySalesPoint[]) => {
+  const now = bogotaParts(new Date());
+  const cursor = new Date(Date.UTC(Number(now.year), Number(now.month) - 1, 1));
+  const byMonth = new Map(points.map((point) => [point.month, point]));
+  return Array.from({ length: 12 }, (_, index) => {
+    const date = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth() - (11 - index), 1));
+    const month = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
+    return byMonth.get(month) || { month, total: 0, order_count: 0 };
+  });
+};
+
+const fillMonthDays = (points: DailySalesPoint[], month: string) => {
+  const { days } = monthRange(month);
+  const [year, monthNumber] = month.split('-').map(Number);
+  const byDate = new Map(points.map((point) => [point.date, point]));
+  return Array.from({ length: days }, (_, index) => {
+    const date = `${year}-${String(monthNumber).padStart(2, '0')}-${String(index + 1).padStart(2, '0')}`;
+    return byDate.get(date) || { date, total: 0, order_count: 0 };
+  });
+};
 
 export interface SalesSummary {
   today: number;
@@ -12,43 +63,26 @@ export interface SalesSummary {
   bestDay: { date: string; total: number } | null;
 }
 
-const toKey = (date: Date) =>
-  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-
-// Rellena con 0 los días sin ventas para que la gráfica sea continua.
-const fillMissingDays = (points: DailySalesPoint[], start: Date, end: Date): DailySalesPoint[] => {
-  const byDate = new Map(points.map(point => [point.date, point]));
-  const result: DailySalesPoint[] = [];
-  const cursor = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-  const last = new Date(end.getFullYear(), end.getMonth(), end.getDate());
-
-  while (cursor <= last) {
-    const key = toKey(cursor);
-    const found = byDate.get(key);
-    result.push(found ? { ...found } : { date: key, total: 0, order_count: 0 });
-    cursor.setDate(cursor.getDate() + 1);
-  }
-
-  return result;
-};
-
-/**
- * Carga las ventas diarias de los últimos `days` días y calcula KPIs agregados.
- */
-export const useManagerSales = (days: number) => {
-  const [data, setData] = useState<DailySalesPoint[]>([]);
+export const useManagerSales = () => {
+  const [selectedMonth, setSelectedMonth] = useState(currentMonth);
+  const [dailyData, setDailyData] = useState<DailySalesPoint[]>([]);
+  const [monthlyData, setMonthlyData] = useState<MonthlySalesPoint[]>([]);
+  const [yearlyData, setYearlyData] = useState<YearlySalesPoint[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
-    const end = new Date();
-    const start = new Date(end);
-    start.setDate(start.getDate() - (days - 1));
-
     setIsLoading(true);
     try {
-      const points = await getDailySales(toKey(start), toKey(end));
-      setData(fillMissingDays(points, start, end));
+      const range = monthRange(selectedMonth);
+      const [daily, monthly, yearly] = await Promise.all([
+        getDailySales(range.from, range.to),
+        getMonthlySales(),
+        getYearlySales(),
+      ]);
+      setDailyData(fillMonthDays(daily, selectedMonth));
+      setMonthlyData(fillRecentMonths(monthly));
+      setYearlyData(yearly);
       setError(null);
     } catch (err) {
       console.error('Error loading manager sales', err);
@@ -56,42 +90,28 @@ export const useManagerSales = (days: number) => {
     } finally {
       setIsLoading(false);
     }
-  }, [days]);
+  }, [selectedMonth]);
 
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
+  useEffect(() => { void refresh(); }, [refresh]);
 
   const summary = useMemo((): SalesSummary => {
-    const now = new Date();
-    const todayKey = toKey(now);
-    const monthKey = todayKey.slice(0, 7);
-
-    const total = data.reduce((sum, point) => sum + point.total, 0);
-    const totalOrders = data.reduce((sum, point) => sum + point.order_count, 0);
-
-    const todayPoint = data.find(point => point.date === todayKey);
-    const monthPoints = data.filter(point => point.date.startsWith(monthKey));
-    const month = monthPoints.reduce((sum, point) => sum + point.total, 0);
-    const monthOrders = monthPoints.reduce((sum, point) => sum + point.order_count, 0);
-
-    const bestDay = data.reduce<{ date: string; total: number } | null>(
-      (best, point) =>
-        point.total > 0 && (!best || point.total > best.total) ? { date: point.date, total: point.total } : best,
-      null,
-    );
-
+    const current = currentMonth();
+    const total = dailyData.reduce((sum, point) => sum + point.total, 0);
+    const totalOrders = dailyData.reduce((sum, point) => sum + point.order_count, 0);
+    const today = dailyData.find((point) => point.date === `${current}-${bogotaParts(new Date()).day}`);
+    const bestDay = dailyData.reduce<{ date: string; total: number } | null>((best, point) => point.total > 0 && (!best || point.total > best.total) ? { date: point.date, total: point.total } : best, null);
+    const selectedMonthPoint = monthlyData.find((point) => point.month === selectedMonth);
     return {
-      today: todayPoint?.total ?? 0,
-      todayOrders: todayPoint?.order_count ?? 0,
-      month,
-      monthOrders,
+      today: today?.total ?? 0,
+      todayOrders: today?.order_count ?? 0,
+      month: selectedMonthPoint?.total ?? total,
+      monthOrders: selectedMonthPoint?.order_count ?? totalOrders,
       total,
       totalOrders,
       averageTicket: totalOrders > 0 ? total / totalOrders : 0,
       bestDay,
     };
-  }, [data]);
+  }, [dailyData, monthlyData, selectedMonth]);
 
-  return { data, summary, isLoading, error, refresh };
+  return { dailyData, monthlyData, yearlyData, selectedMonth, setSelectedMonth, summary, isLoading, error, refresh };
 };

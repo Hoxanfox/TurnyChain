@@ -96,6 +96,8 @@ func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *
 	invoices := protected.Group("/invoices")
 	invoices.Get("/history", invoiceHandler.GetInvoiceHistory)
 	invoices.Get("/daily-sales", invoiceHandler.GetDailySales)
+	invoices.Get("/monthly-sales", invoiceHandler.GetMonthlySales)
+	invoices.Get("/yearly-sales", invoiceHandler.GetYearlySales)
 
 	// Recepciones internas de mercancía. El mesero solo puede registrar recepciones.
 	inventory := protected.Group("/inventory")

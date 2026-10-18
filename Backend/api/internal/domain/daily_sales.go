@@ -6,3 +6,15 @@ type DailySalesStat struct {
 	Total      float64 `json:"total"`       // Suma de o.total
 	OrderCount int     `json:"order_count"` // Cantidad de órdenes pagadas
 }
+
+type MonthlySalesStat struct {
+	Month      string  `json:"month"`
+	Total      float64 `json:"total"`
+	OrderCount int     `json:"order_count"`
+}
+
+type YearlySalesStat struct {
+	Year       string  `json:"year"`
+	Total      float64 `json:"total"`
+	OrderCount int     `json:"order_count"`
+}

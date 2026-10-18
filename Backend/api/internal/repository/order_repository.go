@@ -29,6 +29,8 @@ type OrderRepository interface {
 	UpdateOrderBlockchainTxHash(orderID uuid.UUID, txHash string) error
 	GetInvoiceHistory(query string, from *time.Time, to *time.Time, limit int, offset int) ([]domain.InvoiceHistoryItem, error)
 	GetDailySales(start time.Time, end time.Time) ([]domain.DailySalesStat, error)
+	GetMonthlySales(start time.Time, end time.Time) ([]domain.MonthlySalesStat, error)
+	GetYearlySales(start time.Time, end time.Time) ([]domain.YearlySalesStat, error)
 	GetWaiterApprovedStats(start time.Time, end time.Time, groupBy string) ([]domain.WaiterApprovedStat, error)
 	GetProductSalesStats(start time.Time, end time.Time) ([]domain.ProductSalesStat, error)
 	UpdateOrderPrintStatus(orderID uuid.UUID, status string, incrementAttempts int, lastError *string, printedAt *time.Time) (*domain.Order, error)
@@ -1309,6 +1311,40 @@ func (r *orderRepository) GetDailySales(start time.Time, end time.Time) ([]domai
 	}
 
 	return stats, nil
+}
+
+func (r *orderRepository) GetMonthlySales(start time.Time, end time.Time) ([]domain.MonthlySalesStat, error) {
+	rows, err := r.db.Query(`
+		SELECT to_char(o.updated_at AT TIME ZONE 'America/Bogota', 'YYYY-MM'), COALESCE(SUM(o.total), 0), COUNT(*)
+		FROM orders o
+		WHERE o.status = 'pagado' AND o.updated_at >= $1 AND o.updated_at < $2
+		GROUP BY 1 ORDER BY 1 ASC`, start, end)
+	if err != nil { return nil, err }
+	defer rows.Close()
+	stats := make([]domain.MonthlySalesStat, 0)
+	for rows.Next() {
+		var stat domain.MonthlySalesStat
+		if err := rows.Scan(&stat.Month, &stat.Total, &stat.OrderCount); err != nil { return nil, err }
+		stats = append(stats, stat)
+	}
+	return stats, rows.Err()
+}
+
+func (r *orderRepository) GetYearlySales(start time.Time, end time.Time) ([]domain.YearlySalesStat, error) {
+	rows, err := r.db.Query(`
+		SELECT to_char(o.updated_at AT TIME ZONE 'America/Bogota', 'YYYY'), COALESCE(SUM(o.total), 0), COUNT(*)
+		FROM orders o
+		WHERE o.status = 'pagado' AND o.updated_at >= $1 AND o.updated_at < $2
+		GROUP BY 1 ORDER BY 1 ASC`, start, end)
+	if err != nil { return nil, err }
+	defer rows.Close()
+	stats := make([]domain.YearlySalesStat, 0)
+	for rows.Next() {
+		var stat domain.YearlySalesStat
+		if err := rows.Scan(&stat.Year, &stat.Total, &stat.OrderCount); err != nil { return nil, err }
+		stats = append(stats, stat)
+	}
+	return stats, rows.Err()
 }
 
 func (r *orderRepository) GetProductSalesStats(start time.Time, end time.Time) ([]domain.ProductSalesStat, error) {

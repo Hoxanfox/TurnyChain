@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -115,4 +116,48 @@ func (h *InvoiceHandler) GetDailySales(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(stats)
+}
+
+func (h *InvoiceHandler) GetMonthlySales(c *fiber.Ctx) error {
+	from, to, err := parseSalesMonthRange(c.Query("from"), c.Query("to"))
+	if err != nil { return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()}) }
+	stats, err := h.invoiceService.GetMonthlySales(from, to)
+	if err != nil { return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "No se pudieron obtener las ventas mensuales"}) }
+	return c.JSON(stats)
+}
+
+func (h *InvoiceHandler) GetYearlySales(c *fiber.Ctx) error {
+	loc := salesLocation()
+	now := time.Now().In(loc)
+	fromYear, toYear := now.Year()-4, now.Year()+1
+	if raw := strings.TrimSpace(c.Query("from")); raw != "" {
+		parsed, err := strconv.Atoi(raw); if err != nil { return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "from inválido, formato YYYY"}) }; fromYear = parsed
+	}
+	if raw := strings.TrimSpace(c.Query("to")); raw != "" {
+		parsed, err := strconv.Atoi(raw); if err != nil { return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "to inválido, formato YYYY"}) }; toYear = parsed + 1
+	}
+	stats, err := h.invoiceService.GetYearlySales(time.Date(fromYear, time.January, 1, 0, 0, 0, 0, loc), time.Date(toYear, time.January, 1, 0, 0, 0, 0, loc))
+	if err != nil { return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "No se pudieron obtener las ventas anuales"}) }
+	return c.JSON(stats)
+}
+
+func salesLocation() *time.Location {
+	if loc, err := time.LoadLocation("America/Bogota"); err == nil { return loc }
+	return time.FixedZone("America/Bogota", -5*60*60)
+}
+
+func parseSalesMonthRange(rawFrom, rawTo string) (time.Time, time.Time, error) {
+	loc := salesLocation()
+	now := time.Now().In(loc)
+	from := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, loc).AddDate(0, -11, 0)
+	to := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, loc).AddDate(0, 1, 0)
+	if strings.TrimSpace(rawFrom) != "" {
+		parsed, err := time.ParseInLocation("2006-01", strings.TrimSpace(rawFrom), loc); if err != nil { return time.Time{}, time.Time{}, fmt.Errorf("from inválido, formato YYYY-MM") }
+		from = time.Date(parsed.Year(), parsed.Month(), 1, 0, 0, 0, 0, loc)
+	}
+	if strings.TrimSpace(rawTo) != "" {
+		parsed, err := time.ParseInLocation("2006-01", strings.TrimSpace(rawTo), loc); if err != nil { return time.Time{}, time.Time{}, fmt.Errorf("to inválido, formato YYYY-MM") }
+		to = time.Date(parsed.Year(), parsed.Month(), 1, 0, 0, 0, 0, loc).AddDate(0, 1, 0)
+	}
+	return from, to, nil
 }

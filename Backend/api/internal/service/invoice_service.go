@@ -11,6 +11,8 @@ import (
 type InvoiceService interface {
 	GetInvoiceHistory(query string, from *time.Time, to *time.Time, limit int, offset int) ([]domain.InvoiceHistoryItem, error)
 	GetDailySales(from time.Time, to time.Time) ([]domain.DailySalesStat, error)
+	GetMonthlySales(from time.Time, to time.Time) ([]domain.MonthlySalesStat, error)
+	GetYearlySales(from time.Time, to time.Time) ([]domain.YearlySalesStat, error)
 }
 
 type invoiceService struct {
@@ -27,4 +29,12 @@ func (s *invoiceService) GetInvoiceHistory(query string, from *time.Time, to *ti
 
 func (s *invoiceService) GetDailySales(from time.Time, to time.Time) ([]domain.DailySalesStat, error) {
 	return s.orderRepo.GetDailySales(from, to)
+}
+
+func (s *invoiceService) GetMonthlySales(from time.Time, to time.Time) ([]domain.MonthlySalesStat, error) {
+	return s.orderRepo.GetMonthlySales(from, to)
+}
+
+func (s *invoiceService) GetYearlySales(from time.Time, to time.Time) ([]domain.YearlySalesStat, error) {
+	return s.orderRepo.GetYearlySales(from, to)
 }
