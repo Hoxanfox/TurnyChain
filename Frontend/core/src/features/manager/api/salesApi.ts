@@ -27,6 +27,14 @@ export interface YearlySalesPoint {
   order_count: number;
 }
 
+export interface ProductSalesPoint {
+  product_id: string;
+  product_name: string;
+  category_name: string;
+  total_quantity: number;
+  total_revenue: number;
+}
+
 /**
  * Obtiene las ventas agregadas por día (órdenes pagadas) entre dos fechas.
  * Si no se envían fechas, el backend devuelve los últimos 365 días.
@@ -54,4 +62,11 @@ export const getYearlySales = async (from?: string, to?: string): Promise<Yearly
     ...getAuthHeaders(), params: { from: from || undefined, to: to || undefined },
   });
   return response.data as YearlySalesPoint[];
+};
+
+export const getProductSales = async (month: string): Promise<ProductSalesPoint[]> => {
+  const response = await axios.get(`${API_URL}/orders/product-stats`, {
+    ...getAuthHeaders(), params: { month },
+  });
+  return response.data as ProductSalesPoint[];
 };

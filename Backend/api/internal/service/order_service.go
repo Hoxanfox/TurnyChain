@@ -653,7 +653,7 @@ func (s *orderService) GetWaiterApprovedStats(userRole string, start time.Time, 
 }
 
 func (s *orderService) GetProductSalesStats(userRole string, start time.Time, end time.Time) ([]domain.ProductSalesStat, error) {
-	if userRole != "admin" && userRole != "cajero" {
+	if userRole != "admin" && userRole != "cajero" && userRole != "gerente" {
 		return nil, errors.New("unauthorized")
 	}
 	return s.orderRepo.GetProductSalesStats(start, end)

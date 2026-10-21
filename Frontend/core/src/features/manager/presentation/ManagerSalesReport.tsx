@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   Area, AreaChart, Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer,
-  Tooltip, XAxis, YAxis,
+  Cell, Legend, Pie, PieChart, Tooltip, XAxis, YAxis,
 } from 'recharts';
 import { useManagerSales } from '../application/useManagerSales';
 
@@ -13,7 +13,7 @@ const dayLabel = (value: string) => value.split('-')[2] || value;
 const longDate = (value: string) => new Date(`${value}T12:00:00`).toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' });
 
 export const ManagerSalesReport: React.FC = () => {
-  const { dailyData, monthlyData, yearlyData, selectedMonth, setSelectedMonth, summary, isLoading, error, refresh } = useManagerSales();
+  const { dailyData, monthlyData, yearlyData, productData, selectedMonth, setSelectedMonth, summary, isLoading, error, refresh } = useManagerSales();
   const latestMonth = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit' }).format(new Date());
 
   return (
@@ -46,7 +46,7 @@ export const ManagerSalesReport: React.FC = () => {
             <defs><linearGradient id="dailySalesGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#10b981" stopOpacity={0.32} /><stop offset="95%" stopColor="#10b981" stopOpacity={0} /></linearGradient></defs>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
             <XAxis dataKey="date" tickFormatter={dayLabel} tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} minTickGap={16} />
-            <YAxis tickFormatter={compactMoney} tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} width={62} />
+            <YAxis domain={[0, 'auto']} tickFormatter={compactMoney} tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} width={62} />
             <Tooltip labelFormatter={(label) => longDate(String(label))} formatter={(value: any, _name: any, item: any) => [`${money(Number(value))} · ${item?.payload?.order_count ?? 0} órdenes`, 'Ventas']} contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 4px 12px rgba(15,23,42,.12)' }} />
             <Area type="monotone" dataKey="total" stroke="#059669" strokeWidth={2.5} fill="url(#dailySalesGradient)" dot={false} activeDot={{ r: 5 }} />
           </AreaChart>
@@ -78,9 +78,38 @@ export const ManagerSalesReport: React.FC = () => {
           </ResponsiveContainer>
         </ChartCard>
       </div>
+
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(20rem,.85fr)]">
+        <ChartCard eyebrow="Productos del mes" title="Qué se está vendiendo" loading={isLoading}>
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie data={productData.slice(0, 8)} dataKey="total_quantity" nameKey="product_name" cx="50%" cy="50%" innerRadius="48%" outerRadius="78%" paddingAngle={2} stroke="#fff" strokeWidth={2}>
+                {productData.slice(0, 8).map((product, index) => <Cell key={product.product_id} fill={PIE_COLORS[index % PIE_COLORS.length]} />)}
+              </Pie>
+              <Tooltip formatter={(value: any, _name: any, item: any) => [`${Number(value).toLocaleString('es-CO')} unidades · ${money(item?.payload?.total_revenue ?? 0)}`, 'Ventas']} contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 4px 12px rgba(15,23,42,.12)' }} />
+              <Legend layout="vertical" verticalAlign="middle" align="right" formatter={(value) => <span className="text-xs font-semibold text-slate-600">{value}</span>} />
+            </PieChart>
+          </ResponsiveContainer>
+        </ChartCard>
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Ranking</p>
+          <h3 className="mt-1 text-lg font-bold text-slate-800">Productos más vendidos</h3>
+          <div className="mt-4 space-y-2">
+            {productData.slice(0, 8).map((product, index) => (
+              <div key={product.product_id} className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2.5">
+                <div className="flex min-w-0 items-center gap-2"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-black text-white" style={{ backgroundColor: PIE_COLORS[index % PIE_COLORS.length] }}>{index + 1}</span><span className="truncate text-sm font-semibold text-slate-700">{product.product_name}</span></div>
+                <div className="shrink-0 text-right"><p className="text-sm font-black text-slate-900">{product.total_quantity} u.</p><p className="text-[11px] text-slate-500">{money(product.total_revenue)}</p></div>
+              </div>
+            ))}
+            {!isLoading && productData.length === 0 && <p className="py-8 text-center text-sm text-slate-400">No hay ventas de productos en este mes.</p>}
+          </div>
+        </section>
+      </div>
     </section>
   );
 };
+
+const PIE_COLORS = ['#10b981', '#6366f1', '#f59e0b', '#ef4444', '#06b6d4', '#8b5cf6', '#f97316', '#14b8a6'];
 
 const ChartCard = ({ eyebrow, title, loading, children }: { eyebrow: string; title: string; loading: boolean; children: React.ReactNode }) => (
   <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">

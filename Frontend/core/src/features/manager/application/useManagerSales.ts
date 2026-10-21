@@ -3,9 +3,11 @@ import {
   getDailySales,
   getMonthlySales,
   getYearlySales,
+  getProductSales,
   type DailySalesPoint,
   type MonthlySalesPoint,
   type YearlySalesPoint,
+  type ProductSalesPoint,
 } from '../api/salesApi';
 
 const bogotaParts = (date: Date) => {
@@ -52,6 +54,14 @@ const fillMonthDays = (points: DailySalesPoint[], month: string) => {
   });
 };
 
+const trimToRecordedRange = (points: DailySalesPoint[]) => {
+  const firstRecorded = points.findIndex((point) => point.order_count > 0 || point.total > 0);
+  if (firstRecorded === -1) return points.slice(0, 1);
+  let lastRecorded = points.length - 1;
+  while (lastRecorded > firstRecorded && points[lastRecorded].order_count === 0 && points[lastRecorded].total === 0) lastRecorded -= 1;
+  return points.slice(firstRecorded, lastRecorded + 1);
+};
+
 export interface SalesSummary {
   today: number;
   todayOrders: number;
@@ -68,6 +78,7 @@ export const useManagerSales = () => {
   const [dailyData, setDailyData] = useState<DailySalesPoint[]>([]);
   const [monthlyData, setMonthlyData] = useState<MonthlySalesPoint[]>([]);
   const [yearlyData, setYearlyData] = useState<YearlySalesPoint[]>([]);
+  const [productData, setProductData] = useState<ProductSalesPoint[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -75,14 +86,16 @@ export const useManagerSales = () => {
     setIsLoading(true);
     try {
       const range = monthRange(selectedMonth);
-      const [daily, monthly, yearly] = await Promise.all([
+      const [daily, monthly, yearly, products] = await Promise.all([
         getDailySales(range.from, range.to),
         getMonthlySales(),
         getYearlySales(),
+        getProductSales(selectedMonth),
       ]);
-      setDailyData(fillMonthDays(daily, selectedMonth));
+      setDailyData(trimToRecordedRange(fillMonthDays(daily, selectedMonth)));
       setMonthlyData(fillRecentMonths(monthly));
       setYearlyData(yearly);
+      setProductData(products);
       setError(null);
     } catch (err) {
       console.error('Error loading manager sales', err);
@@ -113,5 +126,5 @@ export const useManagerSales = () => {
     };
   }, [dailyData, monthlyData, selectedMonth]);
 
-  return { dailyData, monthlyData, yearlyData, selectedMonth, setSelectedMonth, summary, isLoading, error, refresh };
+  return { dailyData, monthlyData, yearlyData, productData, selectedMonth, setSelectedMonth, summary, isLoading, error, refresh };
 };
