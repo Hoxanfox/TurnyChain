@@ -3,8 +3,11 @@
 // Para uso en TablesSlide
 // =================================================================
 import React from 'react';
+import { useSelector } from 'react-redux';
 import { FaTimes, FaCheck } from 'react-icons/fa';
 import type { Table } from '../../../types/tables';
+import type { RootState } from '../../../app/store';
+import { getTableOccupancyStatus } from '../utils/tableOccupancy';
 
 interface SimpleTableMapModalProps {
   isOpen: boolean;
@@ -21,6 +24,7 @@ const SimpleTableMapModal: React.FC<SimpleTableMapModalProps> = ({
   selectedTableId,
   onSelectTable
 }) => {
+  const activeOrders = useSelector((state: RootState) => state.orders.activeOrders);
   // Filtrar mesas reales (no virtuales)
   const realTables = tables.filter(t => t.table_number < 9998);
 
@@ -71,6 +75,7 @@ const SimpleTableMapModal: React.FC<SimpleTableMapModalProps> = ({
               {realTables.map(table => {
                 const isSelected = selectedTableId === table.id;
                 const isActive = table.is_active;
+                const occupancy = getTableOccupancyStatus(activeOrders, table.table_number);
 
                 return (
                   <button
@@ -84,17 +89,23 @@ const SimpleTableMapModal: React.FC<SimpleTableMapModalProps> = ({
                       shadow-md hover:shadow-xl
                       ${isSelected
                         ? 'bg-gradient-to-br from-green-500 to-green-600 text-white ring-4 ring-green-300 scale-110'
+                        : occupancy === 'to_collect'
+                        ? 'bg-gradient-to-br from-red-400 to-red-600 text-white ring-2 ring-red-200'
+                        : occupancy === 'verification'
+                        ? 'bg-gradient-to-br from-amber-400 to-orange-500 text-white ring-2 ring-amber-200'
                         : isActive
                         ? 'bg-gradient-to-br from-indigo-400 to-indigo-500 text-white hover:from-indigo-500 hover:to-indigo-600'
                         : 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
                       }
                     `}
-                    title={`Mesa ${table.table_number}${!isActive ? ' (Inactiva)' : ''}`}
+                    title={`Mesa ${table.table_number}${!isActive ? ' (Inactiva)' : occupancy === 'to_collect' ? ' (Tiene cuenta por cobrar)' : occupancy === 'verification' ? ' (Pago en verificación)' : ''}`}
                   >
                     <span className="text-xl">{table.table_number}</span>
                     {isSelected && (
                       <FaCheck className="text-xs mt-1" />
                     )}
+                    {!isSelected && occupancy === 'to_collect' && <span className="text-[10px]">Por cobrar</span>}
+                    {!isSelected && occupancy === 'verification' && <span className="text-[10px]">Verificando</span>}
                   </button>
                 );
               })}
@@ -118,6 +129,14 @@ const SimpleTableMapModal: React.FC<SimpleTableMapModalProps> = ({
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 bg-gradient-to-br from-green-500 to-green-600 rounded"></div>
               <span className="text-gray-600">Seleccionada</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-gradient-to-br from-red-400 to-red-600 rounded"></div>
+              <span className="text-gray-600">Por cobrar</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-gradient-to-br from-amber-400 to-orange-500 rounded"></div>
+              <span className="text-gray-600">Verificando</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 bg-gray-300 rounded"></div>

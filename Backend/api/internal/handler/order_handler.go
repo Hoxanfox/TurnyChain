@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -522,6 +523,7 @@ func (h *OrderHandler) UploadPaymentProof(c *fiber.Ctx) error {
 			_ = os.Remove(savedFilePath)
 		}
 		log.Printf("❌ [Handler] Error al actualizar orden: %v", err)
+		if errors.Is(err, service.ErrOrderAlreadyPaid) { return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": err.Error()}) }
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "could not update order with proof"})
 	}
 
@@ -599,6 +601,7 @@ func (h *OrderHandler) UploadSplitPayments(c *fiber.Ctx) error {
 
 	order, err := h.orderService.AddSplitPayments(orderID, userID, payments)
 	if err != nil {
+		if errors.Is(err, service.ErrOrderAlreadyPaid) { return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": err.Error()}) }
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "could not update order with split payments"})
 	}
 

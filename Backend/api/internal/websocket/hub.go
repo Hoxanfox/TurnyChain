@@ -32,11 +32,17 @@ type roleBroadcast struct {
 	message []byte
 }
 
+type userBroadcast struct {
+	userID  string
+	message []byte
+}
+
 // Hub mantiene el conjunto de clientes activos.
 type Hub struct {
 	clients         map[*websocket.Conn]*ClientInfo
 	broadcast       chan []byte
 	broadcastToRole chan roleBroadcast
+	broadcastToUser chan userBroadcast
 	Register        chan *ClientInfo
 	Unregister      chan *websocket.Conn
 }
@@ -45,6 +51,7 @@ func NewHub() *Hub {
 	return &Hub{
 		broadcast:       make(chan []byte),
 		broadcastToRole: make(chan roleBroadcast),
+		broadcastToUser: make(chan userBroadcast),
 		Register:        make(chan *ClientInfo),
 		Unregister:      make(chan *websocket.Conn),
 		clients:         make(map[*websocket.Conn]*ClientInfo),
@@ -124,6 +131,16 @@ func (h *Hub) Run() {
 				}
 			}
 			log.Printf("📡 BroadcastToRole: Enviando mensaje a %d clientes con rol '%s'", sentCount, rb.role)
+		case ub := <-h.broadcastToUser:
+			for conn, clientInfo := range h.clients {
+				if clientInfo.UserID != ub.userID { continue }
+				select {
+				case clientInfo.send <- ub.message:
+				default:
+					log.Printf("⚠️ Cliente lento. Desconectando UserID: %s", clientInfo.UserID)
+					h.removeClient(conn)
+				}
+			}
 		}
 	}
 }
@@ -157,4 +174,15 @@ func (h *Hub) BroadcastToRole(role string, msgType string, payload interface{}) 
 
 	log.Printf("📡 BroadcastToRole: Encolando mensaje tipo '%s' para rol '%s'", msgType, role)
 	h.broadcastToRole <- roleBroadcast{role: role, message: jsonMessage}
+}
+
+// BroadcastToUser envía un mensaje únicamente a las sesiones del usuario indicado.
+func (h *Hub) BroadcastToUser(userID string, msgType string, payload interface{}) {
+	message := Message{Type: msgType, Payload: payload}
+	jsonMessage, err := json.Marshal(message)
+	if err != nil {
+		log.Println("❌ Error al convertir mensaje dirigido a JSON:", err)
+		return
+	}
+	h.broadcastToUser <- userBroadcast{userID: userID, message: jsonMessage}
 }

@@ -1,9 +1,11 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchTables } from '../../admin/components/tables/api/tablesSlice.ts';
+import { fetchActiveOrders } from '../../shared/orders/api/ordersSlice.ts';
 import SimpleTableMapModal from '../components/SimpleTableMapModal';
 import type { AppDispatch, RootState } from '../../../app/store';
 import type { Table } from '../../../types/tables';
+import { getTableOccupancyStatus } from '../utils/tableOccupancy';
 
 interface TablesSlideProps {
   selectedTableId: string;
@@ -22,6 +24,7 @@ const TablesSlide: React.FC<TablesSlideProps> = ({
 }) => {
   const dispatch = useDispatch<AppDispatch>();
   const { tables, status } = useSelector((state: RootState) => state.tables);
+  const activeOrders = useSelector((state: RootState) => state.orders.activeOrders);
 
   // 🆕 Estado para selector de mesas en dos pasos
   const [selectedRange, setSelectedRange] = useState<string>('');
@@ -32,6 +35,7 @@ const TablesSlide: React.FC<TablesSlideProps> = ({
     if (status === 'idle') {
       dispatch(fetchTables());
     }
+    dispatch(fetchActiveOrders({ teamOrders: true }));
   }, [status, dispatch]);
 
   // Agrupar mesas en rangos de 10
@@ -216,24 +220,32 @@ const TablesSlide: React.FC<TablesSlideProps> = ({
                     2️⃣ Selecciona la mesa
                   </label>
                   <div className="grid grid-cols-4 gap-2 pb-2">
-                    {tablesInRange.map(table => (
-                      <button
-                        key={table.id}
-                        onClick={() => handleTableClick(table.id)}
-                        className={`p-4 rounded-lg shadow-md transition-all ${
-                          selectedTableId === table.id
-                            ? 'bg-green-600 text-white shadow-lg scale-105'
-                            : table.is_active
-                            ? 'bg-white border-2 border-green-200 text-green-700 hover:bg-green-50'
-                            : 'bg-gray-100 border-2 border-gray-300 text-gray-500'
-                        }`}
-                      >
-                        <div className="text-center">
-                          <p className="text-2xl font-bold mb-0.5">{table.table_number}</p>
-                          <p className="text-xs">{table.is_active ? '✓' : '✗'}</p>
-                        </div>
-                      </button>
-                    ))}
+                    {tablesInRange.map(table => {
+                      const occupancy = getTableOccupancyStatus(activeOrders, table.table_number);
+                      return (
+                        <button
+                          key={table.id}
+                          onClick={() => handleTableClick(table.id)}
+                          title={table.is_active ? (occupancy === 'available' ? 'Mesa disponible' : occupancy === 'to_collect' ? 'Tiene cuenta por cobrar' : 'Pago en verificación') : 'Mesa inactiva'}
+                          className={`p-4 rounded-lg shadow-md transition-all ${
+                            selectedTableId === table.id
+                              ? 'bg-green-600 text-white shadow-lg scale-105'
+                              : occupancy === 'to_collect'
+                              ? 'bg-red-50 border-2 border-red-300 text-red-700 hover:bg-red-100'
+                              : occupancy === 'verification'
+                              ? 'bg-amber-50 border-2 border-amber-300 text-amber-700 hover:bg-amber-100'
+                              : table.is_active
+                              ? 'bg-white border-2 border-green-200 text-green-700 hover:bg-green-50'
+                              : 'bg-gray-100 border-2 border-gray-300 text-gray-500'
+                          }`}
+                        >
+                          <div className="text-center">
+                            <p className="text-2xl font-bold mb-0.5">{table.table_number}</p>
+                            <p className="text-xs">{table.is_active ? occupancy === 'to_collect' ? '💳 Por cobrar' : occupancy === 'verification' ? '⏳ Verificando' : '✓ Disponible' : '✗ Inactiva'}</p>
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -298,6 +310,11 @@ const TablesSlide: React.FC<TablesSlideProps> = ({
 
       {/* Footer hint - Compacto */}
       <div className="flex-shrink-0 p-2 text-center bg-white border-t border-gray-200">
+        <div className="mb-1 flex justify-center gap-3 text-[10px] font-semibold">
+          <span className="text-red-700">● Por cobrar</span>
+          <span className="text-amber-700">● Verificando</span>
+          <span className="text-green-700">● Disponible</span>
+        </div>
         <p className="text-xs text-gray-500">Selecciona una opción para continuar →</p>
       </div>
 

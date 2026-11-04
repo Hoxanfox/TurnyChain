@@ -125,6 +125,24 @@ export const useWaiterWebSocket = (
           }
           break;
 
+        case 'PAYMENT_ALREADY_PAID': {
+          const paidPayload = message.payload || {};
+          if (paidPayload.order) {
+            dispatch(orderUpdated(paidPayload.order as Order));
+          }
+          onNotificationRef.current?.({
+            title: '⚠️ Pago ya registrado',
+            message: paidPayload.message || `La comanda de la mesa ${paidPayload.table_number || ''} ya fue pagada.`,
+            type: 'warning',
+            orderId: paidPayload.order_id,
+          });
+          playNotificationSound();
+          if (paidPayload.order_id) {
+            scheduleOrdersRefresh(paidPayload.order_id, { force: true });
+          }
+          break;
+        }
+
         case 'SOLD_OUT_TOGGLED':
           if (message.payload.type === 'menu') {
             dispatch(setSoldOutMenuId({ id: message.payload.id, isSoldOut: message.payload.isSoldOut }));

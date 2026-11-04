@@ -45,6 +45,8 @@ type orderService struct {
 	cashRegisterRepo     repository.CashRegisterRepository
 }
 
+var ErrOrderAlreadyPaid = errors.New("la orden ya está pagada")
+
 func NewOrderService(
 	orderRepo repository.OrderRepository,
 	tableRepo repository.TableRepository,
@@ -565,6 +567,10 @@ func (s *orderService) AddPaymentProof(orderID, userID uuid.UUID, method string,
 	if method != "transferencia" && method != "efectivo" {
 		return nil, errors.New("método de pago inválido")
 	}
+	if err := s.ensureOrderCanReceivePayment(orderID); err != nil {
+		if errors.Is(err, ErrOrderAlreadyPaid) { s.notifyAlreadyPaid(orderID, userID) }
+		return nil, err
+	}
 
 	log.Printf("📤 [Backend] Recibiendo comprobante para orden %s", orderID.String())
 	log.Printf("   - Método: %s", method)
@@ -602,6 +608,10 @@ func (s *orderService) AddPaymentProof(orderID, userID uuid.UUID, method string,
 func (s *orderService) AddSplitPayments(orderID, userID uuid.UUID, payments []domain.Payment) (*domain.Order, error) {
 	if len(payments) == 0 {
 		return nil, errors.New("no payments provided")
+	}
+	if err := s.ensureOrderCanReceivePayment(orderID); err != nil {
+		if errors.Is(err, ErrOrderAlreadyPaid) { s.notifyAlreadyPaid(orderID, userID) }
+		return nil, err
 	}
 
 	log.Printf("📤 [Backend] Recibiendo pagos divididos para orden %s", orderID.String())
@@ -643,6 +653,25 @@ func (s *orderService) AddSplitPayments(orderID, userID uuid.UUID, payments []do
 	log.Printf("📡 [Backend] Notificación 'PAYMENT_VERIFICATION_PENDING' enviada a cajeros para orden %s", orderID.String())
 
 	return order, nil
+}
+
+func (s *orderService) ensureOrderCanReceivePayment(orderID uuid.UUID) error {
+	order, err := s.orderRepo.GetOrderByID(orderID)
+	if err != nil { return err }
+	if order.Status == "pagado" { return ErrOrderAlreadyPaid }
+	return nil
+}
+
+func (s *orderService) notifyAlreadyPaid(orderID, targetUserID uuid.UUID) {
+	order, err := s.orderRepo.GetOrderByID(orderID)
+	if err != nil { return }
+	s.wsHub.BroadcastToUser(targetUserID.String(), "PAYMENT_ALREADY_PAID", map[string]interface{}{
+		"order_id": order.ID.String(),
+		"table_number": order.TableNumber,
+		"status": order.Status,
+		"message": "Esta comanda ya fue pagada. No se registró un nuevo pago.",
+		"order": order,
+	})
 }
 
 func (s *orderService) GetWaiterApprovedStats(userRole string, start time.Time, end time.Time, groupBy string) ([]domain.WaiterApprovedStat, error) {

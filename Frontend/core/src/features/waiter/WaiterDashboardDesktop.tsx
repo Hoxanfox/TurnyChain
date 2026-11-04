@@ -47,6 +47,7 @@ import DeliveryInfoModal from './components/DeliveryInfoModal';
 import toast, { Toaster } from 'react-hot-toast';
 import { useWaiterGamification } from './hooks/useWaiterGamification';
 import './styles/Gamification.css';
+import { getTableOccupancyStatus } from './utils/tableOccupancy';
 
 interface WaiterDashboardDesktopProps {
   sendMessage?: (type: string, payload: any) => void;
@@ -64,7 +65,7 @@ const WaiterDashboardDesktop: React.FC<WaiterDashboardDesktopProps> = ({
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
   const { tables } = useSelector((state: RootState) => state.tables);
-  const { createOrderStatus, myOrders } = useSelector((state: RootState) => state.orders);
+  const { createOrderStatus, myOrders, activeOrders } = useSelector((state: RootState) => state.orders);
   const { token, user } = useSelector((state: RootState) => state.auth);
   const { status } = useSelector((state: RootState) => state.tables);
 
@@ -782,22 +783,30 @@ const WaiterDashboardDesktop: React.FC<WaiterDashboardDesktopProps> = ({
                 <div className="flex-grow overflow-y-auto pr-1">
                   <div className="grid grid-cols-2 gap-2">
                     {tables.filter(t => t.table_number < 9998).map(table => (
-                      <button
+                      (() => {
+                        const occupancy = getTableOccupancyStatus(activeOrders, table.table_number);
+                        return <button
                         key={table.id}
                         onClick={() => setTableId(table.id)}
+                        title={occupancy === 'available' ? 'Mesa disponible' : occupancy === 'to_collect' ? 'Tiene cuenta por cobrar' : 'Pago en verificación'}
                         className={`p-3 rounded-lg shadow-md transition-all ${
                           tableId === table.id
                             ? 'bg-indigo-600 text-white shadow-lg scale-105'
-                            : table.is_active
+                              : occupancy === 'to_collect'
+                                ? 'bg-red-50 border-2 border-red-300 text-red-700 hover:bg-red-100'
+                              : occupancy === 'verification'
+                                ? 'bg-amber-50 border-2 border-amber-300 text-amber-700 hover:bg-amber-100'
+                              : table.is_active
                               ? 'bg-white border-2 border-green-200 text-green-700 hover:bg-green-50'
                               : 'bg-gray-100 border-2 border-gray-300 text-gray-500'
                         }`}
                       >
                         <div className="text-center">
                           <p className="text-xl font-bold mb-0.5">{table.table_number}</p>
-                          <p className="text-xs">{table.is_active ? '✓' : '✗'}</p>
+                          <p className="text-xs">{table.is_active ? occupancy === 'to_collect' ? '💳 Por cobrar' : occupancy === 'verification' ? '⏳ Verificando' : '✓ Disponible' : '✗ Inactiva'}</p>
                         </div>
-                      </button>
+                        </button>;
+                      })()
                     ))}
                   </div>
                 </div>

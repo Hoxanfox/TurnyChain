@@ -2,7 +2,10 @@
 // TableMapModal — Modal interno del CartSlide (absolute, no fixed)
 // =================================================================
 import React, { useState, useMemo } from 'react';
+import { useSelector } from 'react-redux';
 import type { Table } from '../../../types/tables';
+import type { RootState } from '../../../app/store';
+import { getTableOccupancyStatus } from '../utils/tableOccupancy';
 
 interface TableMapModalProps {
   isOpen: boolean;
@@ -20,6 +23,7 @@ const TableMapModal: React.FC<TableMapModalProps> = ({
   onSelectTable,
 }) => {
   const [search, setSearch] = useState('');
+  const activeOrders = useSelector((state: RootState) => state.orders.activeOrders);
 
   const realTables = useMemo(
     () =>
@@ -132,6 +136,10 @@ const TableMapModal: React.FC<TableMapModalProps> = ({
                     transition-all duration-150 shadow-sm
                     ${isSelected
                       ? 'bg-indigo-600 text-white shadow-md ring-2 ring-indigo-300 scale-105'
+                      : getTableOccupancyStatus(activeOrders, table.table_number) === 'to_collect'
+                      ? 'bg-red-50 text-red-700 border-2 border-red-300 hover:bg-red-100 hover:text-red-800'
+                      : getTableOccupancyStatus(activeOrders, table.table_number) === 'verification'
+                      ? 'bg-amber-50 text-amber-700 border-2 border-amber-300 hover:bg-amber-100 hover:text-amber-800'
                       : isActive
                       ? 'bg-white text-gray-800 border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 active:scale-95'
                       : 'bg-gray-100 text-gray-300 cursor-not-allowed'
@@ -146,6 +154,8 @@ const TableMapModal: React.FC<TableMapModalProps> = ({
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                     </svg>
                   )}
+                  {!isSelected && getTableOccupancyStatus(activeOrders, table.table_number) === 'to_collect' && <span className="text-[10px] leading-none">Por cobrar</span>}
+                  {!isSelected && getTableOccupancyStatus(activeOrders, table.table_number) === 'verification' && <span className="text-[10px] leading-none">Verificando</span>}
                   {!isActive && (
                     <span className="text-xs font-normal leading-none">inactiva</span>
                   )}
@@ -167,6 +177,14 @@ const TableMapModal: React.FC<TableMapModalProps> = ({
             <span className="flex items-center gap-1.5">
               <span className="w-3 h-3 rounded bg-indigo-600 inline-block"></span>
               Seleccionada
+            </span>
+            <span className="flex items-center gap-1.5 text-red-700">
+              <span className="w-3 h-3 rounded bg-red-100 border border-red-300 inline-block"></span>
+              Por cobrar
+            </span>
+            <span className="flex items-center gap-1.5 text-amber-700">
+              <span className="w-3 h-3 rounded bg-amber-100 border border-amber-300 inline-block"></span>
+              Verificando
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-3 h-3 rounded bg-gray-100 border border-gray-200 inline-block"></span>

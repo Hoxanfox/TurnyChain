@@ -103,6 +103,10 @@ const WaiterDashboard: React.FC = () => {
                       options.message.toLowerCase().includes('pago') ||
                       options.title.toLowerCase().includes('cobro');
 
+    if (options.title.toLowerCase().includes('pago ya registrado')) {
+      toast.error(options.message, { duration: 5000 });
+    }
+
     if (isPayment) {
       setHasWsNotification(true);
       setLastWsNotification(options.message || options.title);
