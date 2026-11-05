@@ -15,6 +15,10 @@ RUN npm install
 # Copiamos el resto del código fuente
 COPY . .
 
+# Vite necesita la variable durante la compilación, no al iniciar Nginx.
+ARG VITE_API_URL=/api
+ENV VITE_API_URL=$VITE_API_URL
+
 # Construimos la aplicación para producción
 RUN npm run build
 

@@ -280,10 +280,10 @@ INSERT INTO stations (id, name, description) VALUES
 
 -- Insertar impresoras de ejemplo
 INSERT INTO printers (id, name, ip_address, port, printer_type, station_id) VALUES
-('p01e6f2b-2250-4630-8a2e-8a3d2a1f9e01', 'Impresora Cocina 1', '192.168.1.101', 9100, 'escpos', 'e01e6f2b-2250-4630-8a2e-8a3d2a1f9d01'),
-('p02e6f2b-2250-4630-8a2e-8a3d2a1f9e02', 'Impresora Bar 1', '192.168.1.102', 9100, 'escpos', 'e02e6f2b-2250-4630-8a2e-8a3d2a1f9d02'),
-('p03e6f2b-2250-4630-8a2e-8a3d2a1f9e03', 'Impresora Parrilla 1', '192.168.1.103', 9100, 'escpos', 'e03e6f2b-2250-4630-8a2e-8a3d2a1f9d03'),
-('p04e6f2b-2250-4630-8a2e-8a3d2a1f9e04', 'Impresora Postres 1', '192.168.1.104', 9100, 'escpos', 'e04e6f2b-2250-4630-8a2e-8a3d2a1f9d04');
+('a01e6f2b-2250-4630-8a2e-8a3d2a1f9e01', 'Impresora Cocina 1', '192.168.1.101', 9100, 'escpos', 'e01e6f2b-2250-4630-8a2e-8a3d2a1f9d01'),
+('a02e6f2b-2250-4630-8a2e-8a3d2a1f9e02', 'Impresora Bar 1', '192.168.1.102', 9100, 'escpos', 'e02e6f2b-2250-4630-8a2e-8a3d2a1f9d02'),
+('a03e6f2b-2250-4630-8a2e-8a3d2a1f9e03', 'Impresora Parrilla 1', '192.168.1.103', 9100, 'escpos', 'e03e6f2b-2250-4630-8a2e-8a3d2a1f9d03'),
+('a04e6f2b-2250-4630-8a2e-8a3d2a1f9e04', 'Impresora Postres 1', '192.168.1.104', 9100, 'escpos', 'e04e6f2b-2250-4630-8a2e-8a3d2a1f9d04');
 
 -- Insertar categorías, ingredientes y acompañantes con UUIDs válidos
 INSERT INTO categories (id, name, station_id) VALUES
