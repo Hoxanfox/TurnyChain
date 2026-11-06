@@ -4,6 +4,7 @@
 // =================================================================
 import { useEffect, useRef } from 'react';
 import { useDispatch } from 'react-redux';
+import { stockUpdated } from '../features/admin/components/menu/api/menuSlice.ts';
 import { orderUpdated, fetchActiveOrders } from '../features/shared/orders/api/ordersSlice';
 import { logout } from '../features/auth/authSlice';
 import type { AppDispatch } from '../app/store';
@@ -69,6 +70,12 @@ export const useCashierWebSocket = (
     const handleWebSocketMessage = (message: WebSocketMessage) => {
       if (onMessageRef.current) {
         onMessageRef.current(message);
+      }
+
+      if (message.type === 'STOCK_UPDATED') {
+        dispatch(stockUpdated(message.payload as Array<{ id: string; quantity: number }>));
+        window.dispatchEvent(new Event('stock_updated'));
+        return;
       }
 
       switch (message.type) {
@@ -365,4 +372,3 @@ export const useCashierWebSocket = (
 
   return ws.current;
 };
-

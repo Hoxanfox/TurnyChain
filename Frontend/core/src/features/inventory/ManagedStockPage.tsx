@@ -30,7 +30,11 @@ const ManagedStockPage: React.FC = () => {
     }
   };
 
-  useEffect(() => { void load(); }, [token]);
+  useEffect(() => {
+    void load();
+    window.addEventListener('stock_updated', load);
+    return () => window.removeEventListener('stock_updated', load);
+  }, [token]);
 
   const filteredItems = useMemo(() => {
     const term = search.trim().toLowerCase();

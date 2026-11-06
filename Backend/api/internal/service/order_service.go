@@ -480,10 +480,28 @@ func (s *orderService) EditOrder(orderID, userID uuid.UUID, userRole string, edi
 func (s *orderService) UpdateOrderStatus(orderID, userID uuid.UUID, newStatus string) (*domain.Order, error) {
 	log.Printf("📊 [Service] Actualizando orden %s a estado '%s'", orderID.String(), newStatus)
 
+	previousOrder, err := s.orderRepo.GetOrderByID(orderID)
+	if err != nil {
+		log.Printf("❌ [Service] No se pudo consultar el estado anterior: %v", err)
+		return nil, err
+	}
+
 	updatedOrder, err := s.orderRepo.UpdateOrderStatus(orderID, userID, newStatus)
 	if err != nil {
 		log.Printf("❌ [Service] Error actualizando estado: %v", err)
 		return nil, err
+	}
+
+	if newStatus == "cancelado" && previousOrder.Status != "cancelado" {
+		if err := s.stockRepo.Restore(previousOrder.Items); err != nil {
+			log.Printf("❌ [Service] No se pudieron devolver existencias de la orden cancelada %s: %v", orderID.String(), err)
+			return nil, fmt.Errorf("orden cancelada, pero no se pudieron devolver sus existencias: %w", err)
+		}
+		if stockItems, stockErr := s.stockRepo.GetItems(); stockErr == nil {
+			s.wsHub.BroadcastMessage("STOCK_UPDATED", stockItems)
+		} else {
+			log.Printf("⚠️ [Service] No se pudo publicar el inventario actualizado: %v", stockErr)
+		}
 	}
 
 	// --- INCREMENTAR ORDER_COUNT CUANDO SE APRUEBA LA ORDEN ---

@@ -85,10 +85,10 @@ export const useWaiterWebSocket = (
         }
       }, force ? 120 : 250);
     };
-
     const handleWebSocketMessage = (message: WebSocketMessage) => {
       if (message.type === 'STOCK_UPDATED') {
         dispatch(stockUpdated(message.payload as Array<{ id: string; quantity: number }>));
+        window.dispatchEvent(new Event('stock_updated'));
         return;
       }
 
