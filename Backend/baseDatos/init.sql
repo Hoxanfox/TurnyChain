@@ -41,6 +41,7 @@ CREATE TABLE "inventory_receipts" (
 CREATE TABLE "inventory_receipt_lines" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   "receipt_id" uuid NOT NULL REFERENCES "inventory_receipts"("id") ON DELETE CASCADE,
+  "menu_item_id" uuid NULL,
   "item_name" varchar(255) NOT NULL,
   "quantity" numeric(14, 3) NOT NULL CHECK (quantity > 0),
   "unit" varchar(10) NOT NULL CHECK (unit IN ('kg', 'g', 'lb', 'unidad', 'caja')),
@@ -145,7 +146,9 @@ CREATE TABLE "menu_items" (
   "category_id" uuid NOT NULL REFERENCES "categories"("id"),
   "is_available" boolean NOT NULL DEFAULT true,
   "order_count" integer NOT NULL DEFAULT 0,
-  "stock_quantity" numeric(14, 3) NOT NULL DEFAULT 0 CHECK (stock_quantity >= 0)
+  "stock_quantity" numeric(14, 3) NOT NULL DEFAULT 0 CHECK (stock_quantity >= 0),
+  "warehouse_quantity" numeric(14, 3) NOT NULL DEFAULT 0 CHECK (warehouse_quantity >= 0),
+  "display_quantity" numeric(14, 3) NOT NULL DEFAULT 0 CHECK (display_quantity >= 0)
 );
 
 

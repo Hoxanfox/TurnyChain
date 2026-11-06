@@ -73,7 +73,7 @@ export const useCashierWebSocket = (
       }
 
       if (message.type === 'STOCK_UPDATED') {
-        dispatch(stockUpdated(message.payload as Array<{ id: string; quantity: number }>));
+        dispatch(stockUpdated(message.payload as Array<{ id: string; quantity: number; warehouse_quantity: number; display_quantity: number }>));
         window.dispatchEvent(new Event('stock_updated'));
         return;
       }

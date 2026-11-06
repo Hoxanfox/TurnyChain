@@ -357,6 +357,10 @@ func applyCashRegisterMigrations(db *sql.DB) error {
 		END $$`,
 		`ALTER TABLE categories ADD COLUMN IF NOT EXISTS tracks_stock boolean NOT NULL DEFAULT false`,
 		`ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS stock_quantity numeric(14, 3) NOT NULL DEFAULT 0`,
+		`ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS warehouse_quantity numeric(14, 3) NOT NULL DEFAULT 0`,
+		`ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS display_quantity numeric(14, 3) NOT NULL DEFAULT 0`,
+		`UPDATE menu_items SET warehouse_quantity = stock_quantity
+			WHERE warehouse_quantity = 0 AND display_quantity = 0 AND stock_quantity > 0`,
 	}
 
 	for _, stmt := range statements {
@@ -419,6 +423,7 @@ func applyInventoryReceiptMigrations(db *sql.DB) error {
 			unit_cost numeric(14, 2) NOT NULL CHECK (unit_cost >= 0),
 			line_total numeric(14, 2) NOT NULL CHECK (line_total >= 0)
 		)`,
+		`ALTER TABLE inventory_receipt_lines ADD COLUMN IF NOT EXISTS menu_item_id uuid REFERENCES menu_items(id)`,
 		`CREATE TABLE IF NOT EXISTS inventory_stock (
 			item_name varchar(255) NOT NULL,
 			unit varchar(10) NOT NULL CHECK (unit IN ('kg', 'g', 'lb', 'unidad', 'caja')),

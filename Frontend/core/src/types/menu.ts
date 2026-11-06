@@ -21,6 +21,8 @@ export interface MenuItem {
   order_count?: number; // Contador de veces que se ha pedido (para popularidad)
   stock_quantity: number;
   tracks_stock: boolean;
+  warehouse_quantity: number;
+  display_quantity: number;
 }
 
 // Nuevo tipo para los ítems en el carrito, que pueden tener personalizaciones
