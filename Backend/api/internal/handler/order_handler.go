@@ -12,6 +12,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -194,6 +195,9 @@ func (h *OrderHandler) CreateOrder(c *fiber.Ctx) error {
 
 	order, err := h.orderService.CreateOrder(waiterID, payload.TableNumber, payload.OrderType, payload.CustomerName, payload.DeliveryAddress, payload.DeliveryPhone, payload.DeliveryNotes, payload.Items, payload.ParentOrderID)
 	if err != nil {
+		if strings.Contains(err.Error(), "existencias suficientes") || strings.Contains(err.Error(), "producto no existe") {
+			return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": err.Error()})
+		}
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 	h.markCreateCompleted(createKey, order.ID)
@@ -660,6 +664,9 @@ func (h *OrderHandler) CreateOrderWithPayment(c *fiber.Ctx) error {
 	// 4. Crear la orden primero
 	order, err := h.orderService.CreateOrder(waiterID, payload.TableNumber, payload.OrderType, payload.CustomerName, payload.DeliveryAddress, payload.DeliveryPhone, payload.DeliveryNotes, payload.Items, payload.ParentOrderID)
 	if err != nil {
+		if strings.Contains(err.Error(), "existencias suficientes") || strings.Contains(err.Error(), "producto no existe") {
+			return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": err.Error()})
+		}
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 

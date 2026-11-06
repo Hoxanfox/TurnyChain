@@ -12,6 +12,7 @@ type MenuItem struct {
 	Price          float64         `json:"price" db:"price"`
 	CategoryID     uuid.UUID       `json:"category_id" db:"category_id"`
 	CategoryName   string          `json:"category_name" db:"category_name"`
+	TracksStock    bool            `json:"tracks_stock" db:"tracks_stock"`
 	IsAvailable    bool            `json:"is_available" db:"is_available"`
 	OrderCount     int             `json:"order_count" db:"order_count"`
 	StockQuantity  float64         `json:"stock_quantity" db:"stock_quantity"`

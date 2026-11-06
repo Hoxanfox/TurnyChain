@@ -198,6 +198,9 @@ const MenuDisplay: React.FC<MenuDisplayProps> = ({ onAddToCart }) => {
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                 {filteredAndSortedItems.map(item => {
                   const isSoldOut = soldOutMenuIds?.includes(item.id);
+                  const isStockManaged = item.tracks_stock === true;
+                  const isStockEmpty = isStockManaged && item.stock_quantity <= 0;
+                  const isUnavailable = isSoldOut || isStockEmpty;
                   const hasMissingAcc = item.accompaniments?.some(acc => soldOutAccompanimentIds?.includes(acc.id));
                   const hasMissingIng = item.ingredients?.some(ing => soldOutIngredientIds?.includes(ing.id));
                   const isPartiallySoldOut = !isSoldOut && (hasMissingAcc || hasMissingIng);
@@ -205,10 +208,12 @@ const MenuDisplay: React.FC<MenuDisplayProps> = ({ onAddToCart }) => {
                   return (
                     <button
                       key={item.id}
-                      onClick={() => !isSoldOut && onAddToCart(item)}
-                      disabled={isSoldOut}
+                      onClick={() => !isUnavailable && onAddToCart(item)}
+                      disabled={isUnavailable}
                       className={`relative p-4 border rounded-xl shadow-sm text-left transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
-                        isSoldOut 
+                        isStockEmpty
+                          ? 'bg-purple-50 border-purple-500 opacity-80 cursor-not-allowed'
+                          : isSoldOut
                           ? 'bg-red-50 border-red-500 opacity-75 cursor-not-allowed' 
                           : isPartiallySoldOut
                           ? 'bg-yellow-50 border-yellow-400 hover:shadow-lg hover:bg-yellow-100 hover:border-yellow-500'
@@ -216,13 +221,17 @@ const MenuDisplay: React.FC<MenuDisplayProps> = ({ onAddToCart }) => {
                       }`}
                     >
                       {/* Badge de item popular */}
-                      {isPopular(item) && !isSoldOut && !isPartiallySoldOut && (
+                      {isPopular(item) && !isUnavailable && !isPartiallySoldOut && (
                         <div className="absolute -top-2 -right-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-lg flex items-center gap-1 z-10">
                           ⭐ Popular
                         </div>
                       )}
                       {/* Badge de agotado total o parcial */}
-                      {isSoldOut ? (
+                      {isStockEmpty ? (
+                        <div className="absolute top-2 right-2 bg-purple-700 text-white text-[10px] font-black px-2 py-0.5 rounded-sm shadow z-10">
+                          AGOTADO
+                        </div>
+                      ) : isSoldOut ? (
                         <div className="absolute top-2 right-2 bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-sm shadow z-10 animate-pulse">
                           AGOTADO
                         </div>
@@ -231,15 +240,20 @@ const MenuDisplay: React.FC<MenuDisplayProps> = ({ onAddToCart }) => {
                           PARCIAL
                         </div>
                       ) : null}
-                      <p className={`font-bold text-sm mb-1 line-clamp-2 pr-2 min-h-[2.5rem] ${isSoldOut ? 'text-red-800' : isPartiallySoldOut ? 'text-yellow-800' : 'text-gray-900'}`}>
+                      <p className={`font-bold text-sm mb-1 line-clamp-2 pr-2 min-h-[2.5rem] ${isStockEmpty ? 'text-purple-900' : isSoldOut ? 'text-red-800' : isPartiallySoldOut ? 'text-yellow-800' : 'text-gray-900'}`}>
                         {item.name}
                       </p>
                       {item.description && (
-                        <p className={`text-xs mb-2 line-clamp-2 ${isSoldOut ? 'text-red-600' : isPartiallySoldOut ? 'text-yellow-700' : 'text-gray-600'}`}>
+                        <p className={`text-xs mb-2 line-clamp-2 ${isStockEmpty ? 'text-purple-700' : isSoldOut ? 'text-red-600' : isPartiallySoldOut ? 'text-yellow-700' : 'text-gray-600'}`}>
                           {item.description}
                         </p>
                       )}
-                      <p className={`text-lg font-bold mt-auto ${isSoldOut ? 'text-red-700' : isPartiallySoldOut ? 'text-yellow-800' : 'text-indigo-700'}`}>
+                      {isStockManaged && (
+                        <p className="mb-1 text-xs font-black text-purple-700">
+                          Existencias: {item.stock_quantity.toLocaleString('es-CO', { maximumFractionDigits: 3 })}
+                        </p>
+                      )}
+                      <p className={`text-lg font-bold mt-auto ${isStockEmpty ? 'text-purple-800' : isSoldOut ? 'text-red-700' : isPartiallySoldOut ? 'text-yellow-800' : 'text-indigo-700'}`}>
                         ${item.price.toLocaleString('es-CO')}
                       </p>
                     </button>
@@ -267,5 +281,3 @@ const MenuDisplay: React.FC<MenuDisplayProps> = ({ onAddToCart }) => {
 };
 
 export default MenuDisplay;
-
-

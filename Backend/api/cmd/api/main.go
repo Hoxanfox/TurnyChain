@@ -102,7 +102,7 @@ func main() {
 	menuService := service.NewMenuService(menuRepo, wsHub)
 
 	kitchenTicketService := service.NewKitchenTicketService(orderRepo, printerRepo, stationRepo, wsHub, menuRepo)
-	orderService := service.NewOrderService(orderRepo, tableRepo, menuRepo, ingredientRepo, accompanimentRepo, wsHub, blockchainService, kitchenTicketService, cashRegisterRepo)
+	orderService := service.NewOrderService(orderRepo, tableRepo, menuRepo, ingredientRepo, accompanimentRepo, wsHub, blockchainService, kitchenTicketService, cashRegisterRepo, stockRepo)
 	invoiceService := service.NewInvoiceService(orderRepo)
 	inventoryReceiptService := service.NewInventoryReceiptService(inventoryReceiptRepo)
 	supplierInvoiceService := service.NewSupplierInvoiceService(supplierInvoiceRepo)
@@ -118,7 +118,7 @@ func main() {
 	bankTransferService := service.NewBankTransferService(bankTransferRepo)
 	employeeService := service.NewEmployeeService(employeeRepo)
 	attendanceService := service.NewAttendanceService(attendanceRepo, employeeRepo)
-	stockService := service.NewStockService(stockRepo)
+	stockService := service.NewStockService(stockRepo, wsHub)
 
 	// Handlers
 	userHandler := handler.NewUserHandler(userService)

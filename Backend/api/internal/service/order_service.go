@@ -43,6 +43,7 @@ type orderService struct {
 	blockchain           BlockchainService
 	kitchenTicketService *KitchenTicketService
 	cashRegisterRepo     repository.CashRegisterRepository
+	stockRepo            repository.StockRepository
 }
 
 var ErrOrderAlreadyPaid = errors.New("la orden ya está pagada")
@@ -57,6 +58,7 @@ func NewOrderService(
 	bc BlockchainService,
 	kitchenTicketService *KitchenTicketService,
 	cashRegisterRepo repository.CashRegisterRepository,
+	stockRepo repository.StockRepository,
 ) OrderService {
 	return &orderService{
 		orderRepo:            orderRepo,
@@ -68,6 +70,7 @@ func NewOrderService(
 		blockchain:           bc,
 		kitchenTicketService: kitchenTicketService,
 		cashRegisterRepo:     cashRegisterRepo,
+		stockRepo:            stockRepo,
 	}
 }
 
@@ -75,6 +78,16 @@ func (s *orderService) CreateOrder(waiterID uuid.UUID, tableNumber int, orderTyp
 	if len(items) == 0 {
 		return nil, errors.New("la orden no puede estar vacía")
 	}
+
+	if err := s.stockRepo.Reserve(items); err != nil {
+		return nil, err
+	}
+	stockReserved := true
+	defer func() {
+		if stockReserved {
+			_ = s.stockRepo.Restore(items)
+		}
+	}()
 
 	var parentOrder *domain.Order
 	if parentOrderID != nil {
@@ -220,6 +233,10 @@ func (s *orderService) CreateOrder(waiterID uuid.UUID, tableNumber int, orderTyp
 	createdOrder, err := s.orderRepo.CreateOrder(order)
 	if err != nil {
 		return nil, err
+	}
+	stockReserved = false
+	if stockItems, stockErr := s.stockRepo.GetItems(); stockErr == nil {
+		s.wsHub.BroadcastMessage("STOCK_UPDATED", stockItems)
 	}
 
 	// =================================================================

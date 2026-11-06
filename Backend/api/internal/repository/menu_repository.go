@@ -71,7 +71,7 @@ func (r *menuRepository) CreateMenuItem(item *domain.MenuItem, ingredientIDs, ac
 // GetMenuItems ahora obtiene los ítems y sus relaciones, incluyendo category_name y order_count
 func (r *menuRepository) GetMenuItems() ([]domain.MenuItem, error) {
 	query := `SELECT m.id, m.name, m.description, m.price, m.category_id, c.name as category_name, 
-	          m.is_available, m.order_count, m.stock_quantity
+	          m.is_available, m.order_count, m.stock_quantity, c.tracks_stock
 	          FROM menu_items m 
 	          JOIN categories c ON m.category_id = c.id 
 	          WHERE m.is_available = true 
@@ -88,7 +88,7 @@ func (r *menuRepository) GetMenuItems() ([]domain.MenuItem, error) {
 	for rows.Next() {
 		var item domain.MenuItem
 		if err := rows.Scan(&item.ID, &item.Name, &item.Description, &item.Price, &item.CategoryID,
-			&item.CategoryName, &item.IsAvailable, &item.OrderCount, &item.StockQuantity); err != nil {
+			&item.CategoryName, &item.IsAvailable, &item.OrderCount, &item.StockQuantity, &item.TracksStock); err != nil {
 			return nil, err
 		}
 		itemsMap[item.ID] = &item
@@ -252,7 +252,7 @@ func (r *menuRepository) IncrementOrderCount(itemID uuid.UUID) error {
 // getMenuItemByID es una función helper para obtener un menu item completo con todas sus relaciones
 func (r *menuRepository) getMenuItemByID(itemID uuid.UUID) (*domain.MenuItem, error) {
 	query := `SELECT m.id, m.name, m.description, m.price, m.category_id, c.name as category_name, 
-	          m.is_available, m.order_count, m.stock_quantity
+	          m.is_available, m.order_count, m.stock_quantity, c.tracks_stock
 	          FROM menu_items m 
 	          JOIN categories c ON m.category_id = c.id 
 	          WHERE m.id = $1`
@@ -260,7 +260,7 @@ func (r *menuRepository) getMenuItemByID(itemID uuid.UUID) (*domain.MenuItem, er
 	var item domain.MenuItem
 	err := r.db.QueryRow(query, itemID).Scan(
 		&item.ID, &item.Name, &item.Description, &item.Price, &item.CategoryID,
-		&item.CategoryName, &item.IsAvailable, &item.OrderCount, &item.StockQuantity,
+		&item.CategoryName, &item.IsAvailable, &item.OrderCount, &item.StockQuantity, &item.TracksStock,
 	)
 	if err != nil {
 		return nil, err

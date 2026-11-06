@@ -71,6 +71,12 @@ export const menuSlice = createSlice({
     menuItemRemoved: (state, action: PayloadAction<{ id: string }>) => {
       state.items = state.items.filter(item => item.id !== action.payload.id);
     },
+    stockUpdated: (state, action: PayloadAction<Array<{ id: string; quantity: number }>>) => {
+      const quantities = new Map(action.payload.map(item => [item.id, item.quantity]));
+      state.items = state.items.map(item => quantities.has(item.id)
+        ? { ...item, stock_quantity: quantities.get(item.id) ?? item.stock_quantity }
+        : item);
+    },
     setSoldOutMenuId: (state, action: PayloadAction<{ id: string, isSoldOut: boolean }>) => {
       const { id, isSoldOut } = action.payload;
       const index = state.soldOutMenuIds.indexOf(id);
@@ -144,5 +150,5 @@ export const menuSlice = createSlice({
 });
 
 // CORRECCIÓN: Exportamos las nuevas acciones.
-export const { menuItemAdded, menuItemUpdated, menuItemRemoved, setSoldOutMenuId, setSoldOutAccompanimentId, setSoldOutIngredientId, setSyncSoldOut } = menuSlice.actions;
+export const { menuItemAdded, menuItemUpdated, menuItemRemoved, stockUpdated, setSoldOutMenuId, setSoldOutAccompanimentId, setSoldOutIngredientId, setSyncSoldOut } = menuSlice.actions;
 export default menuSlice.reducer;

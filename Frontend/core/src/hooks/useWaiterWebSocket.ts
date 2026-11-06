@@ -5,7 +5,7 @@
 import { useEffect, useRef } from 'react';
 import { useDispatch } from 'react-redux';
 import { orderUpdated, fetchMyOrders, fetchActiveOrders } from '../features/shared/orders/api/ordersSlice';
-import { setSoldOutMenuId, setSoldOutAccompanimentId, setSoldOutIngredientId, setSyncSoldOut } from '../features/admin/components/menu/api/menuSlice.ts';
+import { setSoldOutMenuId, setSoldOutAccompanimentId, setSoldOutIngredientId, setSyncSoldOut, stockUpdated } from '../features/admin/components/menu/api/menuSlice.ts';
 import { logout } from '../features/auth/authSlice';
 import type { AppDispatch } from '../app/store';
 import type { Order } from '../types/orders';
@@ -87,6 +87,11 @@ export const useWaiterWebSocket = (
     };
 
     const handleWebSocketMessage = (message: WebSocketMessage) => {
+      if (message.type === 'STOCK_UPDATED') {
+        dispatch(stockUpdated(message.payload as Array<{ id: string; quantity: number }>));
+        return;
+      }
+
       switch (message.type) {
         case 'NEW_PENDING_ORDER': {
           const orderPayload = message.payload as Order | undefined;
@@ -421,4 +426,3 @@ export const useWaiterWebSocket = (
 
   return { sendMessage };
 };
-
