@@ -15,6 +15,7 @@ func NewCategoryHandler(s service.CategoryService) *CategoryHandler { return &Ca
 type CategoryPayload struct {
 	Name      string  `json:"name"`
 	StationID *string `json:"station_id,omitempty"`
+	TracksStock bool  `json:"tracks_stock"`
 }
 
 func (h *CategoryHandler) Create(c *fiber.Ctx) error {
@@ -28,7 +29,7 @@ func (h *CategoryHandler) Create(c *fiber.Ctx) error {
 		stationID = &sid
 	}
 
-	cat, err := h.service.Create(payload.Name, stationID)
+	cat, err := h.service.Create(payload.Name, stationID, payload.TracksStock)
 	if err != nil { return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not create category"}) }
 	return c.Status(fiber.StatusCreated).JSON(cat)
 }
@@ -52,7 +53,7 @@ func (h *CategoryHandler) Update(c *fiber.Ctx) error {
 		stationID = &sid
 	}
 
-	cat, err := h.service.Update(id, payload.Name, stationID)
+	cat, err := h.service.Update(id, payload.Name, stationID, payload.TracksStock)
 	if err != nil { return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not update category"}) }
 	return c.JSON(cat)
 }

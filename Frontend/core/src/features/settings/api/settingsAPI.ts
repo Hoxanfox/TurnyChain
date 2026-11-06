@@ -8,13 +8,15 @@ export interface Setting {
   updated_at: string;
 }
 
+const auth = (token: string) => ({ headers: { Authorization: `Bearer ${token}` } });
+
 export const settingsAPI = {
-  getSettings: async () => {
+  getSettings: async (): Promise<Setting[]> => {
     const response = await axios.get(`${API_URL}/settings`);
     return response.data as Setting[];
   },
 
-  getSetting: async (key: string) => {
+  getSetting: async (key: string): Promise<Setting | null> => {
     try {
       const response = await axios.get(`${API_URL}/settings/${key}`);
       return response.data as Setting;
@@ -28,31 +30,17 @@ export const settingsAPI = {
     const formData = new FormData();
     formData.append('key', key);
     formData.append('image', file);
-
-    const response = await axios.post(`${API_URL}/settings/upload-image`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-        'Authorization': `Bearer ${token}`
-      },
-    });
-    return response.data;
+    const response = await axios.post(`${API_URL}/settings/upload-image`, formData, auth(token));
+    return response.data as { url: string };
   },
 
   verifyPassword: async (password: string, token: string) => {
-    const response = await axios.post(`${API_URL}/auth/verify-password`, { password }, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
+    const response = await axios.post(`${API_URL}/auth/verify-password`, { password }, auth(token));
     return response.data;
   },
 
   updateSetting: async (key: string, value: string, token: string) => {
-    const response = await axios.post(`${API_URL}/settings`, { key, value }, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
+    const response = await axios.post(`${API_URL}/settings`, { key, value }, auth(token));
     return response.data;
-  }
+  },
 };

@@ -10,4 +10,5 @@ type Category struct {
 	Name        string     `json:"name" db:"name"`
 	StationID   *uuid.UUID `json:"station_id,omitempty" db:"station_id"`
 	StationName *string    `json:"station_name,omitempty" db:"station_name"` // Join con stations (nullable)
+	TracksStock bool       `json:"tracks_stock" db:"tracks_stock"`
 }

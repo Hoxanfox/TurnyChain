@@ -19,6 +19,7 @@ export interface MenuItem {
   ingredients: Ingredient[];
   accompaniments: Accompaniment[];
   order_count?: number; // Contador de veces que se ha pedido (para popularidad)
+  stock_quantity: number;
 }
 
 // Nuevo tipo para los ítems en el carrito, que pueden tener personalizaciones

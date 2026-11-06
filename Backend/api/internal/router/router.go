@@ -11,7 +11,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *handler.UserHandler, menuHandler *handler.MenuHandler, orderHandler *handler.OrderHandler, invoiceHandler *handler.InvoiceHandler, inventoryReceiptHandler *handler.InventoryReceiptHandler, supplierInvoiceHandler *handler.SupplierInvoiceHandler, tableHandler *handler.TableHandler, categoryHandler *handler.CategoryHandler, ingredientHandler *handler.IngredientHandler, accompanimentHandler *handler.AccompanimentHandler, wsHandler *handler.WebSocketHandler, stationHandler *handler.StationHandler, printerHandler *handler.PrinterHandler, kitchenTicketHandler *handler.KitchenTicketHandler, backupHandler *handler.BackupHandler, cashRegisterHandler *handler.CashRegisterHandler, settingHandler *handler.SettingHandler, bankTransferHandler *handler.BankTransferHandler, sessionRepo repository.SessionRepository, cashRegisterRepo repository.CashRegisterRepository, employeeHandler *handler.EmployeeHandler, attendanceHandler *handler.AttendanceHandler) {
+func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *handler.UserHandler, menuHandler *handler.MenuHandler, orderHandler *handler.OrderHandler, invoiceHandler *handler.InvoiceHandler, inventoryReceiptHandler *handler.InventoryReceiptHandler, supplierInvoiceHandler *handler.SupplierInvoiceHandler, tableHandler *handler.TableHandler, categoryHandler *handler.CategoryHandler, ingredientHandler *handler.IngredientHandler, accompanimentHandler *handler.AccompanimentHandler, wsHandler *handler.WebSocketHandler, stationHandler *handler.StationHandler, printerHandler *handler.PrinterHandler, kitchenTicketHandler *handler.KitchenTicketHandler, backupHandler *handler.BackupHandler, cashRegisterHandler *handler.CashRegisterHandler, settingHandler *handler.SettingHandler, bankTransferHandler *handler.BankTransferHandler, sessionRepo repository.SessionRepository, cashRegisterRepo repository.CashRegisterRepository, employeeHandler *handler.EmployeeHandler, attendanceHandler *handler.AttendanceHandler, stockHandler *handler.StockHandler) {
 	// Ruta pública para WebSockets
 	app.Get("/ws", websocket.New(wsHandler.HandleConnection))
 
@@ -102,6 +102,9 @@ func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *
 	// Recepciones internas de mercancía. El mesero solo puede registrar recepciones.
 	inventory := protected.Group("/inventory")
 	inventory.Get("/stock", inventoryReceiptHandler.GetStock)
+	inventory.Get("/managed-stock", stockHandler.GetItems)
+	inventory.Put("/managed-stock/:id", middleware.RequireRole("cajero", "gerente", "admin"), stockHandler.SetQuantity)
+	inventory.Delete("/managed-stock/:id", middleware.RequireRole("cajero", "gerente", "admin"), stockHandler.DeleteQuantity)
 	inventoryReceipts := inventory.Group("/receipts")
 	inventoryReceipts.Get("/", inventoryReceiptHandler.GetAll)
 	inventoryReceipts.Post("/", middleware.RequireRole("mesero", "cajero", "gerente", "admin"), inventoryReceiptHandler.Create)

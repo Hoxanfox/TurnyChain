@@ -20,6 +20,7 @@ import CashierMetricsPage from './features/cashier/components/cashierDashboardMo
 import CashierInvoiceHistoryPage from './features/cashier/components/cashierDashboardMobile/pages/CashierInvoiceHistoryPage';
 import InventoryReceiptPage from './features/inventory/InventoryReceiptPage';
 import InventoryReceiptHistoryPage from './features/inventory/InventoryReceiptHistoryPage';
+import ManagedStockPage from './features/inventory/ManagedStockPage';
 import ManagerDashboard from './features/manager/ManagerDashboard';
 
 // Componente para gestionar la conexión WebSocket global
@@ -102,6 +103,7 @@ const App: React.FC = () => {
         <Route path="/cashier/take-order" element={<ProtectedRoute user={user}><WaiterDashboard /></ProtectedRoute>} />
         <Route path="/inventory/receipts/new" element={<ProtectedRoute user={user}><InventoryReceiptPage /></ProtectedRoute>} />
         <Route path="/inventory/receipts/history" element={<ProtectedRoute user={user}><InventoryReceiptHistoryPage /></ProtectedRoute>} />
+        <Route path="/inventory/managed-stock" element={<ProtectedRoute user={user}><ManagedStockPage /></ProtectedRoute>} />
         <Route path="*" element={<Navigate to={user ? "/dashboard" : "/login"} replace />} />
       </Routes>
     </Router>

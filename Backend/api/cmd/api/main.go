@@ -94,6 +94,7 @@ func main() {
 	bankTransferRepo := repository.NewBankTransferRepository(db)
 	employeeRepo := repository.NewEmployeeRepository(db)
 	attendanceRepo := repository.NewAttendanceRepository(db)
+	stockRepo := repository.NewStockRepository(db)
 
 	// Servicios
 	userService := service.NewUserService(userRepo, sessionRepo)
@@ -117,6 +118,7 @@ func main() {
 	bankTransferService := service.NewBankTransferService(bankTransferRepo)
 	employeeService := service.NewEmployeeService(employeeRepo)
 	attendanceService := service.NewAttendanceService(attendanceRepo, employeeRepo)
+	stockService := service.NewStockService(stockRepo)
 
 	// Handlers
 	userHandler := handler.NewUserHandler(userService)
@@ -140,6 +142,7 @@ func main() {
 	bankTransferHandler := handler.NewBankTransferHandler(bankTransferService, wsHub)
 	employeeHandler := handler.NewEmployeeHandler(employeeService)
 	attendanceHandler := handler.NewAttendanceHandler(attendanceService, wsHub)
+	stockHandler := handler.NewStockHandler(stockService)
 
 	// Iniciar IMAP Service en background
 	imapService := service.NewImapService(settingService, bankTransferHandler)
@@ -196,7 +199,7 @@ func main() {
 	app.Static("/api/static", uploadsDir)
 
 	// Setup router and pass the cash register repository to setup the middleware
-	router.SetupRoutes(app, authHandler, userHandler, menuHandler, orderHandler, invoiceHandler, inventoryReceiptHandler, supplierInvoiceHandler, tableHandler, categoryHandler, ingredientHandler, accompanimentHandler, wsHandler, stationHandler, printerHandler, kitchenTicketHandler, backupHandler, cashRegisterHandler, settingHandler, bankTransferHandler, sessionRepo, cashRegisterRepo, employeeHandler, attendanceHandler)
+	router.SetupRoutes(app, authHandler, userHandler, menuHandler, orderHandler, invoiceHandler, inventoryReceiptHandler, supplierInvoiceHandler, tableHandler, categoryHandler, ingredientHandler, accompanimentHandler, wsHandler, stationHandler, printerHandler, kitchenTicketHandler, backupHandler, cashRegisterHandler, settingHandler, bankTransferHandler, sessionRepo, cashRegisterRepo, employeeHandler, attendanceHandler, stockHandler)
 
 	// Alias explícitos para compatibilidad de rutas de impresión de cocina.
 	app.Post("/api/orders/:orderId/kitchen-tickets/print/caja", middleware.Protected(sessionRepo), kitchenTicketHandler.PrintGlobalCashTicket)
@@ -340,9 +343,20 @@ func applyCashRegisterMigrations(db *sql.DB) error {
 		`CREATE INDEX IF NOT EXISTS cash_register_expenses_session_id_idx ON cash_register_expenses (session_id)`,
 		`CREATE TABLE IF NOT EXISTS settings (
 			key varchar(50) PRIMARY KEY,
-			value text NOT NULL,
+			value jsonb NOT NULL,
 			updated_at timestamptz NOT NULL DEFAULT now()
 		)`,
+		`DO $$
+		BEGIN
+			IF EXISTS (
+				SELECT 1 FROM information_schema.columns
+				WHERE table_name = 'settings' AND column_name = 'value' AND data_type = 'text'
+			) THEN
+				ALTER TABLE settings ALTER COLUMN value TYPE jsonb USING to_jsonb(value);
+			END IF;
+		END $$`,
+		`ALTER TABLE categories ADD COLUMN IF NOT EXISTS tracks_stock boolean NOT NULL DEFAULT false`,
+		`ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS stock_quantity numeric(14, 3) NOT NULL DEFAULT 0`,
 	}
 
 	for _, stmt := range statements {

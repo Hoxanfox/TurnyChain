@@ -10,9 +10,9 @@ import (
 )
 
 type CategoryRepository interface {
-	Create(name string, stationID *uuid.UUID) (*domain.Category, error)
+	Create(name string, stationID *uuid.UUID, tracksStock bool) (*domain.Category, error)
 	GetAll() ([]domain.Category, error)
-	Update(id uuid.UUID, name string, stationID *uuid.UUID) (*domain.Category, error)
+	Update(id uuid.UUID, name string, stationID *uuid.UUID, tracksStock bool) (*domain.Category, error)
 	Delete(id uuid.UUID) error
 }
 
@@ -20,16 +20,16 @@ type categoryRepository struct{ db *sql.DB }
 
 func NewCategoryRepository(db *sql.DB) CategoryRepository { return &categoryRepository{db: db} }
 
-func (r *categoryRepository) Create(name string, stationID *uuid.UUID) (*domain.Category, error) {
-	cat := &domain.Category{ID: uuid.New(), Name: name, StationID: stationID}
-	query := "INSERT INTO categories (id, name, station_id) VALUES ($1, $2, $3) RETURNING id"
-	err := r.db.QueryRow(query, cat.ID, cat.Name, cat.StationID).Scan(&cat.ID)
+func (r *categoryRepository) Create(name string, stationID *uuid.UUID, tracksStock bool) (*domain.Category, error) {
+	cat := &domain.Category{ID: uuid.New(), Name: name, StationID: stationID, TracksStock: tracksStock}
+	query := "INSERT INTO categories (id, name, station_id, tracks_stock) VALUES ($1, $2, $3, $4) RETURNING id"
+	err := r.db.QueryRow(query, cat.ID, cat.Name, cat.StationID, cat.TracksStock).Scan(&cat.ID)
 	return cat, err
 }
 
 func (r *categoryRepository) GetAll() ([]domain.Category, error) {
 	query := `
-		SELECT c.id, c.name, c.station_id, s.name as station_name 
+		SELECT c.id, c.name, c.station_id, s.name as station_name, c.tracks_stock
 		FROM categories c
 		LEFT JOIN stations s ON s.id = c.station_id
 		ORDER BY c.name
@@ -44,7 +44,7 @@ func (r *categoryRepository) GetAll() ([]domain.Category, error) {
 	categories := make([]domain.Category, 0)
 	for rows.Next() {
 		var cat domain.Category
-		if err := rows.Scan(&cat.ID, &cat.Name, &cat.StationID, &cat.StationName); err != nil {
+		if err := rows.Scan(&cat.ID, &cat.Name, &cat.StationID, &cat.StationName, &cat.TracksStock); err != nil {
 			return nil, err
 		}
 		categories = append(categories, cat)
@@ -52,15 +52,15 @@ func (r *categoryRepository) GetAll() ([]domain.Category, error) {
 	return categories, nil
 }
 
-func (r *categoryRepository) Update(id uuid.UUID, name string, stationID *uuid.UUID) (*domain.Category, error) {
-	cat := &domain.Category{ID: id, Name: name, StationID: stationID}
+func (r *categoryRepository) Update(id uuid.UUID, name string, stationID *uuid.UUID, tracksStock bool) (*domain.Category, error) {
+	cat := &domain.Category{ID: id, Name: name, StationID: stationID, TracksStock: tracksStock}
 	query := `
 		UPDATE categories
-		SET name = $1, station_id = $2
-		WHERE id = $3
+		SET name = $1, station_id = $2, tracks_stock = $3
+		WHERE id = $4
 		RETURNING id, name, station_id
 	`
-	err := r.db.QueryRow(query, cat.Name, cat.StationID, cat.ID).Scan(&cat.ID, &cat.Name, &cat.StationID)
+	err := r.db.QueryRow(query, cat.Name, cat.StationID, cat.TracksStock, cat.ID).Scan(&cat.ID, &cat.Name, &cat.StationID)
 	return cat, err
 }
 

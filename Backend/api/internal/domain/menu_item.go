@@ -14,6 +14,7 @@ type MenuItem struct {
 	CategoryName   string          `json:"category_name" db:"category_name"`
 	IsAvailable    bool            `json:"is_available" db:"is_available"`
 	OrderCount     int             `json:"order_count" db:"order_count"`
+	StockQuantity  float64         `json:"stock_quantity" db:"stock_quantity"`
 	Ingredients    []Ingredient    `json:"ingredients,omitempty"`
 	Accompaniments []Accompaniment `json:"accompaniments,omitempty"`
 }

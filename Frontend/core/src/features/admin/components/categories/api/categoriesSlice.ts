@@ -18,11 +18,11 @@ export const fetchCategories = createAsyncThunk('categories/fetchAll', async (_,
         return rejectWithValue(error.response?.data?.error || 'Error desconocido');
     }
 });
-export const addNewCategory = createAsyncThunk('categories/addNew', async (data: string | { name: string; station_id?: string }, { getState, rejectWithValue }) => {
+export const addNewCategory = createAsyncThunk('categories/addNew', async (data: string | { name: string; station_id?: string; tracks_stock?: boolean }, { getState, rejectWithValue }) => {
     const token = (getState() as RootState).auth.token; if (!token) return rejectWithValue('No token');
     const categoryData = typeof data === 'string' ? { name: data } : data;
     try {
-        return await createCategory(categoryData.name, token, categoryData.station_id);
+        return await createCategory(categoryData.name, token, categoryData.station_id, categoryData.tracks_stock);
     } catch (e: unknown) {
         const error = e as { response?: { data?: { error?: string } }; message?: string };
         return rejectWithValue(error.response?.data?.error || error.message || 'Error desconocido');

@@ -6,4 +6,5 @@ export interface Category {
   name: string;
   station_id?: string;
   station_name?: string;
+  tracks_stock: boolean;
 }

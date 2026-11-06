@@ -23,6 +23,7 @@ const CategoryManagement: React.FC = () => {
   const { items = [], status = 'idle' } = useSelector((state: RootState) => state.categories) || {};
   const [name, setName] = useState('');
   const [stationId, setStationId] = useState('');
+  const [tracksStock, setTracksStock] = useState(false);
   const [stations, setStations] = useState<Station[]>([]);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
 
@@ -50,13 +51,14 @@ const CategoryManagement: React.FC = () => {
       }
     } else {
       if (name.trim()) {
-        const categoryData: any = { name: name.trim() };
+        const categoryData: any = { name: name.trim(), tracks_stock: tracksStock };
         if (stationId) {
           categoryData.station_id = stationId;
         }
         dispatch(addNewCategory(categoryData));
         setName('');
         setStationId('');
+        setTracksStock(false);
       }
     }
   };
@@ -71,11 +73,13 @@ const CategoryManagement: React.FC = () => {
     setEditingCategory(category);
     setName('');
     setStationId(category.station_id || '');
+    setTracksStock(category.tracks_stock);
   };
 
   const handleCancelEdit = () => {
     setEditingCategory(null);
     setStationId('');
+    setTracksStock(false);
   };
 
   // Funciones de Excel
@@ -96,6 +100,7 @@ const CategoryManagement: React.FC = () => {
           const fullData: Category = {
             id: categoryData.id,
             name: categoryData.name,
+            tracks_stock: false,
           };
           return dispatch(updateExistingCategory(fullData)).unwrap();
         } else {
@@ -161,6 +166,17 @@ const CategoryManagement: React.FC = () => {
               required
             />
           </div>
+          <label className="flex items-center gap-3 rounded-lg border border-orange-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700">
+            <input
+              type="checkbox"
+              checked={editingCategory ? editingCategory.tracks_stock : tracksStock}
+              onChange={(e) => editingCategory
+                ? setEditingCategory({ ...editingCategory, tracks_stock: e.target.checked })
+                : setTracksStock(e.target.checked)}
+              className="h-5 w-5 accent-orange-600"
+            />
+            <span>Esta categoría maneja existencias</span>
+          </label>
           <div className="flex-grow">
             <label htmlFor="stationSelect" className="text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
               🍳 Estación de Preparación (Opcional)

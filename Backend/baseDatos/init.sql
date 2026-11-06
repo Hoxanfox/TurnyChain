@@ -121,7 +121,8 @@ CREATE TABLE "printers" (
 CREATE TABLE "categories" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   "name" varchar(100) UNIQUE NOT NULL,
-  "station_id" uuid REFERENCES "stations"("id")
+  "station_id" uuid REFERENCES "stations"("id"),
+  "tracks_stock" boolean NOT NULL DEFAULT false
 );
 
 CREATE TABLE "ingredients" (
@@ -143,7 +144,8 @@ CREATE TABLE "menu_items" (
   "price" numeric(10, 2) NOT NULL,
   "category_id" uuid NOT NULL REFERENCES "categories"("id"),
   "is_available" boolean NOT NULL DEFAULT true,
-  "order_count" integer NOT NULL DEFAULT 0
+  "order_count" integer NOT NULL DEFAULT 0,
+  "stock_quantity" numeric(14, 3) NOT NULL DEFAULT 0 CHECK (stock_quantity >= 0)
 );
 
 
