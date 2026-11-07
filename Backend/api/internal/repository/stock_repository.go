@@ -45,11 +45,21 @@ func (r *stockRepository) GetItems() ([]domain.StockItem, error) {
 }
 
 func (r *stockRepository) UpdateLocations(id uuid.UUID, warehouse, display float64) error {
-	_, err := r.db.Exec(`UPDATE menu_items SET warehouse_quantity = $1,
-		display_quantity = $2, stock_quantity = $1 + $2 WHERE id = $3 AND EXISTS (
+	result, err := r.db.Exec(`UPDATE menu_items SET warehouse_quantity = $1::numeric,
+		display_quantity = $2::numeric, stock_quantity = $1::numeric + $2::numeric WHERE id = $3 AND EXISTS (
 		SELECT 1 FROM categories c WHERE c.id = menu_items.category_id AND c.tracks_stock = true
 	)`, warehouse, display, id)
-	return err
+	if err != nil {
+		return err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return fmt.Errorf("el producto no existe o no pertenece a una categoría inventariable")
+	}
+	return nil
 }
 
 func (r *stockRepository) Receive(receivedBy uuid.UUID, receipt domain.StockReceipt) error {
@@ -61,6 +71,12 @@ func (r *stockRepository) Receive(receivedBy uuid.UUID, receipt domain.StockRece
 	receiptID := uuid.New()
 	receiptNumber := "INV-" + time.Now().UTC().Format("20060102-150405") + "-" + uuid.New().String()[:8]
 	var total float64
+	if _, err := tx.Exec(`INSERT INTO inventory_receipts
+		(id, receipt_number, received_by, supplier_name, notes, status, total)
+		VALUES ($1, $2, $3, $4, $5, 'registered', 0)`,
+		receiptID, receiptNumber, receivedBy, receipt.SupplierName, receipt.Notes); err != nil {
+		return err
+	}
 	for _, line := range receipt.Lines {
 		if line.Quantity <= 0 || line.UnitCost < 0 {
 			return fmt.Errorf("cantidad y costo inválidos")
@@ -77,8 +93,8 @@ func (r *stockRepository) Receive(receivedBy uuid.UUID, receipt domain.StockRece
 		}
 		lineTotal := line.Quantity * line.UnitCost
 		total += lineTotal
-		if _, err := tx.Exec(`UPDATE menu_items SET warehouse_quantity = warehouse_quantity + $1,
-			stock_quantity = stock_quantity + $1 WHERE id = $2`, line.Quantity, line.ItemID); err != nil {
+		if _, err := tx.Exec(`UPDATE menu_items SET warehouse_quantity = warehouse_quantity + $1::numeric,
+			stock_quantity = stock_quantity + $1::numeric WHERE id = $2`, line.Quantity, line.ItemID); err != nil {
 			return err
 		}
 		if _, err := tx.Exec(`INSERT INTO inventory_receipt_lines
@@ -88,21 +104,29 @@ func (r *stockRepository) Receive(receivedBy uuid.UUID, receipt domain.StockRece
 			return err
 		}
 	}
-	if _, err := tx.Exec(`INSERT INTO inventory_receipts
-		(id, receipt_number, received_by, supplier_name, notes, status, total)
-		VALUES ($1, $2, $3, $4, $5, 'registered', $6)`,
-		receiptID, receiptNumber, receivedBy, receipt.SupplierName, receipt.Notes, total); err != nil {
+	if _, err := tx.Exec(`UPDATE inventory_receipts SET total = $1::numeric WHERE id = $2`,
+		total, receiptID); err != nil {
 		return err
 	}
 	return tx.Commit()
 }
 
 func (r *stockRepository) SetQuantity(id uuid.UUID, quantity float64) error {
-	_, err := r.db.Exec(`UPDATE menu_items SET warehouse_quantity = $1,
+	result, err := r.db.Exec(`UPDATE menu_items SET warehouse_quantity = $1,
 		display_quantity = 0, stock_quantity = $1 WHERE id = $2 AND EXISTS (
 		SELECT 1 FROM categories c WHERE c.id = menu_items.category_id AND c.tracks_stock = true
 	)`, quantity, id)
-	return err
+	if err != nil {
+		return err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return fmt.Errorf("el producto no existe o no pertenece a una categoría inventariable")
+	}
+	return nil
 }
 
 func (r *stockRepository) DeleteQuantity(id uuid.UUID) error {
