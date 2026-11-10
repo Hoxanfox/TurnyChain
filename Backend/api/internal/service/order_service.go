@@ -421,6 +421,9 @@ func (s *orderService) EditOrder(orderID, userID uuid.UUID, userRole string, edi
 	// Actualizamos items y calculamos nuevo total
 	var newTotal float64
 	for _, item := range items {
+		if item.Quantity <= 0 {
+			return nil, errors.New("la cantidad de cada ítem debe ser mayor que cero")
+		}
 		newTotal += item.PriceAtOrder * float64(item.Quantity)
 	}
 
@@ -462,8 +465,14 @@ func (s *orderService) EditOrder(orderID, userID uuid.UUID, userRole string, edi
 	if editReq.OrderType != nil && *editReq.OrderType != "mesa" && *editReq.OrderType != "llevar" && *editReq.OrderType != "domicilio" {
 		return nil, errors.New("order_type inválido")
 	}
+	if err := s.stockRepo.ReconcileOrderItems(order.Items, items); err != nil {
+		return nil, err
+	}
 	err = s.orderRepo.UpdateOrderWithEditHistory(orderID, newStatus, items, newTotal, newHistoryEntry, editReq.OverridePayments, editReq.TableNumber, editReq.OrderType)
 	if err != nil {
+		if rollbackErr := s.stockRepo.ReconcileOrderItems(items, order.Items); rollbackErr != nil {
+			log.Printf("❌ No se pudo revertir inventario tras fallar edición %s: %v", orderID, rollbackErr)
+		}
 		return nil, err
 	}
 
@@ -474,6 +483,9 @@ func (s *orderService) EditOrder(orderID, userID uuid.UUID, userRole string, edi
 
 	s.wsHub.BroadcastMessage("ORDER_ITEMS_UPDATED", updatedOrder)
 	s.wsHub.BroadcastMessage("ORDER_STATUS_UPDATED", updatedOrder) // Porque el estado pudo haber cambiado a entregado
+	if stockItems, stockErr := s.stockRepo.GetItems(); stockErr == nil {
+		s.wsHub.BroadcastMessage("STOCK_UPDATED", stockItems)
+	}
 	return updatedOrder, nil
 }
 
@@ -561,13 +573,26 @@ func (s *orderService) UpdateOrderStatus(orderID, userID uuid.UUID, newStatus st
 }
 
 func (s *orderService) UpdateOrderItems(orderID uuid.UUID, items []domain.OrderItem) (*domain.Order, error) {
+	previousOrder, err := s.orderRepo.GetOrderByID(orderID)
+	if err != nil {
+		return nil, err
+	}
 	var newTotal float64
 	for _, item := range items {
+		if item.Quantity <= 0 {
+			return nil, errors.New("la cantidad de cada ítem debe ser mayor que cero")
+		}
 		newTotal += item.PriceAtOrder * float64(item.Quantity)
 	}
 
-	err := s.orderRepo.UpdateOrderItems(orderID, items, newTotal)
+	if err := s.stockRepo.ReconcileOrderItems(previousOrder.Items, items); err != nil {
+		return nil, err
+	}
+	err = s.orderRepo.UpdateOrderItems(orderID, items, newTotal)
 	if err != nil {
+		if rollbackErr := s.stockRepo.ReconcileOrderItems(items, previousOrder.Items); rollbackErr != nil {
+			log.Printf("❌ No se pudo revertir inventario tras actualizar items %s: %v", orderID, rollbackErr)
+		}
 		return nil, err
 	}
 
@@ -577,6 +602,9 @@ func (s *orderService) UpdateOrderItems(orderID uuid.UUID, items []domain.OrderI
 	}
 
 	s.wsHub.BroadcastMessage("ORDER_ITEMS_UPDATED", updatedOrder)
+	if stockItems, stockErr := s.stockRepo.GetItems(); stockErr == nil {
+		s.wsHub.BroadcastMessage("STOCK_UPDATED", stockItems)
+	}
 	return updatedOrder, nil
 }
 

@@ -144,6 +144,7 @@ CREATE TABLE "menu_items" (
   "description" text,
   "price" numeric(10, 2) NOT NULL,
   "category_id" uuid NOT NULL REFERENCES "categories"("id"),
+  "tracks_stock" boolean NOT NULL DEFAULT false,
   "is_available" boolean NOT NULL DEFAULT true,
   "order_count" integer NOT NULL DEFAULT 0,
   "stock_quantity" numeric(14, 3) NOT NULL DEFAULT 0 CHECK (stock_quantity >= 0),

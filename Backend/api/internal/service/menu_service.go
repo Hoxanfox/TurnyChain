@@ -26,6 +26,7 @@ type CreateMenuItemPayload struct {
 	CategoryID       uuid.UUID   `json:"category_id"`
 	IngredientIDs    []uuid.UUID `json:"ingredient_ids"`
 	AccompanimentIDs []uuid.UUID `json:"accompaniment_ids"`
+	TracksStock      bool        `json:"tracks_stock"`
 }
 type UpdateMenuItemPayload CreateMenuItemPayload
 
@@ -45,6 +46,7 @@ func (s *menuService) CreateMenuItem(payload CreateMenuItemPayload) (*domain.Men
 		Price:       payload.Price,
 		CategoryID:  payload.CategoryID,
 		IsAvailable: true,
+		TracksStock: payload.TracksStock,
 	}
 	createdItem, err := s.menuRepo.CreateMenuItem(item, payload.IngredientIDs, payload.AccompanimentIDs)
 	if err != nil {
@@ -65,6 +67,7 @@ func (s *menuService) UpdateMenuItem(id uuid.UUID, payload UpdateMenuItemPayload
 		Description: payload.Description,
 		Price:       payload.Price,
 		CategoryID:  payload.CategoryID,
+		TracksStock: payload.TracksStock,
 	}
 	updatedItem, err := s.menuRepo.UpdateMenuItem(item, payload.IngredientIDs, payload.AccompanimentIDs)
 	if err != nil {

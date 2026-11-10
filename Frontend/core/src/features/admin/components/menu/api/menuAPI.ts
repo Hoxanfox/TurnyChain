@@ -14,6 +14,7 @@ export interface MenuItemPayload {
     category_id: string;
     ingredient_ids: string[];
     accompaniment_ids: string[];
+    tracks_stock: boolean;
 }
 
 export const getMenuItems = async (token: string): Promise<MenuItem[]> => {

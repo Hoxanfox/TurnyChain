@@ -356,6 +356,19 @@ func applyCashRegisterMigrations(db *sql.DB) error {
 			END IF;
 		END $$`,
 		`ALTER TABLE categories ADD COLUMN IF NOT EXISTS tracks_stock boolean NOT NULL DEFAULT false`,
+		`DO $$
+		DECLARE item_stock_column_exists boolean;
+		BEGIN
+			SELECT EXISTS (
+				SELECT 1 FROM information_schema.columns
+				WHERE table_name = 'menu_items' AND column_name = 'tracks_stock'
+			) INTO item_stock_column_exists;
+			IF NOT item_stock_column_exists THEN
+				ALTER TABLE menu_items ADD COLUMN tracks_stock boolean NOT NULL DEFAULT false;
+				UPDATE menu_items m SET tracks_stock = c.tracks_stock
+					FROM categories c WHERE c.id = m.category_id;
+			END IF;
+		END $$`,
 		`ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS stock_quantity numeric(14, 3) NOT NULL DEFAULT 0`,
 		`ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS warehouse_quantity numeric(14, 3) NOT NULL DEFAULT 0`,
 		`ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS display_quantity numeric(14, 3) NOT NULL DEFAULT 0`,

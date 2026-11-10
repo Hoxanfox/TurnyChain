@@ -28,6 +28,7 @@ const MenuItemModal: React.FC<MenuItemModalProps> = ({ item, onClose }) => {
   const [categoryId, setCategoryId] = useState('');
   const [selectedIngredients, setSelectedIngredients] = useState<string[]>([]);
   const [selectedAccompaniments, setSelectedAccompaniments] = useState<string[]>([]);
+  const [tracksStock, setTracksStock] = useState(false);
 
   useEffect(() => {
     dispatch(fetchCategories());
@@ -44,6 +45,7 @@ const MenuItemModal: React.FC<MenuItemModalProps> = ({ item, onClose }) => {
       setCategoryId(item.category_id);
       setSelectedIngredients(item.ingredients?.map(i => i.id) || []);
       setSelectedAccompaniments(item.accompaniments?.map(a => a.id) || []);
+      setTracksStock(item.tracks_stock);
     } else {
       setName('');
       setDescription('');
@@ -51,6 +53,7 @@ const MenuItemModal: React.FC<MenuItemModalProps> = ({ item, onClose }) => {
       setCategoryId('');
       setSelectedIngredients([]);
       setSelectedAccompaniments([]);
+      setTracksStock(false);
     }
   }, [item]);
 
@@ -93,7 +96,8 @@ const MenuItemModal: React.FC<MenuItemModalProps> = ({ item, onClose }) => {
       price, 
       category_id: categoryId, 
       ingredient_ids: selectedIngredients, 
-      accompaniment_ids: selectedAccompaniments 
+      accompaniment_ids: selectedAccompaniments,
+      tracks_stock: tracksStock
     };
     
     try {
@@ -209,6 +213,13 @@ const MenuItemModal: React.FC<MenuItemModalProps> = ({ item, onClose }) => {
               </div>
             </div>
           </div>
+          <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border-2 border-purple-200 bg-purple-50 p-4">
+            <input type="checkbox" checked={tracksStock} onChange={(e) => setTracksStock(e.target.checked)} className="mt-1 h-4 w-4" />
+            <span>
+              <span className="block text-sm font-bold text-purple-900">Este producto maneja existencias</span>
+              <span className="block text-xs text-purple-700">Actívalo solo para productos que deben descontarse del inventario, aunque su categoría no sea inventariable.</span>
+            </span>
+          </label>
 
           {/* Selectores mejorados con diseño de chips */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
