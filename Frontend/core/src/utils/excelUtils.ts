@@ -31,6 +31,7 @@ export interface ImportedMenuItem {
   category_id: string;
   ingredient_ids: string[];
   accompaniment_ids: string[];
+  tracks_stock?: boolean;
 }
 
 export interface ImportedCategory {
@@ -60,6 +61,7 @@ export const exportMenuToExcel = (items: MenuItem[], filename = 'menu_export.xls
     'Categoría ID': item.category_id,
     'Ingredientes (IDs separados por coma)': item.ingredients?.map(i => i.id).join(',') || '',
     'Acompañantes (IDs separados por coma)': item.accompaniments?.map(a => a.id).join(',') || '',
+    'Maneja existencias': item.tracks_stock ? 'Sí' : 'No',
     'Activo': item.is_active ? 'Sí' : 'No',
   }));
 
@@ -240,6 +242,10 @@ const validateMenuData = (data: unknown[]): ImportResult<ImportedMenuItem> => {
         accompaniment_ids: rowData['Acompañantes (IDs separados por coma)']
           ? (rowData['Acompañantes (IDs separados por coma)'] as string).toString().split(',').map((id: string) => id.trim()).filter(Boolean)
           : [],
+        tracks_stock: rowData['Maneja existencias'] === true
+          || String(rowData['Maneja existencias'] ?? '').toLowerCase() === 'sí'
+          || String(rowData['Maneja existencias'] ?? '').toLowerCase() === 'si'
+          || String(rowData['Maneja existencias'] ?? '').toLowerCase() === 'true',
       });
     }
   });
@@ -602,4 +608,3 @@ export const downloadUnifiedTemplate = () => {
 
   XLSX.writeFile(workbook, 'turnychain_plantilla_completa.xlsx');
 };
-
