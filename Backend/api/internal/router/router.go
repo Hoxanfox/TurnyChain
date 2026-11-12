@@ -43,7 +43,7 @@ func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *
 	settingsProtected.Post("/upload-image", settingHandler.UploadSettingImage)
 
 	// Rutas de Usuarios
-	users := protected.Group("/users")
+	users := protected.Group("/users", middleware.ModuleEnabled(settingRepo, "users"))
 	users.Post("/", userHandler.CreateUser)
 	users.Get("/", userHandler.GetUsers)
 	users.Put("/:id", userHandler.UpdateUser)
@@ -51,14 +51,14 @@ func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *
 	users.Delete("/:id", userHandler.DeleteUser)
 
 	// Rutas de Empleados
-	employees := protected.Group("/employees")
+	employees := protected.Group("/employees", middleware.ModuleEnabled(settingRepo, "employees"))
 	employees.Post("/", employeeHandler.CreateEmployee)
 	employees.Get("/", employeeHandler.GetEmployees)
 	employees.Put("/:id", employeeHandler.UpdateEmployee)
 	employees.Delete("/:id", employeeHandler.DeleteEmployee)
 
 	// Rutas de Asistencia
-	attendance := protected.Group("/attendance")
+	attendance := protected.Group("/attendance", middleware.ModuleEnabled(settingRepo, "attendance"))
 	attendance.Post("/", attendanceHandler.RegisterAttendance)
 	attendance.Put("/status", attendanceHandler.SetAttendanceStatus)
 	attendance.Get("/today", attendanceHandler.GetTodayAttendanceStatus)
@@ -66,7 +66,7 @@ func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *
 	attendance.Get("/report", attendanceHandler.GetAttendanceReport)
 
 	// Rutas de Menú
-	menu := protected.Group("/menu")
+	menu := protected.Group("/menu", middleware.ModuleEnabled(settingRepo, "menu"))
 	menu.Get("/", menuHandler.GetMenuItems)
 	menu.Post("/", menuHandler.CreateMenuItem)
 	menu.Put("/:id", menuHandler.UpdateMenuItem)
@@ -74,7 +74,7 @@ func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *
 	menu.Post("/items/:id/increment-order-count", menuHandler.IncrementOrderCount)
 
 	// Rutas de Órdenes
-	orders := protected.Group("/orders")
+	orders := protected.Group("/orders", middleware.ModuleEnabled(settingRepo, "orders"))
 	orders.Post("/", middleware.CashSessionMiddleware(cashRegisterRepo), orderHandler.CreateOrder)
 	orders.Post("/with-payment", middleware.CashSessionMiddleware(cashRegisterRepo), orderHandler.CreateOrderWithPayment) // Nueva ruta para orden con pago
 	orders.Get("/", orderHandler.GetOrders)
@@ -93,21 +93,21 @@ func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *
 	orders.Post("/:id/split-payments", middleware.CashSessionMiddleware(cashRegisterRepo), orderHandler.UploadSplitPayments) // Nueva ruta para multiples pagos
 
 	// Rutas de Facturas
-	invoices := protected.Group("/invoices")
+	invoices := protected.Group("/invoices", middleware.ModuleEnabled(settingRepo, "invoices"))
 	invoices.Get("/history", invoiceHandler.GetInvoiceHistory)
 	invoices.Get("/daily-sales", invoiceHandler.GetDailySales)
 	invoices.Get("/monthly-sales", invoiceHandler.GetMonthlySales)
 	invoices.Get("/yearly-sales", invoiceHandler.GetYearlySales)
 
 	// Recepciones internas de mercancía. El mesero solo puede registrar recepciones.
-	inventory := protected.Group("/inventory")
+	inventory := protected.Group("/inventory", middleware.ModuleEnabled(settingRepo, "inventory"))
 	inventory.Get("/stock", inventoryReceiptHandler.GetStock)
 	inventoryReceipts := inventory.Group("/receipts")
 	inventoryReceipts.Get("/", inventoryReceiptHandler.GetAll)
 	inventoryReceipts.Post("/", middleware.RequireRole("mesero", "cajero", "gerente", "admin"), inventoryReceiptHandler.Create)
 
 	// Cuentas por pagar: gestión exclusiva de gerente y administración.
-	supplierInvoices := protected.Group("/supplier-invoices", middleware.RequireRole("gerente", "admin"))
+	supplierInvoices := protected.Group("/supplier-invoices", middleware.ModuleEnabled(settingRepo, "payables"), middleware.RequireRole("gerente", "admin"))
 	supplierInvoices.Get("/", supplierInvoiceHandler.GetAll)
 	supplierInvoices.Get("/:id", supplierInvoiceHandler.GetOne)
 	supplierInvoices.Post("/", supplierInvoiceHandler.Create)
@@ -116,33 +116,33 @@ func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *
 	supplierInvoices.Post("/:id/payments", supplierInvoiceHandler.AddPayment)
 
 	// Rutas de Mesas
-	tables := protected.Group("/tables")
+	tables := protected.Group("/tables", middleware.ModuleEnabled(settingRepo, "tables"))
 	tables.Post("/", tableHandler.Create)
 	tables.Get("/", tableHandler.GetAll)
 
 	// Rutas de Categorías
-	categories := protected.Group("/categories")
+	categories := protected.Group("/categories", middleware.ModuleEnabled(settingRepo, "categories"))
 	categories.Post("/", categoryHandler.Create)
 	categories.Get("/", categoryHandler.GetAll)
 	categories.Put("/:id", categoryHandler.Update)
 	categories.Delete("/:id", categoryHandler.Delete)
 
 	// Rutas de Ingredientes
-	ingredients := protected.Group("/ingredients")
+	ingredients := protected.Group("/ingredients", middleware.ModuleEnabled(settingRepo, "ingredients"))
 	ingredients.Post("/", ingredientHandler.Create)
 	ingredients.Get("/", ingredientHandler.GetAll)
 	ingredients.Put("/:id", ingredientHandler.Update)
 	ingredients.Delete("/:id", ingredientHandler.Delete)
 
 	// Rutas de Acompañantes
-	accompaniments := protected.Group("/accompaniments")
+	accompaniments := protected.Group("/accompaniments", middleware.ModuleEnabled(settingRepo, "accompaniments"))
 	accompaniments.Post("/", accompanimentHandler.Create)
 	accompaniments.Get("/", accompanimentHandler.GetAll)
 	accompaniments.Put("/:id", accompanimentHandler.Update)
 	accompaniments.Delete("/:id", accompanimentHandler.Delete)
 
 	// Rutas de Estaciones
-	stations := protected.Group("/stations")
+	stations := protected.Group("/stations", middleware.ModuleEnabled(settingRepo, "stations"))
 	stations.Get("/", stationHandler.GetAll)
 	stations.Get("/active", stationHandler.GetAllActive)
 	stations.Get("/:id", stationHandler.GetByID)
@@ -153,7 +153,7 @@ func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *
 	stations.Get("/:stationId/printers", printerHandler.GetByStationID)
 
 	// Rutas de Impresoras
-	printers := protected.Group("/printers")
+	printers := protected.Group("/printers", middleware.ModuleEnabled(settingRepo, "printers"))
 	printers.Get("/", printerHandler.GetAll)
 	printers.Get("/active", printerHandler.GetAllActive)
 	printers.Get("/:id", printerHandler.GetByID)
@@ -169,11 +169,11 @@ func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *
 	orders.Post("/:orderId/kitchen-tickets/print/station/:stationId", kitchenTicketHandler.PrintKitchenTicketsByStation)
 
 	// Rutas de Backup (sin incluir órdenes)
-	backup := protected.Group("/backup")
+	backup := protected.Group("/backup", middleware.ModuleEnabled(settingRepo, "backup"))
 	backup.Get("/catalog", backupHandler.ExportCatalogBackup)
 
 	// Rutas de Control de Caja
-	cashRegister := protected.Group("/cash-register")
+	cashRegister := protected.Group("/cash-register", middleware.ModuleEnabled(settingRepo, "cash_register"))
 	cashRegister.Post("/open", cashRegisterHandler.OpenSession)
 	cashRegister.Get("/current", cashRegisterHandler.GetCurrentSession)
 	cashRegister.Get("/closing-details", cashRegisterHandler.GetClosingDetails)
@@ -181,7 +181,7 @@ func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *
 	cashRegister.Post("/close", cashRegisterHandler.CloseSession)
 
 	// Rutas de Transferencias Bancarias / BREB
-	bankTransfers := protected.Group("/bank-transfers")
+	bankTransfers := protected.Group("/bank-transfers", middleware.ModuleEnabled(settingRepo, "payments"))
 	bankTransfers.Get("/recent", bankTransferHandler.GetRecent)
 	bankTransfers.Get("/search", bankTransferHandler.SearchTransfers)
 	bankTransfers.Post("/link", bankTransferHandler.LinkToOrder)

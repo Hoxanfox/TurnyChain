@@ -21,7 +21,7 @@ func NewSettingRepository(db *sql.DB) SettingRepository {
 }
 
 func (r *postgresSettingRepository) GetSetting(key string) (*domain.Setting, error) {
-	query := "SELECT key, value, updated_at FROM settings WHERE key = $1"
+	query := "SELECT key, value #>> '{}' AS value, updated_at FROM settings WHERE key = $1"
 	row := r.db.QueryRow(query, key)
 
 	var s domain.Setting
@@ -36,7 +36,7 @@ func (r *postgresSettingRepository) GetSetting(key string) (*domain.Setting, err
 }
 
 func (r *postgresSettingRepository) GetAllSettings() ([]domain.Setting, error) {
-	query := "SELECT key, value, updated_at FROM settings"
+	query := "SELECT key, value #>> '{}' AS value, updated_at FROM settings"
 	rows, err := r.db.Query(query)
 	if err != nil {
 		return nil, err
@@ -57,7 +57,7 @@ func (r *postgresSettingRepository) GetAllSettings() ([]domain.Setting, error) {
 func (r *postgresSettingRepository) UpsertSetting(key string, value string) error {
 	query := `
 		INSERT INTO settings (key, value, updated_at) 
-		VALUES ($1, $2, now()) 
+		VALUES ($1, to_jsonb($2::text), now())
 		ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()
 	`
 	_, err := r.db.Exec(query, key, value)
