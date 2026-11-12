@@ -4,6 +4,7 @@ import { managerModules, type ManagerModule } from '../domain/managerModules';
 import type { AttendanceReport } from '../../cashier/api/attendanceApi';
 import LogoutButton from '../../../components/LogoutButton';
 import { useState } from 'react';
+import { useModuleAccess } from '../../../app/moduleAccess';
 
 interface ManagerDashboardMobileProps {
   activeModule: ManagerModule;
@@ -13,6 +14,8 @@ interface ManagerDashboardMobileProps {
 
 export const ManagerDashboardMobile: React.FC<ManagerDashboardMobileProps> = ({ activeModule, onModuleChange, reports }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const { isEnabled } = useModuleAccess();
+  const visibleModules = managerModules.filter(module => module.id === 'overview' || isEnabled(module.id));
 
   return (
     <div className="min-h-screen bg-[#f5f7f8] text-slate-900">
@@ -37,7 +40,7 @@ export const ManagerDashboardMobile: React.FC<ManagerDashboardMobileProps> = ({ 
               <button onClick={() => setIsSidebarOpen(false)} className="rounded-lg bg-slate-100 px-3 py-2" aria-label="Cerrar menú">×</button>
             </div>
             <nav className="flex-1 space-y-2 py-5">
-              {managerModules.map(module => (
+              {visibleModules.map(module => (
                 <button key={module.id} onClick={() => { onModuleChange(module.id); setIsSidebarOpen(false); }} className={`w-full rounded-xl px-4 py-3 text-left ${activeModule === module.id ? 'bg-slate-900 text-white' : 'hover:bg-slate-100'}`}>
                   <span className="mr-3">{module.icon}</span><span className="font-bold">{module.label}</span>
                   <span className="mt-1 block pl-7 text-xs opacity-60">{module.description}</span>

@@ -1,7 +1,7 @@
 // =================================================================
 // ARCHIVO 3: /src/features/admin/AdminDashboard.tsx (MODERNIZADO UX)
 // =================================================================
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { FaUsers, FaClipboardList, FaTable, FaUtensils, FaTags, FaLeaf, FaBreadSlice, FaChevronDown, FaChevronUp, FaPrint, FaDatabase, FaCalendarCheck } from 'react-icons/fa';
 import { useIsDesktop } from '../../hooks/useMediaQuery';
@@ -24,6 +24,7 @@ import DataExchangeButton from './components/shared/DataExchangeButton';
 import { clearBackendErrors } from './api/backendLogsSlice.ts';
 import type { RootState } from '../../app/store';
 import { FaCog, FaUserTie } from 'react-icons/fa';
+import { useModuleAccess } from '../../app/moduleAccess';
 
 type AdminTab = 'users' | 'employees' | 'attendance' | 'orders' | 'tables' | 'menu' | 'categories' | 'ingredients' | 'accompaniments' | 'stations' | 'printers' | 'backup' | 'settings';
 
@@ -38,6 +39,7 @@ const AdminDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<AdminTab>('users');
   const [showStatistics, setShowStatistics] = useState(false);
   const isDesktop = useIsDesktop();
+  const { isEnabled } = useModuleAccess();
 
   const users = useSelector((state: RootState) => state.users?.users || []);
   const menuItems = useSelector((state: RootState) => state.menu?.items || []);
@@ -63,6 +65,13 @@ const AdminDashboard: React.FC = () => {
     { id: 'backup', label: 'Backup', icon: FaDatabase, color: 'slate' },
     { id: 'settings', label: 'Ajustes', icon: FaCog, color: 'pink' },
   ];
+  const visibleTabs = tabs.filter(tab => tab.id === 'settings' || isEnabled(tab.id));
+
+  useEffect(() => {
+    if (!isEnabled(activeTab)) {
+      setActiveTab(visibleTabs[0]?.id || 'settings');
+    }
+  }, [activeTab, isEnabled]);
 
   const getTabClasses = (tab: TabConfig) => {
     const isActive = activeTab === tab.id;
@@ -138,7 +147,7 @@ const AdminDashboard: React.FC = () => {
             // Vista Desktop: Tabs horizontales
             <div className="overflow-x-auto">
               <div className="flex gap-2 min-w-max pb-2">
-                {tabs.map((tab) => (
+                {visibleTabs.map((tab) => (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
@@ -155,7 +164,7 @@ const AdminDashboard: React.FC = () => {
           ) : (
             // Vista Móvil: Grid de botones con iconos grandes
             <div className="grid grid-cols-2 gap-2 sm:gap-3">
-              {tabs.map((tab) => (
+              {visibleTabs.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
@@ -188,13 +197,13 @@ const AdminDashboard: React.FC = () => {
           {!isDesktop && (
             <div className="mb-4 pb-3 border-b-2 border-gray-200">
               <div className="flex items-center gap-2">
-                {tabs.find(t => t.id === activeTab)?.icon &&
-                  React.createElement(tabs.find(t => t.id === activeTab)!.icon, {
-                    className: `text-2xl text-${tabs.find(t => t.id === activeTab)!.color}-600`
+                {visibleTabs.find(t => t.id === activeTab)?.icon &&
+                  React.createElement(visibleTabs.find(t => t.id === activeTab)!.icon, {
+                    className: `text-2xl text-${visibleTabs.find(t => t.id === activeTab)!.color}-600`
                   })
                 }
                 <h3 className="text-lg font-bold text-gray-800">
-                  {tabs.find(t => t.id === activeTab)?.label}
+                  {visibleTabs.find(t => t.id === activeTab)?.label}
                 </h3>
               </div>
             </div>

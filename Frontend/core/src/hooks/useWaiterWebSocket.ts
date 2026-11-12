@@ -143,6 +143,10 @@ export const useWaiterWebSocket = (
           break;
         }
 
+        case 'setting_updated':
+          window.dispatchEvent(new Event('settings_updated'));
+          break;
+
         case 'SOLD_OUT_TOGGLED':
           if (message.payload.type === 'menu') {
             dispatch(setSoldOutMenuId({ id: message.payload.id, isSoldOut: message.payload.isSoldOut }));
@@ -421,4 +425,3 @@ export const useWaiterWebSocket = (
 
   return { sendMessage };
 };
-
