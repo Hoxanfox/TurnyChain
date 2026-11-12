@@ -2,6 +2,7 @@ import React from 'react';
 import LogoutButton from '../../../components/LogoutButton';
 import { ManagerModuleContent } from './ManagerModuleContent';
 import { managerModules, type ManagerModule } from '../domain/managerModules';
+import { useModuleAccess } from '../../../app/moduleAccess';
 import type { AttendanceReport } from '../../cashier/api/attendanceApi';
 
 interface ManagerDashboardDesktopProps {
@@ -10,8 +11,11 @@ interface ManagerDashboardDesktopProps {
   reports: AttendanceReport[];
 }
 
-export const ManagerDashboardDesktop: React.FC<ManagerDashboardDesktopProps> = ({ activeModule, onModuleChange, reports }) => (
-  <div className="min-h-screen bg-[#f0effb] text-slate-900">
+export const ManagerDashboardDesktop: React.FC<ManagerDashboardDesktopProps> = ({ activeModule, onModuleChange, reports }) => {
+  const { isEnabled } = useModuleAccess();
+  const visibleModules = managerModules.filter(module => module.id === 'overview' || isEnabled(module.id));
+
+  return <div className="min-h-screen bg-[#f0effb] text-slate-900">
     <div className="mx-auto grid min-h-screen max-w-[1480px] grid-cols-[224px_1fr] gap-0 bg-[#f8f8fd] shadow-2xl">
       <aside className="flex flex-col bg-gradient-to-b from-[#6752b8] via-[#7258c5] to-[#4c3c97] px-3 py-6 text-white">
         <div className="mb-10 flex items-center gap-3 px-3">
@@ -20,7 +24,7 @@ export const ManagerDashboardDesktop: React.FC<ManagerDashboardDesktopProps> = (
         </div>
         <p className="px-3 pb-3 text-[10px] font-bold uppercase tracking-[0.2em] text-violet-200">Workspace</p>
         <nav className="space-y-1">
-          {managerModules.map(module => (
+          {visibleModules.map(module => (
             <button key={module.id} onClick={() => onModuleChange(module.id)} className={`w-full rounded-xl px-3 py-3 text-left transition ${activeModule === module.id ? 'bg-white/20 text-white shadow-lg' : 'text-violet-100 hover:bg-white/10'}`}>
               <span className="mr-3 text-lg">{module.icon}</span>
               <span className="font-bold">{module.label}</span>
@@ -41,5 +45,5 @@ export const ManagerDashboardDesktop: React.FC<ManagerDashboardDesktopProps> = (
         <main className="min-w-0 p-8"><ManagerModuleContent activeModule={activeModule} reports={reports} /></main>
       </section>
     </div>
-  </div>
-);
+  </div>;
+};

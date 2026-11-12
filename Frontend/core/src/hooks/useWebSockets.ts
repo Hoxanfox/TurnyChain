@@ -97,6 +97,9 @@ export const useWebSockets = () => {
         if (message.type === 'ATTENDANCE_UPDATED') {
           window.dispatchEvent(new Event('attendance_updated'));
         }
+        if (message.type === 'SETTING_UPDATED' || message.type === 'SETTINGS_UPDATED') {
+          window.dispatchEvent(new Event('settings_updated'));
+        }
 
         // Lógica para el menú
         if (message.type === 'MENU_ITEM_ADDED') {

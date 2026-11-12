@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import LogoutButton from '../../../../components/LogoutButton';
 import { useAttendanceAlert } from '../../hooks/useAttendanceAlert';
+import { useModuleAccess } from '../../../../app/moduleAccess';
 
 interface CashierHeaderProps {
   pendingVerificationCount: number;
@@ -49,6 +50,7 @@ export const CashierHeader: React.FC<CashierHeaderProps> = ({
   const navigate = useNavigate();
   const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false);
   const { unmarkedAttendanceCount } = useAttendanceAlert(!!onOpenAttendanceModal);
+  const { isEnabled } = useModuleAccess();
 
   const showAttendanceAlert = unmarkedAttendanceCount > 0;
 
@@ -83,13 +85,13 @@ export const CashierHeader: React.FC<CashierHeaderProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center justify-start md:justify-end gap-2 mt-4 md:mt-0 w-full md:w-auto">
-          <button
+          {isEnabled('orders') && <button
             onClick={() => navigate('/cashier/take-order')}
             className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-lg hover:from-emerald-600 hover:to-teal-600 transition-all font-bold shadow-lg hover:shadow-xl transform hover:scale-105"
             title="Tomar Comanda como Mesero"
           >
             📝 Tomar Comanda
-          </button>
+          </button>}
           {onOpenQuickTableSelect && (
             <button
               onClick={onOpenQuickTableSelect}
@@ -104,7 +106,7 @@ export const CashierHeader: React.FC<CashierHeaderProps> = ({
               )}
             </button>
           )}
-          {onOpenOrderIdSearch && (
+          {isEnabled('orders') && onOpenOrderIdSearch && (
             <button
               onClick={onOpenOrderIdSearch}
               className="relative px-4 py-2 bg-white text-indigo-700 rounded-lg hover:bg-indigo-50 transition-all font-semibold shadow-lg hover:shadow-xl"
@@ -118,7 +120,7 @@ export const CashierHeader: React.FC<CashierHeaderProps> = ({
               )}
             </button>
           )}
-          {onOpenWaiterSearch && (
+          {isEnabled('orders') && onOpenWaiterSearch && (
             <button
               onClick={onOpenWaiterSearch}
               className="relative px-4 py-2 bg-white text-indigo-700 rounded-lg hover:bg-indigo-50 transition-all font-semibold shadow-lg hover:shadow-xl"
@@ -140,7 +142,7 @@ export const CashierHeader: React.FC<CashierHeaderProps> = ({
             📊 {showStats ? 'Ocultar' : 'Mostrar'} Stats
           </button>
           
-          {onOpenAttendanceModal && (
+          {isEnabled('attendance') && onOpenAttendanceModal && (
             <button
               onClick={onOpenAttendanceModal}
               className="relative px-4 py-2 bg-white text-cyan-700 rounded-lg hover:bg-cyan-50 transition-all font-semibold shadow-lg hover:shadow-xl transform hover:scale-105"
@@ -192,7 +194,7 @@ export const CashierHeader: React.FC<CashierHeaderProps> = ({
                     </span>
                   )}
                 </button>
-                {onOpenMetrics && (
+                {isEnabled('reports') && onOpenMetrics && (
                   <button
                     onClick={() => {
                       onOpenMetrics();
@@ -203,7 +205,7 @@ export const CashierHeader: React.FC<CashierHeaderProps> = ({
                     📈 Metricas del negocio
                   </button>
                 )}
-                {onOpenBrebPanel && (
+                {isEnabled('payments') && onOpenBrebPanel && (
                   <button
                     onClick={() => {
                       onOpenBrebPanel();
@@ -251,5 +253,4 @@ export const CashierHeader: React.FC<CashierHeaderProps> = ({
     </div>
   );
 };
-
 

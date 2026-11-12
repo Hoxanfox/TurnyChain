@@ -21,6 +21,7 @@ import CashierInvoiceHistoryPage from './features/cashier/components/cashierDash
 import InventoryReceiptPage from './features/inventory/InventoryReceiptPage';
 import InventoryReceiptHistoryPage from './features/inventory/InventoryReceiptHistoryPage';
 import ManagerDashboard from './features/manager/ManagerDashboard';
+import { ModuleAccessProvider, ModuleRoute } from './app/moduleAccess';
 
 // Componente para gestionar la conexión WebSocket global
 const WebSocketManager: React.FC = () => {
@@ -89,22 +90,24 @@ const App: React.FC = () => {
   }, []);
 
   return (
+    <ModuleAccessProvider>
     <Router>
       {/* 3. Activa el gestor de WebSockets solo si hay un usuario logueado */}
       {user && <WebSocketManager />}
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/dashboard" element={<ProtectedRoute user={user} />} />
-        <Route path="/cashier/search/:orderId" element={<ProtectedRoute user={user}><CashierOrderSearchPage /></ProtectedRoute>} />
-        <Route path="/cashier/search/waiter/:waiterName" element={<ProtectedRoute user={user}><CashierWaiterSearchPage /></ProtectedRoute>} />
-        <Route path="/cashier/history" element={<ProtectedRoute user={user}><CashierInvoiceHistoryPage /></ProtectedRoute>} />
-        <Route path="/cashier/metrics" element={<ProtectedRoute user={user}><CashierMetricsPage /></ProtectedRoute>} />
-        <Route path="/cashier/take-order" element={<ProtectedRoute user={user}><WaiterDashboard /></ProtectedRoute>} />
-        <Route path="/inventory/receipts/new" element={<ProtectedRoute user={user}><InventoryReceiptPage /></ProtectedRoute>} />
-        <Route path="/inventory/receipts/history" element={<ProtectedRoute user={user}><InventoryReceiptHistoryPage /></ProtectedRoute>} />
+        <Route path="/cashier/search/:orderId" element={<ProtectedRoute user={user}><ModuleRoute module="orders"><CashierOrderSearchPage /></ModuleRoute></ProtectedRoute>} />
+        <Route path="/cashier/search/waiter/:waiterName" element={<ProtectedRoute user={user}><ModuleRoute module="orders"><CashierWaiterSearchPage /></ModuleRoute></ProtectedRoute>} />
+        <Route path="/cashier/history" element={<ProtectedRoute user={user}><ModuleRoute module="invoices"><CashierInvoiceHistoryPage /></ModuleRoute></ProtectedRoute>} />
+        <Route path="/cashier/metrics" element={<ProtectedRoute user={user}><ModuleRoute module="reports"><CashierMetricsPage /></ModuleRoute></ProtectedRoute>} />
+        <Route path="/cashier/take-order" element={<ProtectedRoute user={user}><ModuleRoute module="orders"><WaiterDashboard /></ModuleRoute></ProtectedRoute>} />
+        <Route path="/inventory/receipts/new" element={<ProtectedRoute user={user}><ModuleRoute module="inventory"><InventoryReceiptPage /></ModuleRoute></ProtectedRoute>} />
+        <Route path="/inventory/receipts/history" element={<ProtectedRoute user={user}><ModuleRoute module="inventory"><InventoryReceiptHistoryPage /></ModuleRoute></ProtectedRoute>} />
         <Route path="*" element={<Navigate to={user ? "/dashboard" : "/login"} replace />} />
       </Routes>
     </Router>
+    </ModuleAccessProvider>
   );
 };
 
