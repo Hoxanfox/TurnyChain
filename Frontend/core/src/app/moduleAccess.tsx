@@ -40,7 +40,11 @@ export const ModuleAccessProvider: React.FC<React.PropsWithChildren> = ({ childr
     void refresh();
     const handleSettingsUpdate = () => { void refresh(); };
     window.addEventListener('settings_updated', handleSettingsUpdate);
-    return () => window.removeEventListener('settings_updated', handleSettingsUpdate);
+    window.addEventListener('ws_setting_updated', handleSettingsUpdate);
+    return () => {
+      window.removeEventListener('settings_updated', handleSettingsUpdate);
+      window.removeEventListener('ws_setting_updated', handleSettingsUpdate);
+    };
   }, [refresh]);
 
   const value = useMemo<ModuleAccessContextValue>(() => ({
