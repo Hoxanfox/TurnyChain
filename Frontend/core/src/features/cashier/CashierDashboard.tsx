@@ -46,6 +46,7 @@ const CashierDashboard: React.FC = () => {
 
   const [hasWsNotification, setHasWsNotification] = useState(false);
   const [cashRegisterWarning, setCashRegisterWarning] = useState<'closed' | 'pending_close' | null>(null);
+  const [cashRegisterWarningDismissed, setCashRegisterWarningDismissed] = useState(false);
   const [showCashRegisterModal, setShowCashRegisterModal] = useState(false);
 
   const cashierLogic = useCashierLogic(activeOrders);
@@ -77,9 +78,13 @@ const CashierDashboard: React.FC = () => {
       try {
         const details = await getCurrentSessionDetails();
         if (!active) return;
-        if (!details.session) setCashRegisterWarning('closed');
-        else if (details.session.status === 'pending_close') setCashRegisterWarning('pending_close');
-        else setCashRegisterWarning(null);
+        if (!details.session) {
+          setCashRegisterWarning('closed');
+          setCashRegisterWarningDismissed(false);
+        } else if (details.session.status === 'pending_close') {
+          setCashRegisterWarning('pending_close');
+          setCashRegisterWarningDismissed(false);
+        } else setCashRegisterWarning(null);
       } catch {
         // The cash register endpoint may be unavailable temporarily; do not block the UI.
       }
@@ -332,8 +337,8 @@ const CashierDashboard: React.FC = () => {
 
   return (
     <>
-      {cashRegisterWarning && (
-        <div className="fixed left-1/2 top-3 z-[80] w-[calc(100%-1.5rem)] max-w-2xl -translate-x-1/2 rounded-2xl border border-red-300 bg-red-600 px-4 py-3 text-white shadow-2xl">
+      {cashRegisterWarning && !cashRegisterWarningDismissed && (
+        <div className="relative z-30 mx-3 mt-3 rounded-2xl border border-red-300 bg-red-600 px-4 py-3 text-white shadow-lg">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <span className="text-2xl" aria-hidden="true">⚠️</span>
@@ -350,13 +355,23 @@ const CashierDashboard: React.FC = () => {
                 </p>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={() => setShowCashRegisterModal(true)}
-              className="shrink-0 rounded-lg bg-white px-3 py-2 text-xs font-black text-red-700"
-            >
-              Revisar caja
-            </button>
+            <div className="flex shrink-0 items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setShowCashRegisterModal(true)}
+                className="rounded-lg bg-white px-3 py-2 text-xs font-black text-red-700"
+              >
+                Revisar caja
+              </button>
+              <button
+                type="button"
+                onClick={() => setCashRegisterWarningDismissed(true)}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-lg text-red-100 hover:bg-white/10"
+                aria-label="Ocultar aviso de cierre"
+              >
+                ×
+              </button>
+            </div>
           </div>
         </div>
       )}

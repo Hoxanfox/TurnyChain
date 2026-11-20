@@ -7,6 +7,7 @@ import {
   getManagedStock,
   receiveManagedStock,
   updateManagedStockLocations,
+  updateManagedStockQuantity,
   type ManagedStockItem,
   type StockReceiptLine,
 } from './api/managedStockAPI';
@@ -27,6 +28,7 @@ const ManagedStockPage: React.FC = () => {
   const [search, setSearch] = useState('');
   const [receiptSearch, setReceiptSearch] = useState('');
   const [locations, setLocations] = useState<Record<string, { warehouse: string; display: string }>>({});
+  const [totalValues, setTotalValues] = useState<Record<string, string>>({});
   const [selected, setSelected] = useState<Record<string, StockReceiptLine>>({});
   const [supplier, setSupplier] = useState('');
   const [notes, setNotes] = useState('');
@@ -47,6 +49,7 @@ const ManagedStockPage: React.FC = () => {
           display: String(item.display_quantity ?? 0),
         },
       ])));
+      setTotalValues(Object.fromEntries(result.map(item => [item.id, String(item.quantity)])));
     } catch (caught: any) {
       setError(caught?.response?.data?.error || 'No se pudo cargar el inventario.');
     } finally {
@@ -125,25 +128,47 @@ const ManagedStockPage: React.FC = () => {
     }
   };
 
+  const saveTotal = async (item: ManagedStockItem) => {
+    const quantity = num(totalValues[item.id] || '0');
+    if (quantity < 0) {
+      setError('La cantidad total no puede ser negativa.');
+      return;
+    }
+    setSaving(item.id);
+    setError(null);
+    try {
+      await updateManagedStockQuantity(item.id, quantity, token!);
+      await load();
+    } catch (caught: any) {
+      setError(caught?.response?.data?.error || 'No se pudo ajustar la cantidad total.');
+    } finally {
+      setSaving(null);
+    }
+  };
+
   const toggle = (item: ManagedStockItem) => {
     setSelected(current => {
       const next = { ...current };
       if (next[item.id]) delete next[item.id];
-      else next[item.id] = { item_id: item.id, quantity: 1, unit_cost: 0 };
+      else next[item.id] = { item_id: item.id, quantity: '', unit_cost: '' };
       return next;
     });
   };
 
   const receive = async () => {
     const lines = Object.values(selected);
-    if (!lines.length || lines.some(line => line.quantity <= 0 || line.unit_cost < 0)) {
+    if (!lines.length || lines.some(line => line.quantity === '' || line.unit_cost === '' || line.quantity <= 0 || line.unit_cost < 0)) {
       setError('Selecciona productos y registra cantidades válidas.');
       return;
     }
     setSaving('receipt');
     setError(null);
     try {
-      await receiveManagedStock(supplier, notes, lines, token!);
+      await receiveManagedStock(supplier, notes, lines.map(line => ({
+        item_id: line.item_id,
+        quantity: Number(line.quantity),
+        unit_cost: Number(line.unit_cost),
+      })), token!);
       setSelected({});
       setSupplier('');
       setNotes('');
@@ -193,7 +218,7 @@ const ManagedStockPage: React.FC = () => {
             onClick={() => { setTab('receive'); setError(null); }}
             className={`rounded-lg px-4 py-3 font-bold ${tab === 'receive' ? 'bg-white text-emerald-700 shadow' : 'text-slate-600'}`}
           >
-            Recibir factura
+            Agregar unidades
           </button>
         </div>
 
@@ -246,6 +271,36 @@ const ManagedStockPage: React.FC = () => {
                           <p className="text-[10px] font-black uppercase tracking-wide text-purple-500">Total fijo</p>
                           <p className="text-lg font-black text-purple-700">{formatQuantity(item.quantity)}</p>
                         </div>
+                      </div>
+
+                      <div className="mt-4 flex items-end gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                        <label className="min-w-0 flex-1 text-xs font-black text-slate-700">
+                          Cantidad total
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.001"
+                            value={totalValues[item.id] ?? ''}
+                            onChange={event => setTotalValues(current => ({
+                              ...current,
+                              [item.id]: event.target.value,
+                            }))}
+                            className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-lg font-black text-slate-900"
+                            aria-label={`Cantidad total de ${item.name}`}
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => void saveTotal(item)}
+                          disabled={
+                            saving === item.id ||
+                            totalValues[item.id] === undefined ||
+                            num(totalValues[item.id]) === item.quantity
+                          }
+                          className="h-[46px] shrink-0 rounded-lg bg-slate-800 px-3 text-sm font-black text-white disabled:bg-slate-200 disabled:text-slate-400"
+                        >
+                          Ajustar total
+                        </button>
                       </div>
 
                       <div className="mt-4 h-3 overflow-hidden rounded-full bg-slate-100">
@@ -306,10 +361,10 @@ const ManagedStockPage: React.FC = () => {
         ) : (
           <>
             <div className="mb-5 rounded-2xl border border-emerald-100 bg-emerald-50 p-4 text-sm text-emerald-950">
-              <p className="font-black">Recibir una factura</p>
+              <p className="font-black">Agregar unidades nuevas</p>
               <p className="mt-1 text-emerald-800">
-                Selecciona los productos que llegaron. La cantidad recibida se suma a bodega;
-                la vitrina no cambia.
+                Selecciona los productos que llegaron. Las nuevas unidades se suman a bodega
+                y conservan intacta la cantidad mostrada en vitrina.
               </p>
             </div>
 
@@ -371,7 +426,10 @@ const ManagedStockPage: React.FC = () => {
                           value={selected[item.id].quantity}
                           onChange={event => setSelected(current => ({
                             ...current,
-                            [item.id]: { ...current[item.id], quantity: num(event.target.value) },
+                            [item.id]: {
+                              ...current[item.id],
+                              quantity: event.target.value === '' ? '' : num(event.target.value),
+                            },
                           }))}
                           className="mt-1 w-full rounded-xl border p-3"
                         />
@@ -385,7 +443,10 @@ const ManagedStockPage: React.FC = () => {
                           value={selected[item.id].unit_cost}
                           onChange={event => setSelected(current => ({
                             ...current,
-                            [item.id]: { ...current[item.id], unit_cost: num(event.target.value) },
+                            [item.id]: {
+                              ...current[item.id],
+                              unit_cost: event.target.value === '' ? '' : num(event.target.value),
+                            },
                           }))}
                           className="mt-1 w-full rounded-xl border p-3"
                         />

@@ -138,11 +138,27 @@ func (r *stockRepository) Receive(receivedBy uuid.UUID, receipt domain.StockRece
 }
 
 func (r *stockRepository) SetQuantity(id uuid.UUID, quantity float64) error {
-	result, err := r.db.Exec(`UPDATE menu_items SET warehouse_quantity = $1,
-		display_quantity = 0, stock_quantity = $1
-		WHERE id = $2 AND (tracks_stock = true OR EXISTS (
+	var display float64
+	err := r.db.QueryRow(`SELECT display_quantity FROM menu_items
+		WHERE id = $1 AND (tracks_stock = true OR EXISTS (
 			SELECT 1 FROM categories c WHERE c.id = menu_items.category_id AND c.tracks_stock = true
-		))`, quantity, id)
+		))`, id).Scan(&display)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return fmt.Errorf("el producto no existe o no pertenece a una categoría inventariable")
+		}
+		return err
+	}
+
+	if display > quantity {
+		display = quantity
+	}
+	warehouse := quantity - display
+	result, err := r.db.Exec(`UPDATE menu_items SET warehouse_quantity = $1,
+		display_quantity = $2, stock_quantity = $1 + $2
+		WHERE id = $3 AND (tracks_stock = true OR EXISTS (
+			SELECT 1 FROM categories c WHERE c.id = menu_items.category_id AND c.tracks_stock = true
+		))`, warehouse, display, id)
 	if err != nil {
 		return err
 	}
