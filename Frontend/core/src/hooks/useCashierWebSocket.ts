@@ -9,6 +9,7 @@ import { orderUpdated, fetchActiveOrders } from '../features/shared/orders/api/o
 import { logout } from '../features/auth/authSlice';
 import type { AppDispatch } from '../app/store';
 import type { Order } from '../types/orders';
+import { getManagedStock } from '../features/inventory/api/managedStockAPI';
 
 interface WebSocketMessage {
   type: string;
@@ -70,6 +71,22 @@ export const useCashierWebSocket = (
     const handleWebSocketMessage = (message: WebSocketMessage) => {
       if (onMessageRef.current) {
         onMessageRef.current(message);
+      }
+
+      if (message.type === 'CART_RESERVATIONS_UPDATED') {
+        const token = localStorage.getItem('token') || '';
+        if (token) {
+          void getManagedStock(token).then(stock => {
+            dispatch(stockUpdated(stock.map(item => ({
+              id: item.id,
+              quantity: item.available_quantity ?? item.quantity,
+              warehouse_quantity: item.warehouse_quantity,
+              display_quantity: item.display_quantity,
+              available_quantity: item.available_quantity,
+            }))));
+          }).catch(() => undefined);
+        }
+        return;
       }
 
       if (message.type === 'STOCK_UPDATED') {

@@ -12,8 +12,8 @@ import (
 
 type StockRepository interface {
 	GetItems(waiterID ...uuid.UUID) ([]domain.StockItem, error)
-	SyncCartReservations(waiterID uuid.UUID, items []domain.OrderItem) error
-	ReleaseCartReservations(waiterID uuid.UUID) error
+	SyncCartReservations(waiterID uuid.UUID, items []domain.OrderItem) (bool, error)
+	ReleaseCartReservations(waiterID uuid.UUID) (bool, error)
 	SetQuantity(id uuid.UUID, quantity float64) error
 	DeleteQuantity(id uuid.UUID) error
 	UpdateLocations(id uuid.UUID, warehouse, display float64) error
@@ -194,16 +194,12 @@ func (r *stockRepository) DeleteQuantity(id uuid.UUID) error {
 	return err
 }
 
-func (r *stockRepository) SyncCartReservations(waiterID uuid.UUID, items []domain.OrderItem) error {
+func (r *stockRepository) SyncCartReservations(waiterID uuid.UUID, items []domain.OrderItem) (bool, error) {
 	tx, err := r.db.Begin()
 	if err != nil {
-		return err
+		return false, err
 	}
 	defer tx.Rollback()
-
-	if _, err := tx.Exec(`DELETE FROM stock_reservations WHERE waiter_id = $1`, waiterID); err != nil {
-		return err
-	}
 
 	quantities := make(map[uuid.UUID]int)
 	for _, item := range items {
@@ -212,13 +208,50 @@ func (r *stockRepository) SyncCartReservations(waiterID uuid.UUID, items []domai
 		}
 	}
 
+	existingRows, err := tx.Query(`SELECT menu_item_id, quantity
+		FROM stock_reservations
+		WHERE waiter_id = $1 AND expires_at > now()`, waiterID)
+	if err != nil {
+		return false, err
+	}
+	existing := make(map[uuid.UUID]int)
+	for existingRows.Next() {
+		var itemID uuid.UUID
+		var quantity int
+		if err := existingRows.Scan(&itemID, &quantity); err != nil {
+			existingRows.Close()
+			return false, err
+		}
+		existing[itemID] += quantity
+	}
+	if err := existingRows.Close(); err != nil {
+		return false, err
+	}
+	if err := existingRows.Err(); err != nil {
+		return false, err
+	}
+
+	changed := len(existing) != len(quantities)
+	if !changed {
+		for itemID, quantity := range quantities {
+			if existing[itemID] != quantity {
+				changed = true
+				break
+			}
+		}
+	}
+
+	if _, err := tx.Exec(`DELETE FROM stock_reservations WHERE waiter_id = $1`, waiterID); err != nil {
+		return false, err
+	}
+
 	for itemID, quantity := range quantities {
 		var name string
 		var tracksStock bool
 		if err := tx.QueryRow(`SELECT m.name, (m.tracks_stock OR c.tracks_stock)
 			FROM menu_items m JOIN categories c ON c.id = m.category_id
 			WHERE m.id = $1`, itemID).Scan(&name, &tracksStock); err != nil {
-			return fmt.Errorf("el producto no existe")
+			return false, fmt.Errorf("el producto no existe")
 		}
 		if !tracksStock {
 			continue
@@ -226,32 +259,39 @@ func (r *stockRepository) SyncCartReservations(waiterID uuid.UUID, items []domai
 
 		var physical float64
 		if err := tx.QueryRow(`SELECT stock_quantity FROM menu_items WHERE id = $1 FOR UPDATE`, itemID).Scan(&physical); err != nil {
-			return err
+			return false, err
 		}
 		var reservedByOthers float64
 		if err := tx.QueryRow(`SELECT COALESCE(SUM(quantity), 0) FROM stock_reservations
 			WHERE menu_item_id = $1 AND waiter_id <> $2 AND expires_at > now()`, itemID, waiterID).Scan(&reservedByOthers); err != nil {
-			return err
+			return false, err
 		}
 		requested := float64(quantity)
 		if reservedByOthers+requested > physical {
-			return fmt.Errorf("no hay existencias suficientes de %s", name)
+			return false, fmt.Errorf("no hay existencias suficientes de %s", name)
 		}
 
 		if _, err := tx.Exec(`INSERT INTO stock_reservations
 			(id, waiter_id, menu_item_id, quantity, updated_at, expires_at)
 			VALUES ($1, $2, $3, $4, now(), now() + interval '30 minutes')`,
 			uuid.New(), waiterID, itemID, requested); err != nil {
-			return err
+			return false, err
 		}
 	}
 
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return false, err
+	}
+	return changed, nil
 }
 
-func (r *stockRepository) ReleaseCartReservations(waiterID uuid.UUID) error {
-	_, err := r.db.Exec(`DELETE FROM stock_reservations WHERE waiter_id = $1`, waiterID)
-	return err
+func (r *stockRepository) ReleaseCartReservations(waiterID uuid.UUID) (bool, error) {
+	result, err := r.db.Exec(`DELETE FROM stock_reservations WHERE waiter_id = $1`, waiterID)
+	if err != nil {
+		return false, err
+	}
+	affected, err := result.RowsAffected()
+	return err == nil && affected > 0, err
 }
 
 func (r *stockRepository) Reserve(items []domain.OrderItem) error {

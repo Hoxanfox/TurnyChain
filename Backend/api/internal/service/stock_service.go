@@ -26,12 +26,20 @@ func NewStockService(repo repository.StockRepository, hub *wshub.Hub) StockServi
 }
 func (s *stockService) GetItems(waiterID ...uuid.UUID) ([]domain.StockItem, error) { return s.repo.GetItems(waiterID...) }
 func (s *stockService) SyncCartReservations(waiterID uuid.UUID, items []domain.OrderItem) error {
-	if err := s.repo.SyncCartReservations(waiterID, items); err != nil { return err }
-	s.broadcast(); return nil
+	changed, err := s.repo.SyncCartReservations(waiterID, items)
+	if err != nil { return err }
+	if changed && s.hub != nil {
+		s.hub.BroadcastMessage("CART_RESERVATIONS_UPDATED", nil)
+	}
+	return nil
 }
 func (s *stockService) ReleaseCartReservations(waiterID uuid.UUID) error {
-	if err := s.repo.ReleaseCartReservations(waiterID); err != nil { return err }
-	s.broadcast(); return nil
+	changed, err := s.repo.ReleaseCartReservations(waiterID)
+	if err != nil { return err }
+	if changed && s.hub != nil {
+		s.hub.BroadcastMessage("CART_RESERVATIONS_UPDATED", nil)
+	}
+	return nil
 }
 func (s *stockService) SetQuantity(id uuid.UUID, quantity float64) error {
 	if quantity < 0 { return fmt.Errorf("quantity cannot be negative") }

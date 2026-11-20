@@ -9,6 +9,7 @@ import { setSoldOutMenuId, setSoldOutAccompanimentId, setSoldOutIngredientId, se
 import { logout } from '../features/auth/authSlice';
 import type { AppDispatch } from '../app/store';
 import type { Order } from '../types/orders';
+import { getManagedStock } from '../features/inventory/api/managedStockAPI';
 
 interface WebSocketMessage {
   type: string;
@@ -86,6 +87,21 @@ export const useWaiterWebSocket = (
       }, force ? 120 : 250);
     };
     const handleWebSocketMessage = (message: WebSocketMessage) => {
+      if (message.type === 'CART_RESERVATIONS_UPDATED') {
+        const token = localStorage.getItem('token') || '';
+        if (token) {
+          void getManagedStock(token).then(stock => {
+            dispatch(stockUpdated(stock.map(item => ({
+              id: item.id,
+              quantity: item.available_quantity ?? item.quantity,
+              warehouse_quantity: item.warehouse_quantity,
+              display_quantity: item.display_quantity,
+              available_quantity: item.available_quantity,
+            }))));
+          }).catch(() => undefined);
+        }
+        return;
+      }
       if (message.type === 'STOCK_UPDATED') {
         dispatch(stockUpdated(message.payload as Array<{ id: string; quantity: number; warehouse_quantity: number; display_quantity: number }>));
         window.dispatchEvent(new Event('stock_updated'));

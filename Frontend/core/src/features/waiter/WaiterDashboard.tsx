@@ -276,20 +276,24 @@ const WaiterDashboard: React.FC = () => {
 
         const availableById = new Map(stock.filter(item => item.available_quantity !== undefined).map(item => [item.id, item.available_quantity!]));
         let removed = false;
-        setTabs(currentTabs => currentTabs.map(tab => ({
-          ...tab,
-          cart: tab.cart.flatMap(cartItem => {
-            if (!cartItem.tracks_stock) return [cartItem];
-            const available = availableById.get(cartItem.id);
-            if (available === undefined) return [cartItem];
-            const reservedForOthers = cartItem.quantity;
-            if (reservedForOthers > available) {
-              removed = true;
-              return [];
-            }
-            return [cartItem];
-          }),
-        })));
+        setTabs(currentTabs => {
+          const nextTabs = currentTabs.map(tab => ({
+            ...tab,
+            cart: tab.cart.flatMap(cartItem => {
+              if (!cartItem.tracks_stock) return [cartItem];
+              const available = availableById.get(cartItem.id);
+              if (available === undefined) return [cartItem];
+              if (cartItem.quantity > available) {
+                removed = true;
+                return [];
+              }
+              return [cartItem];
+            }),
+          }));
+          return removed
+            ? nextTabs
+            : currentTabs;
+        });
         if (removed) {
           toast.error('Otra persona tomó las últimas unidades mientras preparabas la comanda. Revisa el menú y vuelve a elegir.');
           dispatch(fetchMenu());
