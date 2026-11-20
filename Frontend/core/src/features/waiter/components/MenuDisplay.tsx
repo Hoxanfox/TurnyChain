@@ -221,8 +221,21 @@ const MenuDisplay: React.FC<MenuDisplayProps> = ({ onAddToCart }) => {
                           : 'bg-gradient-to-br from-white to-gray-50 border-gray-200 hover:shadow-lg hover:border-indigo-300 hover:from-indigo-50 hover:to-white active:scale-95'
                       }`}
                     >
-                      <div className="flex h-full min-h-[8rem] gap-3">
-                        <div className="min-w-0 flex-1">
+                      <div className="flex h-full min-h-[16rem] flex-col">
+                        {item.image_url ? (
+                          <img
+                            src={item.image_url}
+                            alt=""
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setPreviewItem(item);
+                            }}
+                            className="mb-3 h-32 w-full cursor-zoom-in rounded-lg object-cover shadow-sm"
+                          />
+                        ) : (
+                          <div className="mb-3 flex h-32 w-full items-center justify-center rounded-lg bg-slate-100 text-4xl">🍽️</div>
+                        )}
+                        <div className="flex min-w-0 flex-1 flex-col">
                       {/* Badge de item popular */}
                       {isPopular(item) && !isUnavailable && !isPartiallySoldOut && (
                         <div className="absolute -top-2 left-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-lg flex items-center gap-1 z-10">
@@ -260,19 +273,6 @@ const MenuDisplay: React.FC<MenuDisplayProps> = ({ onAddToCart }) => {
                         ${item.price.toLocaleString('es-CO')}
                       </p>
                         </div>
-                        {item.image_url ? (
-                          <img
-                            src={item.image_url}
-                            alt={item.name}
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              setPreviewItem(item);
-                            }}
-                            className="h-24 w-24 shrink-0 cursor-zoom-in rounded-xl object-cover shadow-sm"
-                          />
-                        ) : (
-                          <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-3xl">🍽️</div>
-                        )}
                       </div>
                     </button>
                   );
@@ -317,18 +317,9 @@ const MenuDisplay: React.FC<MenuDisplayProps> = ({ onAddToCart }) => {
             </button>
             <img
               src={previewItem.image_url}
-              alt={previewItem.name}
-              className="max-h-[68vh] w-full object-contain"
+              alt={`Imagen de ${previewItem.name}`}
+              className="max-h-[85vh] w-full object-contain"
             />
-            <div className="p-4">
-              <p className="text-xl font-black text-slate-900">{previewItem.name}</p>
-              {previewItem.description && (
-                <p className="mt-1 text-sm text-slate-600">{previewItem.description}</p>
-              )}
-              <p className="mt-3 text-2xl font-black text-indigo-700">
-                ${previewItem.price.toLocaleString('es-CO')}
-              </p>
-            </div>
           </div>
         </div>
       )}

@@ -29,6 +29,7 @@ interface CustomizeOrderItemModalProps {
 const CustomizeOrderItemModal: React.FC<CustomizeOrderItemModalProps> = ({ item, onConfirm, onClose, reservedQuantity = 0 }) => {
   const { soldOutAccompanimentIds, soldOutIngredientIds } = useSelector((state: RootState) => state.menu);
   const [stockWarning, setStockWarning] = useState('');
+  const [isImagePreviewOpen, setIsImagePreviewOpen] = useState(false);
   const menuItems = useSelector((state: RootState) => state.menu.items);
   const [price, setPrice] = useState(item.price);
   const [selectedAccompaniments, setSelectedAccompaniments] = useState<Accompaniment[]>(
@@ -102,7 +103,19 @@ const CustomizeOrderItemModal: React.FC<CustomizeOrderItemModalProps> = ({ item,
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
       <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-lg">
-        <h2 className="text-xl font-bold mb-4">Personalizar: {item.name}</h2>
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 className="min-w-0 text-xl font-bold">Personalizar: {item.name}</h2>
+          {item.image_url && (
+            <button
+              type="button"
+              onClick={() => setIsImagePreviewOpen(true)}
+              className="shrink-0 rounded-md border border-indigo-200 bg-indigo-50 p-0.5 shadow-sm transition hover:border-indigo-400 hover:bg-indigo-100"
+              aria-label={`Ver imagen de ${item.name}`}
+            >
+              <img src={item.image_url} alt="" className="h-8 w-8 rounded object-cover" />
+            </button>
+          )}
+        </div>
         
         <div className="space-y-4">
             {/* NUEVO: Selector de Cantidad */}
@@ -200,6 +213,31 @@ const CustomizeOrderItemModal: React.FC<CustomizeOrderItemModalProps> = ({ item,
                 <textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} className="mt-1 block w-full px-3 py-2 border rounded-md" />
             </div>
         </div>
+
+        {isImagePreviewOpen && item.image_url && (
+          <div
+                className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/85 p-4"
+                onClick={() => setIsImagePreviewOpen(false)}
+                role="dialog"
+                aria-modal="true"
+                aria-label={`Imagen de ${item.name}`}
+          >
+                <div
+                  className="relative flex max-h-[90vh] w-full max-w-2xl items-center justify-center"
+                  onClick={event => event.stopPropagation()}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setIsImagePreviewOpen(false)}
+                    className="absolute right-0 top-0 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-xl font-black text-slate-700 shadow"
+                    aria-label="Cerrar imagen"
+                  >
+                    ×
+                  </button>
+                  <img src={item.image_url} alt={`Imagen de ${item.name}`} className="max-h-[85vh] max-w-full rounded-xl object-contain shadow-2xl" />
+                </div>
+          </div>
+        )}
 
         <div className="mt-6 flex justify-between items-center">
           <div className="text-left">
