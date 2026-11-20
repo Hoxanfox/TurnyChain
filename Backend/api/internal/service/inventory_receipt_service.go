@@ -7,6 +7,7 @@ import (
 
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/domain"
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/repository"
+	wshub "github.com/Hoxanfox/TurnyChain/Backend/api/internal/websocket"
 	"github.com/google/uuid"
 )
 
@@ -39,10 +40,11 @@ type CreateInventoryReceiptLine struct {
 
 type inventoryReceiptService struct {
 	repo repository.InventoryReceiptRepository
+	hub  *wshub.Hub
 }
 
-func NewInventoryReceiptService(repo repository.InventoryReceiptRepository) InventoryReceiptService {
-	return &inventoryReceiptService{repo: repo}
+func NewInventoryReceiptService(repo repository.InventoryReceiptRepository, hub *wshub.Hub) InventoryReceiptService {
+	return &inventoryReceiptService{repo: repo, hub: hub}
 }
 
 func (s *inventoryReceiptService) CreateReceipt(receivedBy uuid.UUID, payload CreateInventoryReceiptPayload) (*domain.InventoryReceipt, error) {
@@ -80,6 +82,11 @@ func (s *inventoryReceiptService) CreateReceipt(receivedBy uuid.UUID, payload Cr
 
 	if err := s.repo.CreateReceipt(receipt); err != nil {
 		return nil, err
+	}
+	if s.hub != nil {
+		if stock, err := s.repo.GetStock(); err == nil {
+			s.hub.BroadcastMessage("INVENTORY_STOCK_UPDATED", stock)
+		}
 	}
 	return receipt, nil
 }

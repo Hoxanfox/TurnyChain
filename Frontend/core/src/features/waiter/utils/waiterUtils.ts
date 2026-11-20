@@ -65,10 +65,19 @@ export const updateCartItemPrice = (
  */
 export const incrementItemQuantity = (
   cart: CartItem[],
-  cartItemId: string
+  cartItemId: string,
+  availableQuantity?: number
 ): CartItem[] => {
   return cart.map(item => {
     if (item.cartItemId === cartItemId) {
+      if (availableQuantity !== undefined) {
+        const totalOtherQuantity = cart
+          .filter(cartItem => cartItem.id === item.id && cartItem.cartItemId !== cartItemId)
+          .reduce((sum, cartItem) => sum + cartItem.quantity, 0);
+        if (item.quantity + 1 + totalOtherQuantity > availableQuantity) {
+          return item;
+        }
+      }
       const newQuantity = item.quantity + 1;
       // Recalcular el precio total basado en la nueva cantidad
       const pricePerUnit = item.finalPrice / item.quantity;

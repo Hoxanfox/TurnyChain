@@ -104,7 +104,7 @@ func main() {
 	kitchenTicketService := service.NewKitchenTicketService(orderRepo, printerRepo, stationRepo, wsHub, menuRepo)
 	orderService := service.NewOrderService(orderRepo, tableRepo, menuRepo, ingredientRepo, accompanimentRepo, wsHub, blockchainService, kitchenTicketService, cashRegisterRepo, stockRepo)
 	invoiceService := service.NewInvoiceService(orderRepo)
-	inventoryReceiptService := service.NewInventoryReceiptService(inventoryReceiptRepo)
+	inventoryReceiptService := service.NewInventoryReceiptService(inventoryReceiptRepo, wsHub)
 	supplierInvoiceService := service.NewSupplierInvoiceService(supplierInvoiceRepo)
 	tableService := service.NewTableService(tableRepo)
 	categoryService := service.NewCategoryService(categoryRepo)

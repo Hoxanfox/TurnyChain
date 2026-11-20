@@ -4,7 +4,7 @@
 // =================================================================
 import { useEffect, useRef } from 'react';
 import { useDispatch } from 'react-redux';
-import { stockUpdated } from '../features/admin/components/menu/api/menuSlice.ts';
+import { fetchMenu, stockUpdated } from '../features/admin/components/menu/api/menuSlice.ts';
 import { orderUpdated, fetchActiveOrders } from '../features/shared/orders/api/ordersSlice';
 import { logout } from '../features/auth/authSlice';
 import type { AppDispatch } from '../app/store';
@@ -75,6 +75,7 @@ export const useCashierWebSocket = (
       if (message.type === 'STOCK_UPDATED') {
         dispatch(stockUpdated(message.payload as Array<{ id: string; quantity: number; warehouse_quantity: number; display_quantity: number }>));
         window.dispatchEvent(new Event('stock_updated'));
+        dispatch(fetchMenu());
         return;
       }
 
@@ -123,6 +124,12 @@ export const useCashierWebSocket = (
           // Emitir un evento global para que componentes como el LayoutEditor puedan reaccionar
           window.dispatchEvent(new MessageEvent('ws_setting_updated', {
             data: JSON.stringify(message)
+          }));
+          break;
+
+        case 'INVENTORY_STOCK_UPDATED':
+          window.dispatchEvent(new CustomEvent('inventory_stock_updated', {
+            detail: message.payload
           }));
           break;
 

@@ -1,7 +1,7 @@
 // =================================================================
 // ARCHIVO 2: /src/features/waiter/components/CustomizeOrderItemModal.tsx (ACTUALIZADO)
 // =================================================================
-import React, { useState, useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { formatMoney } from '../../../utils/formatUtils.ts';
 import type { MenuItem, CartItem } from '../../../types/menu';
 import type { Accompaniment } from '../../../types/accompaniments';
@@ -23,10 +23,13 @@ interface CustomizeOrderItemModalProps {
   item: MenuItem | CartItem;
   onConfirm: (customizationData: CustomizationData) => void;
   onClose: () => void;
+  reservedQuantity?: number;
 }
 
-const CustomizeOrderItemModal: React.FC<CustomizeOrderItemModalProps> = ({ item, onConfirm, onClose }) => {
+const CustomizeOrderItemModal: React.FC<CustomizeOrderItemModalProps> = ({ item, onConfirm, onClose, reservedQuantity = 0 }) => {
   const { soldOutAccompanimentIds, soldOutIngredientIds } = useSelector((state: RootState) => state.menu);
+  const [stockWarning, setStockWarning] = useState('');
+  const menuItems = useSelector((state: RootState) => state.menu.items);
   const [price, setPrice] = useState(item.price);
   const [selectedAccompaniments, setSelectedAccompaniments] = useState<Accompaniment[]>(
     'selectedAccompaniments' in item && item.selectedAccompaniments
@@ -48,6 +51,11 @@ const CustomizeOrderItemModal: React.FC<CustomizeOrderItemModalProps> = ({ item,
       ? item.quantity
       : 1
   ); // NUEVO: estado para cantidad
+
+  const liveItem = menuItems.find(menuItem => menuItem.id === item.id);
+  const availableQuantity = liveItem?.tracks_stock
+    ? Math.max(0, liveItem.stock_quantity - reservedQuantity)
+    : null;
 
   const handleAccompanimentToggle = (accompaniment: Accompaniment) => {
     setSelectedAccompaniments(prev => 
@@ -74,6 +82,11 @@ const CustomizeOrderItemModal: React.FC<CustomizeOrderItemModalProps> = ({ item,
   }, [item, selectedAccompaniments, price, quantity]);
 
   const handleConfirmClick = () => {
+    if (availableQuantity !== null && quantity > availableQuantity) {
+      const message = `Solo quedan ${availableQuantity} unidades disponibles de ${item.name}.`;
+      setStockWarning(message);
+      return;
+    }
     onConfirm({
         price,
         finalPrice,
@@ -109,12 +122,30 @@ const CustomizeOrderItemModal: React.FC<CustomizeOrderItemModalProps> = ({ item,
                     </div>
                     <button
                         type="button"
-                        onClick={() => setQuantity(quantity + 1)}
-                        className="w-12 h-12 flex items-center justify-center bg-green-500 text-white rounded-full hover:bg-green-600 active:scale-95 transition-all font-bold text-xl shadow-lg"
+                        onClick={() => {
+                          if (availableQuantity !== null && quantity >= availableQuantity) {
+                            setStockWarning(`Solo quedan ${availableQuantity} unidades disponibles de ${item.name}.`);
+                            return;
+                          }
+                          setStockWarning('');
+                          setQuantity(quantity + 1);
+                        }}
+                        disabled={availableQuantity !== null && quantity >= availableQuantity}
+                        className="w-12 h-12 flex items-center justify-center bg-green-500 text-white rounded-full hover:bg-green-600 active:scale-95 transition-all font-bold text-xl shadow-lg disabled:bg-gray-300 disabled:cursor-not-allowed"
                     >
                         +
                     </button>
                 </div>
+                {availableQuantity !== null && (
+                  <p className="mt-3 text-center text-sm font-bold text-purple-700">
+                    Disponibles: {availableQuantity} unidades
+                  </p>
+                )}
+                {stockWarning && (
+                  <div role="alert" className="mt-3 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-center text-sm font-bold text-red-700">
+                    ⚠️ {stockWarning}
+                  </div>
+                )}
             </div>
 
             <div>

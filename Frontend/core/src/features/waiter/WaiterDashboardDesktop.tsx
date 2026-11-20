@@ -67,6 +67,7 @@ const WaiterDashboardDesktop: React.FC<WaiterDashboardDesktopProps> = ({
   const { tables } = useSelector((state: RootState) => state.tables);
   const { createOrderStatus, myOrders, activeOrders } = useSelector((state: RootState) => state.orders);
   const { token, user } = useSelector((state: RootState) => state.auth);
+  const menuItems = useSelector((state: RootState) => state.menu.items);
   const { status } = useSelector((state: RootState) => state.tables);
 
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -235,7 +236,24 @@ const WaiterDashboardDesktop: React.FC<WaiterDashboardDesktopProps> = ({
     setCart(currentCart => updateCartItemPrice(currentCart, cartItemId, newPrice));
   };
 
-  const handleIncrementQuantity = (cartItemId: string) => {
+  const handleIncrementQuantity = async (cartItemId: string) => {
+    const target = cart.find(item => item.cartItemId === cartItemId);
+    if (!target) {
+      setCart(currentCart => incrementItemQuantity(currentCart, cartItemId));
+      return;
+    }
+    const liveItem = menuItems.find(menuItem => menuItem.id === target.id);
+    if (liveItem?.tracks_stock) {
+      const reserved = cart
+        .filter(item => item.id === target.id)
+        .reduce((sum, item) => sum + item.quantity, 0);
+      if (reserved >= liveItem.stock_quantity) {
+        toast.error(`Solo quedan ${liveItem.stock_quantity} unidades disponibles de ${target.name}.`);
+        return;
+      }
+      setCart(currentCart => incrementItemQuantity(currentCart, cartItemId, liveItem.stock_quantity));
+      return;
+    }
     setCart(currentCart => incrementItemQuantity(currentCart, cartItemId));
   };
 
@@ -956,6 +974,7 @@ const WaiterDashboardDesktop: React.FC<WaiterDashboardDesktopProps> = ({
           item={customizingItem}
           onClose={() => setCustomizingItem(null)}
           onConfirm={handleConfirmCustomization}
+          reservedQuantity={cart.filter(cartItem => cartItem.id === customizingItem.id).reduce((sum, cartItem) => sum + cartItem.quantity, 0)}
         />
       )}
       {editingCartItem && (
@@ -963,6 +982,7 @@ const WaiterDashboardDesktop: React.FC<WaiterDashboardDesktopProps> = ({
           item={editingCartItem}
           onClose={() => setEditingCartItem(null)}
           onConfirm={handleConfirmEditCartItem}
+          reservedQuantity={cart.filter(cartItem => cartItem.id === editingCartItem.id && cartItem.cartItemId !== editingCartItem.cartItemId).reduce((sum, cartItem) => sum + cartItem.quantity, 0)}
         />
       )}
       {isCheckoutBeforeSend && (
