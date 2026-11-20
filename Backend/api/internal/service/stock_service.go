@@ -29,7 +29,7 @@ func (s *stockService) SyncCartReservations(waiterID uuid.UUID, items []domain.O
 	changed, err := s.repo.SyncCartReservations(waiterID, items)
 	if err != nil { return err }
 	if changed && s.hub != nil {
-		s.hub.BroadcastMessage("CART_RESERVATIONS_UPDATED", nil)
+		s.broadcastReservations()
 	}
 	return nil
 }
@@ -37,7 +37,7 @@ func (s *stockService) ReleaseCartReservations(waiterID uuid.UUID) error {
 	changed, err := s.repo.ReleaseCartReservations(waiterID)
 	if err != nil { return err }
 	if changed && s.hub != nil {
-		s.hub.BroadcastMessage("CART_RESERVATIONS_UPDATED", nil)
+		s.broadcastReservations()
 	}
 	return nil
 }
@@ -63,4 +63,10 @@ func (s *stockService) Receive(receivedBy uuid.UUID, receipt domain.StockReceipt
 func (s *stockService) broadcast() {
 	if s.hub == nil { return }
 	if items, err := s.repo.GetItems(); err == nil { s.hub.BroadcastMessage("STOCK_UPDATED", items) }
+}
+
+func (s *stockService) broadcastReservations() {
+	if items, err := s.repo.GetItems(); err == nil {
+		s.hub.BroadcastMessage("CART_RESERVATIONS_UPDATED", items)
+	}
 }

@@ -74,17 +74,28 @@ export const useCashierWebSocket = (
       }
 
       if (message.type === 'CART_RESERVATIONS_UPDATED') {
-        const token = localStorage.getItem('token') || '';
-        if (token) {
-          void getManagedStock(token).then(stock => {
-            dispatch(stockUpdated(stock.map(item => ({
-              id: item.id,
-              quantity: item.quantity,
-              warehouse_quantity: item.warehouse_quantity,
-              display_quantity: item.display_quantity,
-              available_quantity: item.available_quantity,
-            }))));
-          }).catch(() => undefined);
+        const stock = Array.isArray(message.payload) ? message.payload : null;
+        if (stock) {
+          dispatch(stockUpdated(stock.map(item => ({
+            id: item.id,
+            quantity: item.quantity,
+            warehouse_quantity: item.warehouse_quantity,
+            display_quantity: item.display_quantity,
+            available_quantity: item.available_quantity,
+          }))));
+        } else {
+          const token = localStorage.getItem('token') || '';
+          if (token) {
+            void getManagedStock(token).then(stock => {
+              dispatch(stockUpdated(stock.map(item => ({
+                id: item.id,
+                quantity: item.quantity,
+                warehouse_quantity: item.warehouse_quantity,
+                display_quantity: item.display_quantity,
+                available_quantity: item.available_quantity,
+              }))));
+            }).catch(() => undefined);
+          }
         }
         return;
       }
