@@ -49,7 +49,7 @@ import toast, { Toaster } from 'react-hot-toast';
 import { useWaiterGamification } from './hooks/useWaiterGamification';
 import './styles/Gamification.css';
 import { getTableOccupancyStatus } from './utils/tableOccupancy';
-import { syncCartReservations, releaseCartReservations } from '../inventory/api/managedStockAPI';
+import { syncCartReservations, releaseCartReservations, getManagedStock } from '../inventory/api/managedStockAPI';
 import { stockUpdated } from '../admin/components/menu/api/menuSlice';
 
 interface WaiterDashboardDesktopProps {
@@ -86,11 +86,13 @@ const WaiterDashboardDesktop: React.FC<WaiterDashboardDesktopProps> = ({
     const nextTotals = new Map<string, number>();
     cart.forEach(item => previousTotals.set(item.id, (previousTotals.get(item.id) || 0) + item.quantity));
     nextCart.forEach(item => nextTotals.set(item.id, (nextTotals.get(item.id) || 0) + item.quantity));
+    const affectedItemIds = new Set<string>();
     for (const liveItem of menuItems) {
       if (!liveItem.tracks_stock) continue;
       const previousQuantity = previousTotals.get(liveItem.id);
       const nextQuantity = nextTotals.get(liveItem.id);
       if (previousQuantity === nextQuantity) continue;
+      affectedItemIds.add(liveItem.id);
       const currentAvailable = liveItem.available_quantity ?? liveItem.stock_quantity;
       const optimisticAvailable = Math.max(0, currentAvailable + (previousQuantity || 0) - (nextQuantity || 0));
       dispatch(stockUpdated([{
@@ -108,7 +110,7 @@ const WaiterDashboardDesktop: React.FC<WaiterDashboardDesktopProps> = ({
         .map(item => ({ menu_item_id: item.id, quantity: item.quantity }));
       void syncCartReservations(items, token).then(stock => {
         if (syncVersion !== reservationSyncVersion.current) return;
-        dispatch(stockUpdated(stock.map(item => ({
+        dispatch(stockUpdated(stock.filter(item => affectedItemIds.has(item.id)).map(item => ({
           id: item.id,
           quantity: item.quantity,
           warehouse_quantity: item.warehouse_quantity,
@@ -120,6 +122,15 @@ const WaiterDashboardDesktop: React.FC<WaiterDashboardDesktopProps> = ({
         if (error.response?.status === 409) {
           toast.error('Las existencias cambiaron mientras modificabas el carrito. Revisa nuevamente.');
         }
+        void getManagedStock(token).then(stock => {
+          dispatch(stockUpdated(stock.filter(item => affectedItemIds.has(item.id)).map(item => ({
+            id: item.id,
+            quantity: item.quantity,
+            warehouse_quantity: item.warehouse_quantity,
+            display_quantity: item.display_quantity,
+            available_quantity: item.available_quantity,
+          }))));
+        }).catch(() => undefined);
       });
     }
   };
