@@ -64,8 +64,8 @@ import DeliveryInfoModal from './components/DeliveryInfoModal';
 import toast, { Toaster } from 'react-hot-toast';
 import { useWaiterGamification } from './hooks/useWaiterGamification';
 import './styles/Gamification.css';
-import { syncCartReservations, releaseCartReservations, getManagedStock } from '../inventory/api/managedStockAPI';
-import { stockUpdated, fetchMenu } from '../admin/components/menu/api/menuSlice';
+import { syncCartReservations, releaseCartReservations } from '../inventory/api/managedStockAPI';
+import { stockUpdated } from '../admin/components/menu/api/menuSlice';
 
 interface OrderTab {
   id: string;
@@ -169,6 +169,28 @@ const WaiterDashboard: React.FC = () => {
         ? { ...tab, cart: nextCart }
         : tab
     ));
+    if (token) {
+      const syncVersion = ++reservationSyncVersion.current;
+      const nextTabs = tabs.map(tab => tab.id === activeTabId ? { ...tab, cart: nextCart } : tab);
+      const items = nextTabs.flatMap(tab => tab.cart)
+        .filter(item => item.tracks_stock)
+        .map(item => ({ menu_item_id: item.id, quantity: item.quantity }));
+      void syncCartReservations(items, token).then(stock => {
+        if (syncVersion !== reservationSyncVersion.current) return;
+        dispatch(stockUpdated(stock.map(item => ({
+          id: item.id,
+          quantity: item.quantity,
+          warehouse_quantity: item.warehouse_quantity,
+          display_quantity: item.display_quantity,
+          available_quantity: item.available_quantity,
+        }))));
+      }).catch(error => {
+        if (syncVersion !== reservationSyncVersion.current) return;
+        if (error.response?.status === 409) {
+          toast.error('Las existencias cambiaron mientras modificabas el carrito. Revisa nuevamente.');
+        }
+      });
+    }
   };
 
   const setTableId = (newTableId: string) => {
@@ -285,46 +307,6 @@ const WaiterDashboard: React.FC = () => {
     }
   }, [tabs, activeTabId]);
 
-  useEffect(() => {
-    if (!token) return;
-    const syncVersion = ++reservationSyncVersion.current;
-    const timer = window.setTimeout(async () => {
-      const items = tabs.flatMap(tab => tab.cart)
-        .filter(item => item.tracks_stock)
-        .map(item => ({ menu_item_id: item.id, quantity: item.quantity }));
-      try {
-        const stock = await syncCartReservations(items, token);
-        if (syncVersion !== reservationSyncVersion.current) return;
-        dispatch(stockUpdated(stock.map(item => ({
-          id: item.id,
-          quantity: item.quantity,
-          warehouse_quantity: item.warehouse_quantity,
-          display_quantity: item.display_quantity,
-          available_quantity: item.available_quantity,
-        }))));
-
-      } catch (error: any) {
-        if (syncVersion !== reservationSyncVersion.current) return;
-        if (error.response?.status === 409) {
-          toast.error('Las existencias cambiaron mientras elegías. Revisa nuevamente antes de enviar.');
-        }
-        try {
-          const stock = await getManagedStock(token);
-          if (syncVersion !== reservationSyncVersion.current) return;
-          dispatch(stockUpdated(stock.map(item => ({
-            id: item.id,
-            quantity: item.quantity,
-            warehouse_quantity: item.warehouse_quantity,
-            display_quantity: item.display_quantity,
-            available_quantity: item.available_quantity,
-          }))));
-        } catch {
-          dispatch(fetchMenu());
-        }
-      }
-    }, 250);
-    return () => window.clearTimeout(timer);
-  }, [tabs, token, dispatch]);
 
   useEffect(() => {
     if (!token) return;
