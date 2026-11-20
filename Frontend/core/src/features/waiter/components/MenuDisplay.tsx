@@ -200,7 +200,8 @@ const MenuDisplay: React.FC<MenuDisplayProps> = ({ onAddToCart }) => {
                 {filteredAndSortedItems.map(item => {
                   const isSoldOut = soldOutMenuIds?.includes(item.id);
                   const isStockManaged = item.tracks_stock === true;
-                  const isStockEmpty = isStockManaged && item.stock_quantity <= 0;
+                  const availableQuantity = item.available_quantity ?? item.stock_quantity;
+                  const isStockEmpty = isStockManaged && availableQuantity <= 0;
                   const isUnavailable = isSoldOut || isStockEmpty;
                   const hasMissingAcc = item.accompaniments?.some(acc => soldOutAccompanimentIds?.includes(acc.id));
                   const hasMissingIng = item.ingredients?.some(ing => soldOutIngredientIds?.includes(ing.id));
@@ -266,7 +267,7 @@ const MenuDisplay: React.FC<MenuDisplayProps> = ({ onAddToCart }) => {
                       )}
                       {isStockManaged && (
                         <p className="mb-1 text-xs font-black text-purple-700">
-                          Existencias: {item.stock_quantity.toLocaleString('es-CO', { maximumFractionDigits: 3 })}
+                          Disponibles: {availableQuantity.toLocaleString('es-CO', { maximumFractionDigits: 3 })}
                         </p>
                       )}
                       <p className={`text-lg font-bold mt-auto ${isStockEmpty ? 'text-purple-800' : isSoldOut ? 'text-red-700' : isPartiallySoldOut ? 'text-yellow-800' : 'text-indigo-700'}`}>

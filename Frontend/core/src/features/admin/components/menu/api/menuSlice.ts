@@ -74,7 +74,8 @@ export const menuSlice = createSlice({
     stockUpdated: (state, action: PayloadAction<Array<{ id: string; quantity: number; warehouse_quantity: number; display_quantity: number; available_quantity?: number }>>) => {
       const quantities = new Map(action.payload.map(item => [item.id, item]));
       state.items = state.items.map(item => quantities.has(item.id)
-        ? { ...item, stock_quantity: quantities.get(item.id)?.available_quantity ?? quantities.get(item.id)?.quantity ?? item.stock_quantity,
+        ? { ...item, stock_quantity: quantities.get(item.id)?.quantity ?? item.stock_quantity,
+            available_quantity: quantities.get(item.id)?.available_quantity,
             warehouse_quantity: quantities.get(item.id)?.warehouse_quantity ?? item.warehouse_quantity,
             display_quantity: quantities.get(item.id)?.display_quantity ?? item.display_quantity }
         : item);

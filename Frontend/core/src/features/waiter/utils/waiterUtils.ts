@@ -35,6 +35,26 @@ export const createCartItemFromCustomization = (
   };
 };
 
+export const validateCartStock = (
+  cart: CartItem[],
+  menuItems: MenuItem[]
+): string | null => {
+  const totals = new Map<string, number>();
+  cart.forEach(item => {
+    totals.set(item.id, (totals.get(item.id) || 0) + item.quantity);
+  });
+
+  for (const [itemId, quantity] of totals) {
+    const liveItem = menuItems.find(item => item.id === itemId);
+    if (!liveItem?.tracks_stock) continue;
+    const availableQuantity = liveItem.available_quantity ?? liveItem.stock_quantity;
+    if (quantity > availableQuantity) {
+      return `Solo quedan ${availableQuantity} unidades disponibles de ${liveItem.name}.`;
+    }
+  }
+  return null;
+};
+
 /**
  * Elimina un item del carrito por su cartItemId
  */

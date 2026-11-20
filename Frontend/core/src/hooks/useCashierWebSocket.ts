@@ -79,7 +79,7 @@ export const useCashierWebSocket = (
           void getManagedStock(token).then(stock => {
             dispatch(stockUpdated(stock.map(item => ({
               id: item.id,
-              quantity: item.available_quantity ?? item.quantity,
+              quantity: item.quantity,
               warehouse_quantity: item.warehouse_quantity,
               display_quantity: item.display_quantity,
               available_quantity: item.available_quantity,
@@ -90,7 +90,18 @@ export const useCashierWebSocket = (
       }
 
       if (message.type === 'STOCK_UPDATED') {
-        dispatch(stockUpdated(message.payload as Array<{ id: string; quantity: number; warehouse_quantity: number; display_quantity: number }>));
+        const token = localStorage.getItem('token') || '';
+        if (token) {
+          void getManagedStock(token).then(stock => {
+            dispatch(stockUpdated(stock.map(item => ({
+              id: item.id,
+              quantity: item.quantity,
+              warehouse_quantity: item.warehouse_quantity,
+              display_quantity: item.display_quantity,
+              available_quantity: item.available_quantity,
+            }))));
+          }).catch(() => undefined);
+        }
         window.dispatchEvent(new Event('stock_updated'));
         return;
       }

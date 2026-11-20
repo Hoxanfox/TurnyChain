@@ -31,6 +31,7 @@ import { FaQrcode } from 'react-icons/fa';
 // Importar funciones y tipos comunes del feature
 import {
   createCartItemFromCustomization,
+  validateCartStock,
   removeItemFromCart,
   updateCartItemPrice,
   incrementItemQuantity,
@@ -72,7 +73,16 @@ const WaiterDashboardDesktop: React.FC<WaiterDashboardDesktopProps> = ({
   const menuItems = useSelector((state: RootState) => state.menu.items);
   const { status } = useSelector((state: RootState) => state.tables);
 
-  const [cart, setCart] = useState<CartItem[]>([]);
+  const [cart, setCartState] = useState<CartItem[]>([]);
+  const setCart = (updater: CartItem[] | ((curr: CartItem[]) => CartItem[])) => {
+    const nextCart = typeof updater === 'function' ? updater(cart) : updater;
+    const stockError = validateCartStock(nextCart, menuItems);
+    if (stockError) {
+      toast.error(stockError);
+      return;
+    }
+    setCartState(nextCart);
+  };
   const [tableId, setTableId] = useState('');
   const [orderType, setOrderType] = useState<string>('mesa');
   const [deliveryData, setDeliveryData] = useState<{
@@ -182,7 +192,7 @@ const WaiterDashboardDesktop: React.FC<WaiterDashboardDesktopProps> = ({
         const stock = await syncCartReservations(items, token);
         dispatch(stockUpdated(stock.map(item => ({
           id: item.id,
-          quantity: item.available_quantity ?? item.quantity,
+          quantity: item.quantity,
           warehouse_quantity: item.warehouse_quantity,
           display_quantity: item.display_quantity,
           available_quantity: item.available_quantity,
@@ -195,7 +205,7 @@ const WaiterDashboardDesktop: React.FC<WaiterDashboardDesktopProps> = ({
           const stock = await getManagedStock(token);
           dispatch(stockUpdated(stock.map(item => ({
             id: item.id,
-            quantity: item.available_quantity ?? item.quantity,
+            quantity: item.quantity,
             warehouse_quantity: item.warehouse_quantity,
             display_quantity: item.display_quantity,
             available_quantity: item.available_quantity,
@@ -250,6 +260,16 @@ const WaiterDashboardDesktop: React.FC<WaiterDashboardDesktopProps> = ({
   };
 
   const handleAddToCart = (item: MenuItem) => {
+    if (item.tracks_stock) {
+      const reservedInCart = cart
+        .filter(cartItem => cartItem.id === item.id)
+        .reduce((sum, cartItem) => sum + cartItem.quantity, 0);
+      const availableQuantity = item.available_quantity ?? item.stock_quantity;
+      if (availableQuantity - reservedInCart <= 0) {
+        toast.error(`No hay unidades disponibles de ${item.name}. Revisa las existencias e inténtalo nuevamente.`);
+        return;
+      }
+    }
     setCustomizingItem(item);
   };
 
@@ -296,11 +316,12 @@ const WaiterDashboardDesktop: React.FC<WaiterDashboardDesktopProps> = ({
       const reserved = cart
         .filter(item => item.id === target.id)
         .reduce((sum, item) => sum + item.quantity, 0);
-      if (reserved >= liveItem.stock_quantity) {
-        toast.error(`Solo quedan ${liveItem.stock_quantity} unidades disponibles de ${target.name}.`);
+      const availableQuantity = liveItem.available_quantity ?? liveItem.stock_quantity;
+      if (reserved >= availableQuantity) {
+        toast.error(`Solo quedan ${availableQuantity} unidades disponibles de ${target.name}.`);
         return;
       }
-      setCart(currentCart => incrementItemQuantity(currentCart, cartItemId, liveItem.stock_quantity));
+      setCart(currentCart => incrementItemQuantity(currentCart, cartItemId, availableQuantity));
       return;
     }
     setCart(currentCart => incrementItemQuantity(currentCart, cartItemId));
@@ -1023,7 +1044,6 @@ const WaiterDashboardDesktop: React.FC<WaiterDashboardDesktopProps> = ({
           item={customizingItem}
           onClose={() => setCustomizingItem(null)}
           onConfirm={handleConfirmCustomization}
-          reservedQuantity={cart.filter(cartItem => cartItem.id === customizingItem.id).reduce((sum, cartItem) => sum + cartItem.quantity, 0)}
         />
       )}
       {editingCartItem && (
@@ -1031,7 +1051,6 @@ const WaiterDashboardDesktop: React.FC<WaiterDashboardDesktopProps> = ({
           item={editingCartItem}
           onClose={() => setEditingCartItem(null)}
           onConfirm={handleConfirmEditCartItem}
-          reservedQuantity={cart.filter(cartItem => cartItem.id === editingCartItem.id && cartItem.cartItemId !== editingCartItem.cartItemId).reduce((sum, cartItem) => sum + cartItem.quantity, 0)}
         />
       )}
       {isCheckoutBeforeSend && (

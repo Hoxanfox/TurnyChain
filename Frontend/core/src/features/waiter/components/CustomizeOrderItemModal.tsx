@@ -23,10 +23,9 @@ interface CustomizeOrderItemModalProps {
   item: MenuItem | CartItem;
   onConfirm: (customizationData: CustomizationData) => void;
   onClose: () => void;
-  reservedQuantity?: number;
 }
 
-const CustomizeOrderItemModal: React.FC<CustomizeOrderItemModalProps> = ({ item, onConfirm, onClose, reservedQuantity = 0 }) => {
+const CustomizeOrderItemModal: React.FC<CustomizeOrderItemModalProps> = ({ item, onConfirm, onClose }) => {
   const { soldOutAccompanimentIds, soldOutIngredientIds } = useSelector((state: RootState) => state.menu);
   const [stockWarning, setStockWarning] = useState('');
   const [isImagePreviewOpen, setIsImagePreviewOpen] = useState(false);
@@ -54,9 +53,8 @@ const CustomizeOrderItemModal: React.FC<CustomizeOrderItemModalProps> = ({ item,
   ); // NUEVO: estado para cantidad
 
   const liveItem = menuItems.find(menuItem => menuItem.id === item.id);
-  const currentItemQuantity = 'cartItemId' in item ? item.quantity : 0;
   const availableQuantity = liveItem?.tracks_stock
-    ? Math.max(0, liveItem.stock_quantity - reservedQuantity + currentItemQuantity)
+    ? Math.max(0, liveItem.available_quantity ?? liveItem.stock_quantity)
     : null;
 
   const handleAccompanimentToggle = (accompaniment: Accompaniment) => {

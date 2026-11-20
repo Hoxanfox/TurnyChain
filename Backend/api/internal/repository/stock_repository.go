@@ -28,21 +28,16 @@ type stockRepository struct{ db *sql.DB }
 func NewStockRepository(db *sql.DB) StockRepository { return &stockRepository{db: db} }
 
 func (r *stockRepository) GetItems(waiterID ...uuid.UUID) ([]domain.StockItem, error) {
-	excludeWaiter := uuid.Nil
-	if len(waiterID) > 0 {
-		excludeWaiter = waiterID[0]
-	}
 	rows, err := r.db.Query(`SELECT m.id, m.name, m.category_id, c.name, m.stock_quantity,
 		m.warehouse_quantity, m.display_quantity, COALESCE(m.image_url, ''),
 		GREATEST(m.stock_quantity - COALESCE((
 			SELECT SUM(sr.quantity) FROM stock_reservations sr
 			WHERE sr.menu_item_id = m.id
 			AND sr.expires_at > now()
-			AND sr.waiter_id <> $1
 		), 0), 0)
 		FROM menu_items m
 		JOIN categories c ON c.id = m.category_id
-		WHERE (m.tracks_stock = true OR c.tracks_stock = true) AND m.is_available = true ORDER BY c.name, m.name`, excludeWaiter)
+		WHERE (m.tracks_stock = true OR c.tracks_stock = true) AND m.is_available = true ORDER BY c.name, m.name`)
 	if err != nil {
 		return nil, err
 	}
