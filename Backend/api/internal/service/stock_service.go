@@ -10,7 +10,9 @@ import (
 )
 
 type StockService interface {
-	GetItems() ([]domain.StockItem, error)
+	GetItems(waiterID ...uuid.UUID) ([]domain.StockItem, error)
+	SyncCartReservations(waiterID uuid.UUID, items []domain.OrderItem) error
+	ReleaseCartReservations(waiterID uuid.UUID) error
 	SetQuantity(id uuid.UUID, quantity float64) error
 	DeleteQuantity(id uuid.UUID) error
 	UpdateLocations(id uuid.UUID, warehouse, display float64) error
@@ -22,7 +24,15 @@ type stockService struct { repo repository.StockRepository; hub *wshub.Hub }
 func NewStockService(repo repository.StockRepository, hub *wshub.Hub) StockService {
 	return &stockService{repo: repo, hub: hub}
 }
-func (s *stockService) GetItems() ([]domain.StockItem, error) { return s.repo.GetItems() }
+func (s *stockService) GetItems(waiterID ...uuid.UUID) ([]domain.StockItem, error) { return s.repo.GetItems(waiterID...) }
+func (s *stockService) SyncCartReservations(waiterID uuid.UUID, items []domain.OrderItem) error {
+	if err := s.repo.SyncCartReservations(waiterID, items); err != nil { return err }
+	s.broadcast(); return nil
+}
+func (s *stockService) ReleaseCartReservations(waiterID uuid.UUID) error {
+	if err := s.repo.ReleaseCartReservations(waiterID); err != nil { return err }
+	s.broadcast(); return nil
+}
 func (s *stockService) SetQuantity(id uuid.UUID, quantity float64) error {
 	if quantity < 0 { return fmt.Errorf("quantity cannot be negative") }
 	if err := s.repo.SetQuantity(id, quantity); err != nil { return err }

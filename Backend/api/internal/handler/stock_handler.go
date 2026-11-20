@@ -10,7 +10,14 @@ import (
 type StockHandler struct{ service service.StockService }
 func NewStockHandler(s service.StockService) *StockHandler { return &StockHandler{service: s} }
 func (h *StockHandler) GetItems(c *fiber.Ctx) error {
-	items, err := h.service.GetItems()
+	waiterID, _ := c.Locals("user_id").(uuid.UUID)
+	var items []domain.StockItem
+	var err error
+	if waiterID != uuid.Nil {
+		items, err = h.service.GetItems(waiterID)
+	} else {
+		items, err = h.service.GetItems()
+	}
 	if err != nil { return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not retrieve stock"}) }
 	return c.JSON(items)
 }
@@ -46,5 +53,37 @@ func (h *StockHandler) DeleteQuantity(c *fiber.Ctx) error {
 	id, err := uuid.Parse(c.Params("id"))
 	if err != nil { return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid item ID"}) }
 	if err := h.service.DeleteQuantity(id); err != nil { return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not clear stock"}) }
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+func (h *StockHandler) SyncCartReservations(c *fiber.Ctx) error {
+	waiterID, ok := c.Locals("user_id").(uuid.UUID)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "User session not available"})
+	}
+	var payload struct {
+		Items []domain.OrderItem `json:"items"`
+	}
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+	if err := h.service.SyncCartReservations(waiterID, payload.Items); err != nil {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": err.Error()})
+	}
+	items, err := h.service.GetItems(waiterID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not retrieve stock"})
+	}
+	return c.JSON(items)
+}
+
+func (h *StockHandler) ReleaseCartReservations(c *fiber.Ctx) error {
+	waiterID, ok := c.Locals("user_id").(uuid.UUID)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "User session not available"})
+	}
+	if err := h.service.ReleaseCartReservations(waiterID); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not release reservations"})
+	}
 	return c.SendStatus(fiber.StatusNoContent)
 }

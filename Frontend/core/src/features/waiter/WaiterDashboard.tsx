@@ -63,6 +63,8 @@ import DeliveryInfoModal from './components/DeliveryInfoModal';
 import toast, { Toaster } from 'react-hot-toast';
 import { useWaiterGamification } from './hooks/useWaiterGamification';
 import './styles/Gamification.css';
+import { syncCartReservations, releaseCartReservations, getManagedStock } from '../inventory/api/managedStockAPI';
+import { stockUpdated, fetchMenu } from '../admin/components/menu/api/menuSlice';
 
 interface OrderTab {
   id: string;
@@ -255,6 +257,73 @@ const WaiterDashboard: React.FC = () => {
       localStorage.removeItem('waiter-tabs-draft');
     }
   }, [tabs, activeTabId]);
+
+  useEffect(() => {
+    if (!token) return;
+    const timer = window.setTimeout(async () => {
+      const items = tabs.flatMap(tab => tab.cart)
+        .filter(item => item.tracks_stock)
+        .map(item => ({ menu_item_id: item.id, quantity: item.quantity }));
+      try {
+        const stock = await syncCartReservations(items, token);
+        dispatch(stockUpdated(stock.map(item => ({
+          id: item.id,
+          quantity: item.available_quantity ?? item.quantity,
+          warehouse_quantity: item.warehouse_quantity,
+          display_quantity: item.display_quantity,
+          available_quantity: item.available_quantity,
+        }))));
+
+        const availableById = new Map(stock.filter(item => item.available_quantity !== undefined).map(item => [item.id, item.available_quantity!]));
+        let removed = false;
+        setTabs(currentTabs => currentTabs.map(tab => ({
+          ...tab,
+          cart: tab.cart.flatMap(cartItem => {
+            if (!cartItem.tracks_stock) return [cartItem];
+            const available = availableById.get(cartItem.id);
+            if (available === undefined) return [cartItem];
+            const reservedForOthers = cartItem.quantity;
+            if (reservedForOthers > available) {
+              removed = true;
+              return [];
+            }
+            return [cartItem];
+          }),
+        })));
+        if (removed) {
+          toast.error('Otra persona tomó las últimas unidades mientras preparabas la comanda. Revisa el menú y vuelve a elegir.');
+          dispatch(fetchMenu());
+        }
+      } catch (error: any) {
+        if (error.response?.status === 409) {
+          toast.error('Las existencias cambiaron mientras elegías. Revisa nuevamente antes de enviar.');
+        }
+        try {
+          const stock = await getManagedStock(token);
+          dispatch(stockUpdated(stock.map(item => ({
+            id: item.id,
+            quantity: item.available_quantity ?? item.quantity,
+            warehouse_quantity: item.warehouse_quantity,
+            display_quantity: item.display_quantity,
+            available_quantity: item.available_quantity,
+          }))));
+        } catch {
+          dispatch(fetchMenu());
+        }
+      }
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [tabs, token, dispatch]);
+
+  useEffect(() => {
+    if (!token) return;
+    const release = () => { void releaseCartReservations(token); };
+    window.addEventListener('beforeunload', release);
+    return () => {
+      window.removeEventListener('beforeunload', release);
+      void releaseCartReservations(token);
+    };
+  }, [token]);
 
   useEffect(() => {
     dispatch(fetchTables());

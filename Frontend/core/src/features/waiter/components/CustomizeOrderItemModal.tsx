@@ -54,7 +54,7 @@ const CustomizeOrderItemModal: React.FC<CustomizeOrderItemModalProps> = ({ item,
 
   const liveItem = menuItems.find(menuItem => menuItem.id === item.id);
   const availableQuantity = liveItem?.tracks_stock
-    ? Math.max(0, liveItem.stock_quantity - reservedQuantity)
+    ? Math.max(0, liveItem.stock_quantity)
     : null;
 
   const handleAccompanimentToggle = (accompaniment: Accompaniment) => {

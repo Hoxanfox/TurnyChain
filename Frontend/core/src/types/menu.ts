@@ -23,6 +23,7 @@ export interface MenuItem {
   tracks_stock: boolean;
   warehouse_quantity: number;
   display_quantity: number;
+  available_quantity?: number;
 }
 
 // Nuevo tipo para los ítems en el carrito, que pueden tener personalizaciones

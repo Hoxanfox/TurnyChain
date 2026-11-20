@@ -167,6 +167,18 @@ CREATE TABLE "menu_item_accompaniments" (
   PRIMARY KEY ("menu_item_id", "accompaniment_id")
 );
 
+CREATE TABLE "stock_reservations" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "waiter_id" uuid NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
+  "menu_item_id" uuid NOT NULL REFERENCES "menu_items"("id") ON DELETE CASCADE,
+  "quantity" numeric(14, 3) NOT NULL CHECK ("quantity" >= 0),
+  "updated_at" timestamptz NOT NULL DEFAULT now(),
+  "expires_at" timestamptz NOT NULL
+);
+
+CREATE UNIQUE INDEX "stock_reservations_waiter_item_idx" ON "stock_reservations" ("waiter_id", "menu_item_id");
+CREATE INDEX "stock_reservations_expiry_idx" ON "stock_reservations" ("expires_at");
+
 -- Tabla para las órdenes
 CREATE TABLE "orders" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -11,7 +11,9 @@ import (
 )
 
 type StockRepository interface {
-	GetItems() ([]domain.StockItem, error)
+	GetItems(waiterID ...uuid.UUID) ([]domain.StockItem, error)
+	SyncCartReservations(waiterID uuid.UUID, items []domain.OrderItem) error
+	ReleaseCartReservations(waiterID uuid.UUID) error
 	SetQuantity(id uuid.UUID, quantity float64) error
 	DeleteQuantity(id uuid.UUID) error
 	UpdateLocations(id uuid.UUID, warehouse, display float64) error
@@ -25,11 +27,22 @@ type stockRepository struct{ db *sql.DB }
 
 func NewStockRepository(db *sql.DB) StockRepository { return &stockRepository{db: db} }
 
-func (r *stockRepository) GetItems() ([]domain.StockItem, error) {
+func (r *stockRepository) GetItems(waiterID ...uuid.UUID) ([]domain.StockItem, error) {
+	excludeWaiter := uuid.Nil
+	if len(waiterID) > 0 {
+		excludeWaiter = waiterID[0]
+	}
 	rows, err := r.db.Query(`SELECT m.id, m.name, m.category_id, c.name, m.stock_quantity,
-		m.warehouse_quantity, m.display_quantity, COALESCE(m.image_url, '') FROM menu_items m
+		m.warehouse_quantity, m.display_quantity, COALESCE(m.image_url, ''),
+		GREATEST(m.stock_quantity - COALESCE((
+			SELECT SUM(sr.quantity) FROM stock_reservations sr
+			WHERE sr.menu_item_id = m.id
+			AND sr.expires_at > now()
+			AND sr.waiter_id <> $1
+		), 0), 0)
+		FROM menu_items m
 		JOIN categories c ON c.id = m.category_id
-		WHERE (m.tracks_stock = true OR c.tracks_stock = true) AND m.is_available = true ORDER BY c.name, m.name`)
+		WHERE (m.tracks_stock = true OR c.tracks_stock = true) AND m.is_available = true ORDER BY c.name, m.name`, excludeWaiter)
 	if err != nil {
 		return nil, err
 	}
@@ -38,7 +51,7 @@ func (r *stockRepository) GetItems() ([]domain.StockItem, error) {
 	for rows.Next() {
 		var item domain.StockItem
 		if err := rows.Scan(&item.ID, &item.Name, &item.CategoryID, &item.CategoryName,
-			&item.Quantity, &item.WarehouseQuantity, &item.DisplayQuantity, &item.ImageURL); err != nil {
+			&item.Quantity, &item.WarehouseQuantity, &item.DisplayQuantity, &item.ImageURL, &item.AvailableQuantity); err != nil {
 			return nil, err
 		}
 		items = append(items, item)
@@ -178,6 +191,66 @@ func (r *stockRepository) DeleteQuantity(id uuid.UUID) error {
 		WHERE id = $1 AND (tracks_stock = true OR EXISTS (
 			SELECT 1 FROM categories c WHERE c.id = menu_items.category_id AND c.tracks_stock = true
 		))`, id)
+	return err
+}
+
+func (r *stockRepository) SyncCartReservations(waiterID uuid.UUID, items []domain.OrderItem) error {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.Exec(`DELETE FROM stock_reservations WHERE waiter_id = $1`, waiterID); err != nil {
+		return err
+	}
+
+	quantities := make(map[uuid.UUID]int)
+	for _, item := range items {
+		if item.Quantity > 0 {
+			quantities[item.MenuItemID] += item.Quantity
+		}
+	}
+
+	for itemID, quantity := range quantities {
+		var name string
+		var tracksStock bool
+		if err := tx.QueryRow(`SELECT m.name, (m.tracks_stock OR c.tracks_stock)
+			FROM menu_items m JOIN categories c ON c.id = m.category_id
+			WHERE m.id = $1`, itemID).Scan(&name, &tracksStock); err != nil {
+			return fmt.Errorf("el producto no existe")
+		}
+		if !tracksStock {
+			continue
+		}
+
+		var physical float64
+		if err := tx.QueryRow(`SELECT stock_quantity FROM menu_items WHERE id = $1 FOR UPDATE`, itemID).Scan(&physical); err != nil {
+			return err
+		}
+		var reservedByOthers float64
+		if err := tx.QueryRow(`SELECT COALESCE(SUM(quantity), 0) FROM stock_reservations
+			WHERE menu_item_id = $1 AND waiter_id <> $2 AND expires_at > now()`, itemID, waiterID).Scan(&reservedByOthers); err != nil {
+			return err
+		}
+		requested := float64(quantity)
+		if reservedByOthers+requested > physical {
+			return fmt.Errorf("no hay existencias suficientes de %s", name)
+		}
+
+		if _, err := tx.Exec(`INSERT INTO stock_reservations
+			(id, waiter_id, menu_item_id, quantity, updated_at, expires_at)
+			VALUES ($1, $2, $3, $4, now(), now() + interval '30 minutes')`,
+			uuid.New(), waiterID, itemID, requested); err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit()
+}
+
+func (r *stockRepository) ReleaseCartReservations(waiterID uuid.UUID) error {
+	_, err := r.db.Exec(`DELETE FROM stock_reservations WHERE waiter_id = $1`, waiterID)
 	return err
 }
 

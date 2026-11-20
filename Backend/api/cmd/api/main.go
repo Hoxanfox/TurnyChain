@@ -373,6 +373,16 @@ func applyCashRegisterMigrations(db *sql.DB) error {
 		`ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS warehouse_quantity numeric(14, 3) NOT NULL DEFAULT 0`,
 		`ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS display_quantity numeric(14, 3) NOT NULL DEFAULT 0`,
 		`ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS image_url text NOT NULL DEFAULT ''`,
+		`CREATE TABLE IF NOT EXISTS stock_reservations (
+			id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+			waiter_id uuid NOT NULL,
+			menu_item_id uuid NOT NULL REFERENCES menu_items(id) ON DELETE CASCADE,
+			quantity numeric(14, 3) NOT NULL CHECK (quantity >= 0),
+			updated_at timestamptz NOT NULL DEFAULT now(),
+			expires_at timestamptz NOT NULL
+		)`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS stock_reservations_waiter_item_idx ON stock_reservations(waiter_id, menu_item_id)`,
+		`CREATE INDEX IF NOT EXISTS stock_reservations_expiry_idx ON stock_reservations(expires_at)`,
 		`UPDATE menu_items SET warehouse_quantity = stock_quantity
 			WHERE warehouse_quantity = 0 AND display_quantity = 0 AND stock_quantity > 0`,
 	}

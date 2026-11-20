@@ -104,6 +104,8 @@ func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *
 	inventory := protected.Group("/inventory")
 	inventory.Get("/stock", inventoryReceiptHandler.GetStock)
 	inventory.Get("/managed-stock", stockHandler.GetItems)
+	inventory.Put("/cart-reservations", stockHandler.SyncCartReservations)
+	inventory.Delete("/cart-reservations", stockHandler.ReleaseCartReservations)
 	inventory.Put("/managed-stock/:id", middleware.RequireRole("cajero", "gerente", "admin"), stockHandler.SetQuantity)
 	inventory.Put("/managed-stock/:id/locations", middleware.RequireRole("cajero", "gerente", "admin"), stockHandler.UpdateLocations)
 	inventory.Delete("/managed-stock/:id", middleware.RequireRole("cajero", "gerente", "admin"), stockHandler.DeleteQuantity)

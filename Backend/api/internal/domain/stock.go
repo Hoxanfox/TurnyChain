@@ -10,6 +10,7 @@ type StockItem struct {
 	Quantity      float64   `json:"quantity"`
 	WarehouseQuantity float64 `json:"warehouse_quantity"`
 	DisplayQuantity float64 `json:"display_quantity"`
+	AvailableQuantity float64 `json:"available_quantity"`
 	ImageURL         string  `json:"image_url,omitempty"`
 }
 

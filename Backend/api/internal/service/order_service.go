@@ -82,6 +82,7 @@ func (s *orderService) CreateOrder(waiterID uuid.UUID, tableNumber int, orderTyp
 	if err := s.stockRepo.Reserve(items); err != nil {
 		return nil, err
 	}
+	_ = s.stockRepo.ReleaseCartReservations(waiterID)
 	stockReserved := true
 	defer func() {
 		if stockReserved {

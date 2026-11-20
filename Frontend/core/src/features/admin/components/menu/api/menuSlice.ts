@@ -71,10 +71,10 @@ export const menuSlice = createSlice({
     menuItemRemoved: (state, action: PayloadAction<{ id: string }>) => {
       state.items = state.items.filter(item => item.id !== action.payload.id);
     },
-    stockUpdated: (state, action: PayloadAction<Array<{ id: string; quantity: number; warehouse_quantity: number; display_quantity: number }>>) => {
+    stockUpdated: (state, action: PayloadAction<Array<{ id: string; quantity: number; warehouse_quantity: number; display_quantity: number; available_quantity?: number }>>) => {
       const quantities = new Map(action.payload.map(item => [item.id, item]));
       state.items = state.items.map(item => quantities.has(item.id)
-        ? { ...item, stock_quantity: quantities.get(item.id)?.quantity ?? item.stock_quantity,
+        ? { ...item, stock_quantity: quantities.get(item.id)?.available_quantity ?? quantities.get(item.id)?.quantity ?? item.stock_quantity,
             warehouse_quantity: quantities.get(item.id)?.warehouse_quantity ?? item.warehouse_quantity,
             display_quantity: quantities.get(item.id)?.display_quantity ?? item.display_quantity }
         : item);

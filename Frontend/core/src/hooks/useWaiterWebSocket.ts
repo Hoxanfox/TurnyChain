@@ -5,7 +5,7 @@
 import { useEffect, useRef } from 'react';
 import { useDispatch } from 'react-redux';
 import { orderUpdated, fetchMyOrders, fetchActiveOrders } from '../features/shared/orders/api/ordersSlice';
-import { fetchMenu, setSoldOutMenuId, setSoldOutAccompanimentId, setSoldOutIngredientId, setSyncSoldOut, stockUpdated } from '../features/admin/components/menu/api/menuSlice.ts';
+import { setSoldOutMenuId, setSoldOutAccompanimentId, setSoldOutIngredientId, setSyncSoldOut, stockUpdated } from '../features/admin/components/menu/api/menuSlice.ts';
 import { logout } from '../features/auth/authSlice';
 import type { AppDispatch } from '../app/store';
 import type { Order } from '../types/orders';
@@ -89,7 +89,6 @@ export const useWaiterWebSocket = (
       if (message.type === 'STOCK_UPDATED') {
         dispatch(stockUpdated(message.payload as Array<{ id: string; quantity: number; warehouse_quantity: number; display_quantity: number }>));
         window.dispatchEvent(new Event('stock_updated'));
-        dispatch(fetchMenu());
         return;
       }
 
