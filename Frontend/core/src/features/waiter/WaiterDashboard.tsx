@@ -145,6 +145,25 @@ const WaiterDashboard: React.FC = () => {
       toast.error(stockError);
       return;
     }
+    const previousTotals = new Map<string, number>();
+    const nextTotals = new Map<string, number>();
+    cart.forEach(item => previousTotals.set(item.id, (previousTotals.get(item.id) || 0) + item.quantity));
+    nextCart.forEach(item => nextTotals.set(item.id, (nextTotals.get(item.id) || 0) + item.quantity));
+    for (const liveItem of menuItems) {
+      if (!liveItem.tracks_stock) continue;
+      const previousQuantity = previousTotals.get(liveItem.id);
+      const nextQuantity = nextTotals.get(liveItem.id);
+      if (previousQuantity === nextQuantity) continue;
+      const currentAvailable = liveItem.available_quantity ?? liveItem.stock_quantity;
+      const optimisticAvailable = Math.max(0, currentAvailable + (previousQuantity || 0) - (nextQuantity || 0));
+      dispatch(stockUpdated([{
+        id: liveItem.id,
+        quantity: liveItem.stock_quantity,
+        warehouse_quantity: liveItem.warehouse_quantity,
+        display_quantity: liveItem.display_quantity,
+        available_quantity: optimisticAvailable,
+      }]));
+    }
     setTabs(currTabs => currTabs.map(tab => 
       tab.id === activeTabId 
         ? { ...tab, cart: nextCart }
@@ -284,30 +303,6 @@ const WaiterDashboard: React.FC = () => {
           available_quantity: item.available_quantity,
         }))));
 
-        const availableById = new Map(stock.filter(item => item.available_quantity !== undefined).map(item => [item.id, item.available_quantity!]));
-        let removed = false;
-        setTabs(currentTabs => {
-          const nextTabs = currentTabs.map(tab => ({
-            ...tab,
-            cart: tab.cart.flatMap(cartItem => {
-              if (!cartItem.tracks_stock) return [cartItem];
-              const available = availableById.get(cartItem.id);
-              if (available === undefined) return [cartItem];
-              if (cartItem.quantity > available) {
-                removed = true;
-                return [];
-              }
-              return [cartItem];
-            }),
-          }));
-          return removed
-            ? nextTabs
-            : currentTabs;
-        });
-        if (removed) {
-          toast.error('Otra persona tomó las últimas unidades mientras preparabas la comanda. Revisa el menú y vuelve a elegir.');
-          dispatch(fetchMenu());
-        }
       } catch (error: any) {
         if (syncVersion !== reservationSyncVersion.current) return;
         if (error.response?.status === 409) {

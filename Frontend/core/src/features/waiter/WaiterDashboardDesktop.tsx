@@ -82,6 +82,25 @@ const WaiterDashboardDesktop: React.FC<WaiterDashboardDesktopProps> = ({
       toast.error(stockError);
       return;
     }
+    const previousTotals = new Map<string, number>();
+    const nextTotals = new Map<string, number>();
+    cart.forEach(item => previousTotals.set(item.id, (previousTotals.get(item.id) || 0) + item.quantity));
+    nextCart.forEach(item => nextTotals.set(item.id, (nextTotals.get(item.id) || 0) + item.quantity));
+    for (const liveItem of menuItems) {
+      if (!liveItem.tracks_stock) continue;
+      const previousQuantity = previousTotals.get(liveItem.id);
+      const nextQuantity = nextTotals.get(liveItem.id);
+      if (previousQuantity === nextQuantity) continue;
+      const currentAvailable = liveItem.available_quantity ?? liveItem.stock_quantity;
+      const optimisticAvailable = Math.max(0, currentAvailable + (previousQuantity || 0) - (nextQuantity || 0));
+      dispatch(stockUpdated([{
+        id: liveItem.id,
+        quantity: liveItem.stock_quantity,
+        warehouse_quantity: liveItem.warehouse_quantity,
+        display_quantity: liveItem.display_quantity,
+        available_quantity: optimisticAvailable,
+      }]));
+    }
     setCartState(nextCart);
   };
   const [tableId, setTableId] = useState('');
