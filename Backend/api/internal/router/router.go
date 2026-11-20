@@ -68,10 +68,10 @@ func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *
 	// Rutas de Menú
 	menu := protected.Group("/menu")
 	menu.Get("/", menuHandler.GetMenuItems)
-	menu.Post("/", menuHandler.CreateMenuItem)
-	menu.Put("/:id", menuHandler.UpdateMenuItem)
-	menu.Post("/:id/image", menuHandler.UploadMenuItemImage)
-	menu.Delete("/:id", menuHandler.DeleteMenuItem)
+	menu.Post("/", middleware.RequireRole("cajero", "gerente", "admin"), menuHandler.CreateMenuItem)
+	menu.Put("/:id", middleware.RequireRole("cajero", "gerente", "admin"), menuHandler.UpdateMenuItem)
+	menu.Post("/:id/image", middleware.RequireRole("cajero", "gerente", "admin"), menuHandler.UploadMenuItemImage)
+	menu.Delete("/:id", middleware.RequireRole("cajero", "gerente", "admin"), menuHandler.DeleteMenuItem)
 	menu.Post("/items/:id/increment-order-count", menuHandler.IncrementOrderCount)
 
 	// Rutas de Órdenes
@@ -128,33 +128,33 @@ func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *
 
 	// Rutas de Categorías
 	categories := protected.Group("/categories")
-	categories.Post("/", categoryHandler.Create)
+	categories.Post("/", middleware.RequireRole("cajero", "gerente", "admin"), categoryHandler.Create)
 	categories.Get("/", categoryHandler.GetAll)
-	categories.Put("/:id", categoryHandler.Update)
-	categories.Delete("/:id", categoryHandler.Delete)
+	categories.Put("/:id", middleware.RequireRole("cajero", "gerente", "admin"), categoryHandler.Update)
+	categories.Delete("/:id", middleware.RequireRole("cajero", "gerente", "admin"), categoryHandler.Delete)
 
 	// Rutas de Ingredientes
 	ingredients := protected.Group("/ingredients")
-	ingredients.Post("/", ingredientHandler.Create)
+	ingredients.Post("/", middleware.RequireRole("cajero", "gerente", "admin"), ingredientHandler.Create)
 	ingredients.Get("/", ingredientHandler.GetAll)
-	ingredients.Put("/:id", ingredientHandler.Update)
-	ingredients.Delete("/:id", ingredientHandler.Delete)
+	ingredients.Put("/:id", middleware.RequireRole("cajero", "gerente", "admin"), ingredientHandler.Update)
+	ingredients.Delete("/:id", middleware.RequireRole("cajero", "gerente", "admin"), ingredientHandler.Delete)
 
 	// Rutas de Acompañantes
 	accompaniments := protected.Group("/accompaniments")
-	accompaniments.Post("/", accompanimentHandler.Create)
+	accompaniments.Post("/", middleware.RequireRole("cajero", "gerente", "admin"), accompanimentHandler.Create)
 	accompaniments.Get("/", accompanimentHandler.GetAll)
-	accompaniments.Put("/:id", accompanimentHandler.Update)
-	accompaniments.Delete("/:id", accompanimentHandler.Delete)
+	accompaniments.Put("/:id", middleware.RequireRole("cajero", "gerente", "admin"), accompanimentHandler.Update)
+	accompaniments.Delete("/:id", middleware.RequireRole("cajero", "gerente", "admin"), accompanimentHandler.Delete)
 
 	// Rutas de Estaciones
 	stations := protected.Group("/stations")
 	stations.Get("/", stationHandler.GetAll)
 	stations.Get("/active", stationHandler.GetAllActive)
 	stations.Get("/:id", stationHandler.GetByID)
-	stations.Post("/", stationHandler.Create)
-	stations.Put("/:id", stationHandler.Update)
-	stations.Delete("/:id", stationHandler.Delete)
+	stations.Post("/", middleware.RequireRole("cajero", "gerente", "admin"), stationHandler.Create)
+	stations.Put("/:id", middleware.RequireRole("cajero", "gerente", "admin"), stationHandler.Update)
+	stations.Delete("/:id", middleware.RequireRole("cajero", "gerente", "admin"), stationHandler.Delete)
 	// Impresoras de una estación
 	stations.Get("/:stationId/printers", printerHandler.GetByStationID)
 
@@ -163,9 +163,9 @@ func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *
 	printers.Get("/", printerHandler.GetAll)
 	printers.Get("/active", printerHandler.GetAllActive)
 	printers.Get("/:id", printerHandler.GetByID)
-	printers.Post("/", printerHandler.Create)
-	printers.Put("/:id", printerHandler.Update)
-	printers.Delete("/:id", printerHandler.Delete)
+	printers.Post("/", middleware.RequireRole("cajero", "gerente", "admin"), printerHandler.Create)
+	printers.Put("/:id", middleware.RequireRole("cajero", "gerente", "admin"), printerHandler.Update)
+	printers.Delete("/:id", middleware.RequireRole("cajero", "gerente", "admin"), printerHandler.Delete)
 	printers.Post("/:id/test", printerHandler.TestConnection) // Nueva ruta para probar conexión
 
 	// Rutas de Tickets de Cocina (anidadas bajo orders)

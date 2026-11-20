@@ -139,6 +139,13 @@ export const CashierHeader: React.FC<CashierHeaderProps> = ({
           >
             📊 {showStats ? 'Ocultar' : 'Mostrar'} Stats
           </button>
+          <button
+            onClick={() => navigate('/cashier/menu-tools')}
+            className="px-4 py-2 bg-white text-fuchsia-700 rounded-lg hover:bg-fuchsia-50 transition-all font-semibold shadow-lg hover:shadow-xl transform hover:scale-105"
+            title="Crear y gestionar productos del menú"
+          >
+            🍽️ Productos y menú
+          </button>
           
           {onOpenAttendanceModal && (
             <button

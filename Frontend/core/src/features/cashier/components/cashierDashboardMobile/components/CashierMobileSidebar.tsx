@@ -117,6 +117,7 @@ export const CashierMobileSidebar: React.FC<CashierMobileSidebarProps> = ({
               <SidebarItem icon="🧾" text="Historial Facturas" onClick={() => { onOpenHistory(); onClose(); }} />
               <SidebarItem icon="🗂️" text="Historial de recepciones" onClick={() => { navigate('/inventory/receipts/history'); onClose(); }} customColor="text-amber-700 hover:bg-amber-50" iconBg="bg-amber-100" />
               <SidebarItem icon="📦" text="Ajustar existencias" onClick={() => { navigate('/inventory/managed-stock'); onClose(); }} customColor="text-indigo-700 hover:bg-indigo-50" iconBg="bg-indigo-100" />
+              <SidebarItem icon="🍽️" text="Productos y menú" onClick={() => { navigate('/cashier/menu-tools'); onClose(); }} customColor="text-fuchsia-700 hover:bg-fuchsia-50" iconBg="bg-fuchsia-100" />
               <SidebarItem icon="📥" text="Exportar Reporte" onClick={() => { onExportReport(); onClose(); }} />
               <SidebarItem icon="⛓️" text="Panel de Blockchain" badge={pendingBlockchainCount} onClick={() => { onOpenBlockchainModal(); onClose(); }} customColor="text-amber-700 hover:bg-amber-50" iconBg="bg-amber-100" />
               <SidebarItem icon="📈" text="Métricas del Sistema" onClick={() => { onOpenMetrics(); onClose(); }} />

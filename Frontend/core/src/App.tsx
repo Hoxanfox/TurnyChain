@@ -22,6 +22,7 @@ import InventoryReceiptPage from './features/inventory/InventoryReceiptPage';
 import InventoryReceiptHistoryPage from './features/inventory/InventoryReceiptHistoryPage';
 import ManagedStockPage from './features/inventory/ManagedStockPage';
 import ManagerDashboard from './features/manager/ManagerDashboard';
+import CashierMenuToolsPage from './features/cashier/CashierMenuToolsPage';
 
 // Componente para gestionar la conexión WebSocket global
 const WebSocketManager: React.FC = () => {
@@ -104,6 +105,13 @@ const App: React.FC = () => {
         <Route path="/inventory/receipts/new" element={<ProtectedRoute user={user}><InventoryReceiptPage /></ProtectedRoute>} />
         <Route path="/inventory/receipts/history" element={<ProtectedRoute user={user}><InventoryReceiptHistoryPage /></ProtectedRoute>} />
         <Route path="/inventory/managed-stock" element={<ProtectedRoute user={user}><ManagedStockPage /></ProtectedRoute>} />
+        <Route path="/cashier/menu-tools" element={
+          <ProtectedRoute user={user}>
+            {user?.role === 'cajero' || user?.role === 'admin' || user?.role === 'gerente'
+              ? <CashierMenuToolsPage />
+              : <Navigate to="/dashboard" replace />}
+          </ProtectedRoute>
+        } />
         <Route path="*" element={<Navigate to={user ? "/dashboard" : "/login"} replace />} />
       </Routes>
     </Router>
