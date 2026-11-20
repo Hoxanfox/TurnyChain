@@ -53,8 +53,9 @@ const CustomizeOrderItemModal: React.FC<CustomizeOrderItemModalProps> = ({ item,
   ); // NUEVO: estado para cantidad
 
   const liveItem = menuItems.find(menuItem => menuItem.id === item.id);
+  const currentItemQuantity = 'cartItemId' in item ? item.quantity : 0;
   const availableQuantity = liveItem?.tracks_stock
-    ? Math.max(0, liveItem.stock_quantity)
+    ? Math.max(0, liveItem.stock_quantity - reservedQuantity + currentItemQuantity)
     : null;
 
   const handleAccompanimentToggle = (accompaniment: Accompaniment) => {
