@@ -35,6 +35,7 @@ const ManagedStockPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [previewItem, setPreviewItem] = useState<ManagedStockItem | null>(null);
 
   const load = async () => {
     if (!token) return;
@@ -263,9 +264,23 @@ const ManagedStockPage: React.FC = () => {
                   return (
                     <article key={item.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
                       <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <h2 className="text-lg font-black text-slate-900">{item.name}</h2>
-                          <p className="text-xs font-semibold text-slate-500">{item.category_name}</p>
+                        <div className="flex min-w-0 items-center gap-3">
+                          {item.image_url ? (
+                            <button
+                              type="button"
+                              onClick={() => setPreviewItem(item)}
+                              className="h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-slate-200"
+                              aria-label={`Ver imagen de ${item.name}`}
+                            >
+                              <img src={item.image_url} alt={item.name} className="h-full w-full object-cover" />
+                            </button>
+                          ) : (
+                            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-2xl">🍽️</div>
+                          )}
+                          <div className="min-w-0">
+                            <h2 className="truncate text-lg font-black text-slate-900">{item.name}</h2>
+                            <p className="text-xs font-semibold text-slate-500">{item.category_name}</p>
+                          </div>
                         </div>
                         <div className="rounded-xl bg-purple-50 px-3 py-2 text-right">
                           <p className="text-[10px] font-black uppercase tracking-wide text-purple-500">Total fijo</p>
@@ -468,6 +483,33 @@ const ManagedStockPage: React.FC = () => {
           </>
         )}
       </div>
+      {previewItem?.image_url && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 p-4"
+          onClick={() => setPreviewItem(null)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="relative w-full max-w-xl overflow-hidden rounded-2xl bg-white shadow-2xl"
+            onClick={event => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setPreviewItem(null)}
+              className="absolute right-3 top-3 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-xl font-black text-slate-700 shadow"
+              aria-label="Cerrar imagen"
+            >
+              ×
+            </button>
+            <img src={previewItem.image_url} alt={previewItem.name} className="max-h-[68vh] w-full object-contain" />
+            <div className="p-4">
+              <p className="text-xl font-black text-slate-900">{previewItem.name}</p>
+              <p className="mt-1 text-sm font-semibold text-slate-500">{previewItem.category_name}</p>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 };

@@ -17,6 +17,7 @@ type MenuRepository interface {
 	UpdateMenuItem(item *domain.MenuItem, ingredientIDs, accompanimentIDs []uuid.UUID) (*domain.MenuItem, error)
 	DeleteMenuItem(itemID uuid.UUID) error
 	IncrementOrderCount(itemID uuid.UUID) error
+	SetMenuItemImage(itemID uuid.UUID, imageURL string) error
 }
 
 type menuRepository struct{ db *sql.DB }
@@ -71,7 +72,8 @@ func (r *menuRepository) CreateMenuItem(item *domain.MenuItem, ingredientIDs, ac
 // GetMenuItems ahora obtiene los ítems y sus relaciones, incluyendo category_name y order_count
 func (r *menuRepository) GetMenuItems() ([]domain.MenuItem, error) {
 	query := `SELECT m.id, m.name, m.description, m.price, m.category_id, c.name as category_name, 
-	          m.is_available, m.order_count, (m.tracks_stock OR c.tracks_stock), m.stock_quantity, m.warehouse_quantity, m.display_quantity
+	          m.is_available, m.order_count, (m.tracks_stock OR c.tracks_stock), m.stock_quantity, m.warehouse_quantity, m.display_quantity,
+	          COALESCE(m.image_url, '')
 	          FROM menu_items m 
 	          JOIN categories c ON m.category_id = c.id 
 	          WHERE m.is_available = true 
@@ -88,7 +90,7 @@ func (r *menuRepository) GetMenuItems() ([]domain.MenuItem, error) {
 	for rows.Next() {
 		var item domain.MenuItem
 		if err := rows.Scan(&item.ID, &item.Name, &item.Description, &item.Price, &item.CategoryID,
-			&item.CategoryName, &item.IsAvailable, &item.OrderCount, &item.TracksStock, &item.StockQuantity, &item.WarehouseQuantity, &item.DisplayQuantity); err != nil {
+			&item.CategoryName, &item.IsAvailable, &item.OrderCount, &item.TracksStock, &item.StockQuantity, &item.WarehouseQuantity, &item.DisplayQuantity, &item.ImageURL); err != nil {
 			return nil, err
 		}
 		itemsMap[item.ID] = &item
@@ -249,10 +251,16 @@ func (r *menuRepository) IncrementOrderCount(itemID uuid.UUID) error {
 	return err
 }
 
+func (r *menuRepository) SetMenuItemImage(itemID uuid.UUID, imageURL string) error {
+	_, err := r.db.Exec("UPDATE menu_items SET image_url = $1 WHERE id = $2", imageURL, itemID)
+	return err
+}
+
 // getMenuItemByID es una función helper para obtener un menu item completo con todas sus relaciones
 func (r *menuRepository) getMenuItemByID(itemID uuid.UUID) (*domain.MenuItem, error) {
 	query := `SELECT m.id, m.name, m.description, m.price, m.category_id, c.name as category_name, 
-	          m.is_available, m.order_count, (m.tracks_stock OR c.tracks_stock), m.stock_quantity, m.warehouse_quantity, m.display_quantity
+	          m.is_available, m.order_count, (m.tracks_stock OR c.tracks_stock), m.stock_quantity, m.warehouse_quantity, m.display_quantity,
+	          COALESCE(m.image_url, '')
 	          FROM menu_items m 
 	          JOIN categories c ON m.category_id = c.id 
 	          WHERE m.id = $1`
@@ -260,7 +268,7 @@ func (r *menuRepository) getMenuItemByID(itemID uuid.UUID) (*domain.MenuItem, er
 	var item domain.MenuItem
 	err := r.db.QueryRow(query, itemID).Scan(
 		&item.ID, &item.Name, &item.Description, &item.Price, &item.CategoryID,
-		&item.CategoryName, &item.IsAvailable, &item.OrderCount, &item.TracksStock, &item.StockQuantity, &item.WarehouseQuantity, &item.DisplayQuantity,
+		&item.CategoryName, &item.IsAvailable, &item.OrderCount, &item.TracksStock, &item.StockQuantity, &item.WarehouseQuantity, &item.DisplayQuantity, &item.ImageURL,
 	)
 	if err != nil {
 		return nil, err

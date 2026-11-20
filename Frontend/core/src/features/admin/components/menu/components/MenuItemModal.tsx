@@ -10,6 +10,7 @@ import { fetchAccompaniments } from '../../accompaniments/api/accompanimentsSlic
 import type { AppDispatch, RootState } from '../../../../../app/store.ts';
 import type { MenuItem } from '../../../../../types/menu.ts';
 import type { MenuItemPayload } from '../api/menuAPI.ts';
+import { uploadMenuItemImage } from '../api/menuAPI.ts';
 
 interface MenuItemModalProps {
   item?: MenuItem | null;
@@ -21,6 +22,7 @@ const MenuItemModal: React.FC<MenuItemModalProps> = ({ item, onClose }) => {
   const { items: categories } = useSelector((state: RootState) => state.categories);
   const { items: ingredients } = useSelector((state: RootState) => state.ingredients);
   const { items: accompaniments } = useSelector((state: RootState) => state.accompaniments);
+  const token = useSelector((state: RootState) => state.auth.token);
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -29,6 +31,8 @@ const MenuItemModal: React.FC<MenuItemModalProps> = ({ item, onClose }) => {
   const [selectedIngredients, setSelectedIngredients] = useState<string[]>([]);
   const [selectedAccompaniments, setSelectedAccompaniments] = useState<string[]>([]);
   const [tracksStock, setTracksStock] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState('');
 
   useEffect(() => {
     dispatch(fetchCategories());
@@ -46,6 +50,8 @@ const MenuItemModal: React.FC<MenuItemModalProps> = ({ item, onClose }) => {
       setSelectedIngredients(item.ingredients?.map(i => i.id) || []);
       setSelectedAccompaniments(item.accompaniments?.map(a => a.id) || []);
       setTracksStock(item.tracks_stock);
+      setImagePreview(item.image_url || '');
+      setImageFile(null);
     } else {
       setName('');
       setDescription('');
@@ -54,6 +60,8 @@ const MenuItemModal: React.FC<MenuItemModalProps> = ({ item, onClose }) => {
       setSelectedIngredients([]);
       setSelectedAccompaniments([]);
       setTracksStock(false);
+      setImagePreview('');
+      setImageFile(null);
     }
   }, [item]);
 
@@ -61,7 +69,7 @@ const MenuItemModal: React.FC<MenuItemModalProps> = ({ item, onClose }) => {
     setter(prev => prev.includes(value) ? prev.filter(id => id !== value) : [...prev, value]);
   };
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     
     // Validaciones
@@ -105,7 +113,8 @@ const MenuItemModal: React.FC<MenuItemModalProps> = ({ item, onClose }) => {
         console.log(`🔄 Updating menu item: ${item.id}`);
         dispatch(updateExistingMenuItem({ id: item.id, itemData }))
           .unwrap()
-          .then(() => {
+          .then(async () => {
+            if (imageFile && token) await uploadMenuItemImage(item.id, imageFile, token);
             console.log('✅ Menu item updated successfully');
             onClose();
           })
@@ -117,7 +126,8 @@ const MenuItemModal: React.FC<MenuItemModalProps> = ({ item, onClose }) => {
         console.log('➕ Creating new menu item');
         dispatch(addNewMenuItem(itemData))
           .unwrap()
-          .then(() => {
+          .then(async (createdItem) => {
+            if (imageFile && token) await uploadMenuItemImage(createdItem.id, imageFile, token);
             console.log('✅ Menu item created successfully');
             onClose();
           })
@@ -213,6 +223,44 @@ const MenuItemModal: React.FC<MenuItemModalProps> = ({ item, onClose }) => {
               </div>
             </div>
           </div>
+
+          <div className="rounded-xl border-2 border-dashed border-indigo-200 bg-indigo-50 p-4">
+            <label className="block text-sm font-bold text-indigo-900">
+              📷 Imagen del producto
+            </label>
+            <p className="mt-1 text-xs text-indigo-700">
+              JPG, PNG o WebP. Tamaño máximo 5 MB.
+            </p>
+            <div className="mt-3 flex items-center gap-4">
+              <div className="h-24 w-24 shrink-0 overflow-hidden rounded-xl border border-indigo-200 bg-white">
+                {imagePreview ? (
+                  <img src={imagePreview} alt="Vista previa" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full items-center justify-center text-3xl text-indigo-300">🍽️</div>
+                )}
+              </div>
+              <label className="cursor-pointer rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm">
+                Elegir imagen
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0] || null;
+                    if (!file) return;
+                    if (file.size > 5 * 1024 * 1024) {
+                      alert('La imagen no puede superar 5 MB.');
+                      event.target.value = '';
+                      return;
+                    }
+                    setImageFile(file);
+                    setImagePreview(URL.createObjectURL(file));
+                  }}
+                />
+              </label>
+            </div>
+          </div>
+
           <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border-2 border-purple-200 bg-purple-50 p-4">
             <input type="checkbox" checked={tracksStock} onChange={(e) => setTracksStock(e.target.checked)} className="mt-1 h-4 w-4" />
             <span>

@@ -70,6 +70,7 @@ func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *
 	menu.Get("/", menuHandler.GetMenuItems)
 	menu.Post("/", menuHandler.CreateMenuItem)
 	menu.Put("/:id", menuHandler.UpdateMenuItem)
+	menu.Post("/:id/image", menuHandler.UploadMenuItemImage)
 	menu.Delete("/:id", menuHandler.DeleteMenuItem)
 	menu.Post("/items/:id/increment-order-count", menuHandler.IncrementOrderCount)
 

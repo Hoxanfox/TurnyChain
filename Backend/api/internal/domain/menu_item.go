@@ -18,6 +18,7 @@ type MenuItem struct {
 	StockQuantity  float64         `json:"stock_quantity" db:"stock_quantity"`
 	WarehouseQuantity float64      `json:"warehouse_quantity" db:"warehouse_quantity"`
 	DisplayQuantity float64        `json:"display_quantity" db:"display_quantity"`
+	ImageURL        string          `json:"image_url,omitempty" db:"image_url"`
 	Ingredients    []Ingredient    `json:"ingredients,omitempty"`
 	Accompaniments []Accompaniment `json:"accompaniments,omitempty"`
 }

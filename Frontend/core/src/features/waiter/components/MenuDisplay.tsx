@@ -19,6 +19,7 @@ const MenuDisplay: React.FC<MenuDisplayProps> = ({ onAddToCart }) => {
   // Estados para filtros y búsqueda
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [previewItem, setPreviewItem] = useState<MenuItem | null>(null);
 
   useEffect(() => {
     if (menuStatus === 'idle') {
@@ -220,6 +221,17 @@ const MenuDisplay: React.FC<MenuDisplayProps> = ({ onAddToCart }) => {
                           : 'bg-gradient-to-br from-white to-gray-50 border-gray-200 hover:shadow-lg hover:border-indigo-300 hover:from-indigo-50 hover:to-white active:scale-95'
                       }`}
                     >
+                      {item.image_url && (
+                        <img
+                          src={item.image_url}
+                          alt={item.name}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setPreviewItem(item);
+                          }}
+                          className="mb-3 h-28 w-full cursor-zoom-in rounded-lg object-cover shadow-sm"
+                        />
+                      )}
                       {/* Badge de item popular */}
                       {isPopular(item) && !isUnavailable && !isPartiallySoldOut && (
                         <div className="absolute -top-2 -right-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-lg flex items-center gap-1 z-10">
@@ -274,6 +286,44 @@ const MenuDisplay: React.FC<MenuDisplayProps> = ({ onAddToCart }) => {
       {menuStatus === 'failed' && (
         <div className="flex justify-center items-center py-8">
           <p className="text-red-500">Error al cargar el menú. Intenta recargar.</p>
+        </div>
+      )}
+
+      {previewItem && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 p-4"
+          onClick={() => setPreviewItem(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Imagen ampliada de ${previewItem.name}`}
+        >
+          <div
+            className="relative max-h-[90vh] w-full max-w-xl overflow-hidden rounded-2xl bg-white shadow-2xl"
+            onClick={event => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setPreviewItem(null)}
+              className="absolute right-3 top-3 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-xl font-black text-slate-700 shadow"
+              aria-label="Cerrar imagen"
+            >
+              ×
+            </button>
+            <img
+              src={previewItem.image_url}
+              alt={previewItem.name}
+              className="max-h-[68vh] w-full object-contain"
+            />
+            <div className="p-4">
+              <p className="text-xl font-black text-slate-900">{previewItem.name}</p>
+              {previewItem.description && (
+                <p className="mt-1 text-sm text-slate-600">{previewItem.description}</p>
+              )}
+              <p className="mt-3 text-2xl font-black text-indigo-700">
+                ${previewItem.price.toLocaleString('es-CO')}
+              </p>
+            </div>
+          </div>
         </div>
       )}
     </div>

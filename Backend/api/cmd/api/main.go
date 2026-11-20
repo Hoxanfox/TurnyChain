@@ -372,6 +372,7 @@ func applyCashRegisterMigrations(db *sql.DB) error {
 		`ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS stock_quantity numeric(14, 3) NOT NULL DEFAULT 0`,
 		`ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS warehouse_quantity numeric(14, 3) NOT NULL DEFAULT 0`,
 		`ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS display_quantity numeric(14, 3) NOT NULL DEFAULT 0`,
+		`ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS image_url text NOT NULL DEFAULT ''`,
 		`UPDATE menu_items SET warehouse_quantity = stock_quantity
 			WHERE warehouse_quantity = 0 AND display_quantity = 0 AND stock_quantity > 0`,
 	}

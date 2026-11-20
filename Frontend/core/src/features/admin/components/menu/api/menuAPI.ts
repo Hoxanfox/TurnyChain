@@ -40,3 +40,15 @@ export const deleteMenuItem = async (itemId: string, token: string): Promise<{ i
     await axios.delete(`${API_URL}/${itemId}`, config);
     return { id: itemId };
 };
+
+export const uploadMenuItemImage = async (itemId: string, file: File, token: string): Promise<MenuItem> => {
+  const formData = new FormData();
+  formData.append('image', file);
+  const response = await axios.post<MenuItem>(`${API_URL}/${itemId}/image`, formData, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  return response.data;
+};

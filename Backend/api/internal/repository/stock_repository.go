@@ -27,7 +27,7 @@ func NewStockRepository(db *sql.DB) StockRepository { return &stockRepository{db
 
 func (r *stockRepository) GetItems() ([]domain.StockItem, error) {
 	rows, err := r.db.Query(`SELECT m.id, m.name, m.category_id, c.name, m.stock_quantity,
-		m.warehouse_quantity, m.display_quantity FROM menu_items m
+		m.warehouse_quantity, m.display_quantity, COALESCE(m.image_url, '') FROM menu_items m
 		JOIN categories c ON c.id = m.category_id
 		WHERE (m.tracks_stock = true OR c.tracks_stock = true) AND m.is_available = true ORDER BY c.name, m.name`)
 	if err != nil {
@@ -38,7 +38,7 @@ func (r *stockRepository) GetItems() ([]domain.StockItem, error) {
 	for rows.Next() {
 		var item domain.StockItem
 		if err := rows.Scan(&item.ID, &item.Name, &item.CategoryID, &item.CategoryName,
-			&item.Quantity, &item.WarehouseQuantity, &item.DisplayQuantity); err != nil {
+			&item.Quantity, &item.WarehouseQuantity, &item.DisplayQuantity, &item.ImageURL); err != nil {
 			return nil, err
 		}
 		items = append(items, item)

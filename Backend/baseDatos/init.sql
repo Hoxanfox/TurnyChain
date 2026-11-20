@@ -149,7 +149,8 @@ CREATE TABLE "menu_items" (
   "order_count" integer NOT NULL DEFAULT 0,
   "stock_quantity" numeric(14, 3) NOT NULL DEFAULT 0 CHECK (stock_quantity >= 0),
   "warehouse_quantity" numeric(14, 3) NOT NULL DEFAULT 0 CHECK (warehouse_quantity >= 0),
-  "display_quantity" numeric(14, 3) NOT NULL DEFAULT 0 CHECK (display_quantity >= 0)
+  "display_quantity" numeric(14, 3) NOT NULL DEFAULT 0 CHECK (display_quantity >= 0),
+  "image_url" text NOT NULL DEFAULT ''
 );
 
 

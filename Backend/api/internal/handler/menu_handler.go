@@ -95,3 +95,19 @@ func (h *MenuHandler) IncrementOrderCount(c *fiber.Ctx) error {
 	}
 	return c.JSON(fiber.Map{"message": "Order count incremented successfully"})
 }
+
+func (h *MenuHandler) UploadMenuItemImage(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid item ID"})
+	}
+	file, err := c.FormFile("image")
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Image file is required"})
+	}
+	item, err := h.menuService.UploadMenuItemImage(id, file)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
+	return c.JSON(item)
+}

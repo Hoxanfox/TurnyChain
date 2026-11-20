@@ -3,7 +3,7 @@ import axios from 'axios';
 const API_URL = '/api/inventory/managed-stock';
 export interface ManagedStockItem {
   id: string; name: string; category_id: string; category_name: string; quantity: number;
-  warehouse_quantity: number; display_quantity: number;
+  warehouse_quantity: number; display_quantity: number; image_url?: string;
 }
 const auth = (token: string) => ({ headers: { Authorization: 'Bearer ' + token } });
 export const getManagedStock = async (token: string): Promise<ManagedStockItem[]> =>
