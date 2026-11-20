@@ -2,7 +2,7 @@
 // ARCHIVO: /src/features/waiter/WaiterDashboardDesktop.tsx
 // Vista de escritorio con layout de columnas
 // =================================================================
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { addNewOrder, fetchMyOrders } from '../shared/orders/api/ordersSlice.ts';
