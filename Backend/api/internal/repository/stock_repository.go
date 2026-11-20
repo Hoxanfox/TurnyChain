@@ -47,6 +47,29 @@ func (r *stockRepository) GetItems() ([]domain.StockItem, error) {
 }
 
 func (r *stockRepository) UpdateLocations(id uuid.UUID, warehouse, display float64) error {
+	var total float64
+	err := r.db.QueryRow(`
+		SELECT stock_quantity
+		FROM menu_items
+		WHERE id = $1 AND (tracks_stock = true OR EXISTS (
+			SELECT 1 FROM categories c WHERE c.id = menu_items.category_id AND c.tracks_stock = true
+		))
+	`, id).Scan(&total)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return fmt.Errorf("el producto no existe o no pertenece a una categoría inventariable")
+		}
+		return err
+	}
+
+	distributed := warehouse + display
+	if warehouse < 0 || display < 0 {
+		return fmt.Errorf("las existencias no pueden ser negativas")
+	}
+	if distributed < total-0.001 || distributed > total+0.001 {
+		return fmt.Errorf("la distribución debe sumar exactamente %.3f unidades", total)
+	}
+
 	result, err := r.db.Exec(`UPDATE menu_items SET warehouse_quantity = $1::numeric,
 		display_quantity = $2::numeric, stock_quantity = $1::numeric + $2::numeric
 		WHERE id = $3 AND (tracks_stock = true OR EXISTS (
