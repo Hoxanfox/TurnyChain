@@ -131,6 +131,7 @@ const WaiterDashboard: React.FC = () => {
     { id: '1', name: 'Comanda 1', cart: [], tableId: '', orderType: 'mesa' }
   ]);
   const [activeTabId, setActiveTabId] = useState<string>('1');
+  const reservationSyncVersion = useRef(0);
 
   const activeTab = tabs.find(t => t.id === activeTabId) || tabs[0];
   const cart = activeTab.cart;
@@ -267,12 +268,14 @@ const WaiterDashboard: React.FC = () => {
 
   useEffect(() => {
     if (!token) return;
+    const syncVersion = ++reservationSyncVersion.current;
     const timer = window.setTimeout(async () => {
       const items = tabs.flatMap(tab => tab.cart)
         .filter(item => item.tracks_stock)
         .map(item => ({ menu_item_id: item.id, quantity: item.quantity }));
       try {
         const stock = await syncCartReservations(items, token);
+        if (syncVersion !== reservationSyncVersion.current) return;
         dispatch(stockUpdated(stock.map(item => ({
           id: item.id,
           quantity: item.quantity,
@@ -306,11 +309,13 @@ const WaiterDashboard: React.FC = () => {
           dispatch(fetchMenu());
         }
       } catch (error: any) {
+        if (syncVersion !== reservationSyncVersion.current) return;
         if (error.response?.status === 409) {
           toast.error('Las existencias cambiaron mientras elegías. Revisa nuevamente antes de enviar.');
         }
         try {
           const stock = await getManagedStock(token);
+          if (syncVersion !== reservationSyncVersion.current) return;
           dispatch(stockUpdated(stock.map(item => ({
             id: item.id,
             quantity: item.quantity,

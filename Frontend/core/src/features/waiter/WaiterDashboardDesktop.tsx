@@ -74,6 +74,7 @@ const WaiterDashboardDesktop: React.FC<WaiterDashboardDesktopProps> = ({
   const { status } = useSelector((state: RootState) => state.tables);
 
   const [cart, setCartState] = useState<CartItem[]>([]);
+  const reservationSyncVersion = useRef(0);
   const setCart = (updater: CartItem[] | ((curr: CartItem[]) => CartItem[])) => {
     const nextCart = typeof updater === 'function' ? updater(cart) : updater;
     const stockError = validateCartStock(nextCart, menuItems, cart);
@@ -183,6 +184,7 @@ const WaiterDashboardDesktop: React.FC<WaiterDashboardDesktopProps> = ({
 
   useEffect(() => {
     if (!token) return;
+    const syncVersion = ++reservationSyncVersion.current;
     const timer = window.setTimeout(async () => {
       const items = cart.filter(item => item.tracks_stock).map(item => ({
         menu_item_id: item.id,
@@ -190,6 +192,7 @@ const WaiterDashboardDesktop: React.FC<WaiterDashboardDesktopProps> = ({
       }));
       try {
         const stock = await syncCartReservations(items, token);
+        if (syncVersion !== reservationSyncVersion.current) return;
         dispatch(stockUpdated(stock.map(item => ({
           id: item.id,
           quantity: item.quantity,
@@ -198,11 +201,13 @@ const WaiterDashboardDesktop: React.FC<WaiterDashboardDesktopProps> = ({
           available_quantity: item.available_quantity,
         }))));
       } catch (error: any) {
+        if (syncVersion !== reservationSyncVersion.current) return;
         if (error.response?.status === 409) {
           toast.error('Las existencias cambiaron mientras elegías. Revisa nuevamente antes de enviar.');
         }
         try {
           const stock = await getManagedStock(token);
+          if (syncVersion !== reservationSyncVersion.current) return;
           dispatch(stockUpdated(stock.map(item => ({
             id: item.id,
             quantity: item.quantity,

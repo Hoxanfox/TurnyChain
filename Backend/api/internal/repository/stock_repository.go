@@ -196,6 +196,10 @@ func (r *stockRepository) SyncCartReservations(waiterID uuid.UUID, items []domai
 	}
 	defer tx.Rollback()
 
+	if _, err := tx.Exec(`SELECT pg_advisory_xact_lock(hashtext($1::text))`, waiterID.String()); err != nil {
+		return false, err
+	}
+
 	quantities := make(map[uuid.UUID]int)
 	for _, item := range items {
 		if item.Quantity > 0 {
