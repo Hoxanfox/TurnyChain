@@ -88,7 +88,12 @@ export const useWaiterWebSocket = (
     };
     const handleWebSocketMessage = (message: WebSocketMessage) => {
       if (message.type === 'CART_RESERVATIONS_UPDATED') {
-        const stock = Array.isArray(message.payload) ? message.payload : null;
+        const payload = message.payload as { items?: any[]; affected_item_ids?: string[] } | any[] | null;
+        const stock = Array.isArray(payload)
+          ? payload
+          : Array.isArray(payload?.items)
+            ? payload.items
+            : null;
         if (stock) {
           dispatch(stockUpdated(stock.map(item => ({
             id: item.id,

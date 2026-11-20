@@ -29,7 +29,7 @@ func (s *stockService) SyncCartReservations(waiterID uuid.UUID, items []domain.O
 	changed, err := s.repo.SyncCartReservations(waiterID, items)
 	if err != nil { return err }
 	if changed && s.hub != nil {
-		s.broadcastReservations()
+		s.broadcastReservations(items)
 	}
 	return nil
 }
@@ -37,7 +37,7 @@ func (s *stockService) ReleaseCartReservations(waiterID uuid.UUID) error {
 	changed, err := s.repo.ReleaseCartReservations(waiterID)
 	if err != nil { return err }
 	if changed && s.hub != nil {
-		s.broadcastReservations()
+		s.broadcastReservations(nil)
 	}
 	return nil
 }
@@ -65,8 +65,20 @@ func (s *stockService) broadcast() {
 	if items, err := s.repo.GetItems(); err == nil { s.hub.BroadcastMessage("STOCK_UPDATED", items) }
 }
 
-func (s *stockService) broadcastReservations() {
-	if items, err := s.repo.GetItems(); err == nil {
-		s.hub.BroadcastMessage("CART_RESERVATIONS_UPDATED", items)
+func (s *stockService) broadcastReservations(items []domain.OrderItem) {
+	if stockItems, err := s.repo.GetItems(); err == nil {
+		affectedIDs := make([]string, 0)
+		seen := make(map[string]bool)
+		for _, item := range items {
+			id := item.MenuItemID.String()
+			if !seen[id] {
+				seen[id] = true
+				affectedIDs = append(affectedIDs, id)
+			}
+		}
+		s.hub.BroadcastMessage("CART_RESERVATIONS_UPDATED", map[string]interface{}{
+			"items": stockItems,
+			"affected_item_ids": affectedIDs,
+		})
 	}
 }
