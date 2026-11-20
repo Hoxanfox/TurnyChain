@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { FiArrowLeft, FiCheck, FiMinus, FiPlus, FiRefreshCw, FiSearch } from 'react-icons/fi';
+import { FiArrowLeft, FiCheck, FiMinus, FiPlus, FiRefreshCw, FiSearch, FiShoppingCart, FiTrash2, FiX } from 'react-icons/fi';
 import type { RootState } from '../../app/store';
 import {
   getManagedStock,
@@ -36,6 +36,8 @@ const ManagedStockPage: React.FC = () => {
   const [saving, setSaving] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [previewItem, setPreviewItem] = useState<ManagedStockItem | null>(null);
+  const [isProductPickerOpen, setIsProductPickerOpen] = useState(false);
+  const [receiptCategory, setReceiptCategory] = useState('all');
 
   const load = async () => {
     if (!token) return;
@@ -181,6 +183,31 @@ const ManagedStockPage: React.FC = () => {
     }
   };
 
+  const receiptCategories = useMemo(
+    () => Array.from(new Set(items.map(item => item.category_name).filter(Boolean))).sort(),
+    [items]
+  );
+  const pickerItems = useMemo(() => {
+    const term = receiptSearch.trim().toLowerCase();
+    return items.filter(item =>
+      (receiptCategory === 'all' || item.category_name === receiptCategory) &&
+      (!term || `${item.name} ${item.category_name}`.toLowerCase().includes(term))
+    );
+  }, [items, receiptCategory, receiptSearch]);
+  const selectedLines = Object.values(selected);
+  const receiptTotalQuantity = selectedLines.reduce(
+    (sum, line) => sum + (line.quantity === '' ? 0 : Number(line.quantity)),
+    0
+  );
+  const receiptTotalCost = selectedLines.reduce(
+    (sum, line) => {
+      const quantity = line.quantity === '' ? 0 : Number(line.quantity);
+      const unitCost = line.unit_cost === '' ? 0 : Number(line.unit_cost);
+      return sum + quantity * unitCost;
+    },
+    0
+  );
+
   return (
     <main className="min-h-screen bg-slate-50 p-4 text-slate-900 sm:p-8">
       <div className="mx-auto max-w-5xl">
@@ -196,6 +223,80 @@ const ManagedStockPage: React.FC = () => {
             <h1 className="text-3xl font-black">Inventario</h1>
             <p className="text-sm text-slate-500">Ajustes por ubicación y recepción de facturas.</p>
           </div>
+          {isProductPickerOpen && (
+            <div className="fixed inset-0 z-[110] flex items-end justify-center bg-slate-950/70 p-0 sm:items-center sm:p-4" role="dialog" aria-modal="true">
+              <div className="flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-t-3xl bg-slate-50 shadow-2xl sm:rounded-3xl">
+                <header className="flex items-center justify-between border-b bg-white p-4">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-wide text-emerald-600">Nueva entrada</p>
+                    <h2 className="text-xl font-black text-slate-900">Elegir productos</h2>
+                  </div>
+                  <button type="button" onClick={() => setIsProductPickerOpen(false)} className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-xl" aria-label="Cerrar selector">
+                    <FiX />
+                  </button>
+                </header>
+                <div className="border-b bg-white p-3">
+                  <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3">
+                    <FiSearch className="text-slate-400" />
+                    <input
+                      value={receiptSearch}
+                      onChange={event => setReceiptSearch(event.target.value)}
+                      placeholder="Buscar por nombre..."
+                      className="w-full py-3 outline-none"
+                      autoFocus
+                    />
+                  </div>
+                  <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+                    <button type="button" onClick={() => setReceiptCategory('all')} className={`shrink-0 rounded-full px-3 py-2 text-xs font-black ${receiptCategory === 'all' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                      Todas
+                    </button>
+                    {receiptCategories.map(category => (
+                      <button key={category} type="button" onClick={() => setReceiptCategory(category)} className={`shrink-0 rounded-full px-3 py-2 text-xs font-black ${receiptCategory === category ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                        {category}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex-1 overflow-y-auto p-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {pickerItems.map(item => {
+                      const isSelected = Boolean(selected[item.id]);
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => toggle(item)}
+                          className={`flex min-h-28 items-center gap-3 rounded-2xl border p-3 text-left transition ${isSelected ? 'border-emerald-400 bg-emerald-50 ring-2 ring-emerald-100' : 'border-slate-200 bg-white hover:border-emerald-300'}`}
+                        >
+                          {item.image_url ? (
+                            <img src={item.image_url} alt={item.name} className="h-20 w-20 shrink-0 rounded-xl object-cover" />
+                          ) : (
+                            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-3xl">🍽️</div>
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <p className="line-clamp-2 font-black text-slate-900">{item.name}</p>
+                            <p className="mt-1 text-xs font-semibold text-slate-500">{item.category_name}</p>
+                            <p className="mt-2 text-sm font-black text-purple-700">{formatQuantity(item.quantity)} actuales</p>
+                          </div>
+                          <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-lg font-black ${isSelected ? 'bg-emerald-600 text-white' : 'border-2 border-slate-300 text-slate-400'}`}>
+                            {isSelected ? '✓' : '+'}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {pickerItems.length === 0 && (
+                    <p className="py-10 text-center font-semibold text-slate-500">No hay productos con ese filtro.</p>
+                  )}
+                </div>
+                <footer className="border-t bg-white p-3">
+                  <button type="button" onClick={() => setIsProductPickerOpen(false)} className="w-full rounded-xl bg-emerald-600 px-4 py-3 font-black text-white">
+                    Listo — {Object.keys(selected).length} producto(s)
+                  </button>
+                </footer>
+              </div>
+            </div>
+          )}
           <button
             type="button"
             onClick={() => void load()}
@@ -404,82 +505,124 @@ const ManagedStockPage: React.FC = () => {
               </label>
             </div>
 
-            <div className="mb-4 flex items-center gap-2 rounded-xl border bg-white p-3">
-              <FiSearch className="text-slate-400" />
-              <input
-                value={receiptSearch}
-                onChange={event => setReceiptSearch(event.target.value)}
-                placeholder="Buscar producto para agregar..."
-                aria-label="Buscar producto para agregar a la factura"
-                className="w-full outline-none"
-              />
-            </div>
-
-            <div className="mb-3 text-sm font-bold text-slate-600">
-              {Object.keys(selected).length} producto(s) seleccionado(s)
-            </div>
-
-            <div className="space-y-3">
-              {filtered.map(item => (
-                <article
-                  key={item.id}
-                  className={`rounded-2xl border bg-white p-4 ${selected[item.id] ? 'border-emerald-300 ring-1 ring-emerald-200' : 'border-slate-200'}`}
-                >
-                  <label className="flex items-center gap-3 font-black">
-                    <input type="checkbox" checked={Boolean(selected[item.id])} onChange={() => toggle(item)} />
-                    <span>{item.name}</span>
-                    <span className="text-xs font-normal text-slate-500">{item.category_name}</span>
-                  </label>
-                  {selected[item.id] && (
-                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                      <label className="text-sm font-semibold">
-                        Cantidad recibida
-                        <input
-                          type="number"
-                          min="0.001"
-                          step="0.001"
-                          value={selected[item.id].quantity}
-                          onChange={event => setSelected(current => ({
-                            ...current,
-                            [item.id]: {
-                              ...current[item.id],
-                              quantity: event.target.value === '' ? '' : num(event.target.value),
-                            },
-                          }))}
-                          className="mt-1 w-full rounded-xl border p-3"
-                        />
-                      </label>
-                      <label className="text-sm font-semibold">
-                        Costo unitario
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={selected[item.id].unit_cost}
-                          onChange={event => setSelected(current => ({
-                            ...current,
-                            [item.id]: {
-                              ...current[item.id],
-                              unit_cost: event.target.value === '' ? '' : num(event.target.value),
-                            },
-                          }))}
-                          className="mt-1 w-full rounded-xl border p-3"
-                        />
-                      </label>
-                    </div>
-                  )}
-                </article>
-              ))}
-            </div>
-
             <button
               type="button"
-              onClick={() => void receive()}
-              disabled={saving === 'receipt' || !Object.keys(selected).length}
-              className="mt-5 w-full rounded-xl bg-emerald-600 px-4 py-3 font-black text-white disabled:opacity-50 sm:w-auto"
+              onClick={() => {
+                setReceiptCategory('all');
+                setReceiptSearch('');
+                setIsProductPickerOpen(true);
+              }}
+              className="mb-4 flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-emerald-300 bg-emerald-50 px-4 py-4 text-base font-black text-emerald-800 hover:bg-emerald-100"
             >
-              {saving === 'receipt' ? 'Registrando...' : `Registrar factura (${Object.keys(selected).length})`}
+              <FiShoppingCart />
+              Elegir productos para agregar
+              {Object.keys(selected).length > 0 && (
+                <span className="rounded-full bg-emerald-600 px-2.5 py-1 text-xs text-white">
+                  {Object.keys(selected).length}
+                </span>
+              )}
             </button>
+
+            {Object.keys(selected).length === 0 ? (
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-10 text-center">
+                <p className="text-3xl">📦</p>
+                <p className="mt-2 font-black text-slate-700">Aún no hay productos en esta entrada</p>
+                <p className="mt-1 text-sm text-slate-500">Selecciona productos desde el buscador visual.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {selectedLines.map(line => {
+                  const item = items.find(candidate => candidate.id === line.item_id);
+                  if (!item) return null;
+                  const quantity = line.quantity === '' ? 0 : Number(line.quantity);
+                  const unitCost = line.unit_cost === '' ? 0 : Number(line.unit_cost);
+                  return (
+                    <article key={item.id} className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+                      <div className="flex items-center gap-3">
+                        {item.image_url ? (
+                          <button type="button" onClick={() => setPreviewItem(item)} className="h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-slate-200">
+                            <img src={item.image_url} alt={item.name} className="h-full w-full object-cover" />
+                          </button>
+                        ) : (
+                          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-2xl">🍽️</div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-black text-slate-900">{item.name}</p>
+                          <p className="text-xs font-semibold text-slate-500">{item.category_name}</p>
+                          <p className="mt-1 text-xs font-bold text-emerald-700">
+                            {(quantity * unitCost).toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => toggle(item)}
+                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-red-50 text-red-600"
+                          aria-label={`Eliminar ${item.name}`}
+                        >
+                          <FiTrash2 />
+                        </button>
+                      </div>
+                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                        <div>
+                          <p className="mb-1 text-xs font-black text-slate-600">Cantidad</p>
+                          <div className="flex items-center gap-2">
+                            <button type="button" onClick={() => setSelected(current => ({ ...current, [item.id]: { ...current[item.id], quantity: Math.max(0, quantity - 1) } }))} className="flex h-10 w-10 items-center justify-center rounded-lg border bg-slate-50"><FiMinus /></button>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.001"
+                              value={line.quantity}
+                              onChange={event => setSelected(current => ({ ...current, [item.id]: { ...current[item.id], quantity: event.target.value === '' ? '' : num(event.target.value) } }))}
+                              className="h-10 min-w-0 flex-1 rounded-lg border px-3 text-center font-black"
+                            />
+                            <button type="button" onClick={() => setSelected(current => ({ ...current, [item.id]: { ...current[item.id], quantity: quantity + 1 } }))} className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-600 text-white"><FiPlus /></button>
+                          </div>
+                        </div>
+                        <label className="text-xs font-black text-slate-600">
+                          Costo unitario
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={line.unit_cost}
+                            placeholder="Opcional"
+                            onChange={event => setSelected(current => ({ ...current, [item.id]: { ...current[item.id], unit_cost: event.target.value === '' ? '' : num(event.target.value) } }))}
+                            className="mt-1 h-10 w-full rounded-lg border px-3 font-bold"
+                          />
+                        </label>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+
+            {Object.keys(selected).length > 0 && (
+              <div className="sticky bottom-3 mt-4 rounded-2xl border border-emerald-200 bg-white p-3 shadow-xl">
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="rounded-xl bg-slate-50 p-2">
+                    <p className="text-[10px] font-black uppercase text-slate-500">Productos</p>
+                    <p className="text-lg font-black">{Object.keys(selected).length}</p>
+                  </div>
+                  <div className="rounded-xl bg-emerald-50 p-2">
+                    <p className="text-[10px] font-black uppercase text-emerald-600">Unidades</p>
+                    <p className="text-lg font-black text-emerald-800">{formatQuantity(receiptTotalQuantity)}</p>
+                  </div>
+                  <div className="rounded-xl bg-indigo-50 p-2">
+                    <p className="text-[10px] font-black uppercase text-indigo-600">Costo total</p>
+                    <p className="text-lg font-black text-indigo-800">{receiptTotalCost.toLocaleString('es-CO', { maximumFractionDigits: 0 })}</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void receive()}
+                  disabled={saving === 'receipt'}
+                  className="mt-3 w-full rounded-xl bg-emerald-600 px-4 py-3 font-black text-white disabled:opacity-50"
+                >
+                  {saving === 'receipt' ? 'Registrando...' : 'Confirmar entrada'}
+                </button>
+              </div>
+            )}
           </>
         )}
       </div>

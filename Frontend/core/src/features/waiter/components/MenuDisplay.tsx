@@ -221,34 +221,25 @@ const MenuDisplay: React.FC<MenuDisplayProps> = ({ onAddToCart }) => {
                           : 'bg-gradient-to-br from-white to-gray-50 border-gray-200 hover:shadow-lg hover:border-indigo-300 hover:from-indigo-50 hover:to-white active:scale-95'
                       }`}
                     >
-                      {item.image_url && (
-                        <img
-                          src={item.image_url}
-                          alt={item.name}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            setPreviewItem(item);
-                          }}
-                          className="mb-3 h-28 w-full cursor-zoom-in rounded-lg object-cover shadow-sm"
-                        />
-                      )}
+                      <div className="flex h-full min-h-[8rem] gap-3">
+                        <div className="min-w-0 flex-1">
                       {/* Badge de item popular */}
                       {isPopular(item) && !isUnavailable && !isPartiallySoldOut && (
-                        <div className="absolute -top-2 -right-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-lg flex items-center gap-1 z-10">
+                        <div className="absolute -top-2 left-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-lg flex items-center gap-1 z-10">
                           ⭐ Popular
                         </div>
                       )}
                       {/* Badge de agotado total o parcial */}
                       {isStockEmpty ? (
-                        <div className="absolute top-2 right-2 bg-purple-700 text-white text-[10px] font-black px-2 py-0.5 rounded-sm shadow z-10">
+                        <div className="absolute top-2 left-2 bg-purple-700 text-white text-[10px] font-black px-2 py-0.5 rounded-sm shadow z-10">
                           AGOTADO
                         </div>
                       ) : isSoldOut ? (
-                        <div className="absolute top-2 right-2 bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-sm shadow z-10 animate-pulse">
+                        <div className="absolute top-2 left-2 bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-sm shadow z-10 animate-pulse">
                           AGOTADO
                         </div>
                       ) : isPartiallySoldOut ? (
-                        <div className="absolute top-2 right-2 bg-yellow-500 text-white text-[10px] font-black px-2 py-0.5 rounded-sm shadow z-10">
+                        <div className="absolute top-2 left-2 bg-yellow-500 text-white text-[10px] font-black px-2 py-0.5 rounded-sm shadow z-10">
                           PARCIAL
                         </div>
                       ) : null}
@@ -268,6 +259,21 @@ const MenuDisplay: React.FC<MenuDisplayProps> = ({ onAddToCart }) => {
                       <p className={`text-lg font-bold mt-auto ${isStockEmpty ? 'text-purple-800' : isSoldOut ? 'text-red-700' : isPartiallySoldOut ? 'text-yellow-800' : 'text-indigo-700'}`}>
                         ${item.price.toLocaleString('es-CO')}
                       </p>
+                        </div>
+                        {item.image_url ? (
+                          <img
+                            src={item.image_url}
+                            alt={item.name}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setPreviewItem(item);
+                            }}
+                            className="h-24 w-24 shrink-0 cursor-zoom-in rounded-xl object-cover shadow-sm"
+                          />
+                        ) : (
+                          <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-3xl">🍽️</div>
+                        )}
+                      </div>
                     </button>
                   );
                 })}
