@@ -139,7 +139,7 @@ const WaiterDashboard: React.FC = () => {
 
   const setCart = (updater: CartItem[] | ((curr: CartItem[]) => CartItem[])) => {
     const nextCart = typeof updater === 'function' ? updater(cart) : updater;
-    const stockError = validateCartStock(nextCart, menuItems);
+    const stockError = validateCartStock(nextCart, menuItems, cart);
     if (stockError) {
       toast.error(stockError);
       return;
@@ -445,11 +445,8 @@ const WaiterDashboard: React.FC = () => {
 
   const handleAddToCart = (item: MenuItem) => {
     if (item.tracks_stock) {
-      const reservedInCart = cart
-        .filter(cartItem => cartItem.id === item.id)
-        .reduce((sum, cartItem) => sum + cartItem.quantity, 0);
       const availableQuantity = item.available_quantity ?? item.stock_quantity;
-      if (availableQuantity - reservedInCart <= 0) {
+      if (availableQuantity <= 0) {
         toast.error(`No hay unidades disponibles de ${item.name}. Revisa las existencias e inténtalo nuevamente.`);
         return;
       }
@@ -475,15 +472,12 @@ const WaiterDashboard: React.FC = () => {
     }
     const liveItem = menuItems.find(menuItem => menuItem.id === target.id);
     if (liveItem?.tracks_stock) {
-      const reserved = cart
-        .filter(item => item.id === target.id)
-        .reduce((sum, item) => sum + item.quantity, 0);
       const availableQuantity = liveItem.available_quantity ?? liveItem.stock_quantity;
-      if (reserved >= availableQuantity) {
+      if (availableQuantity <= 0) {
         toast.error(`Solo quedan ${availableQuantity} unidades disponibles de ${target.name}.`);
         return;
       }
-      setCart(currentCart => incrementItemQuantity(currentCart, cartItemId, availableQuantity));
+      setCart(currentCart => incrementItemQuantity(currentCart, cartItemId));
       return;
     }
     setCart(currentCart => incrementItemQuantity(currentCart, cartItemId));
@@ -1222,6 +1216,7 @@ const WaiterDashboard: React.FC = () => {
           item={editingCartItem}
           onClose={() => setEditingCartItem(null)}
           onConfirm={handleConfirmEditCartItem}
+          currentQuantity={editingCartItem.quantity}
         />
       )}
       {checkoutOrderId && (

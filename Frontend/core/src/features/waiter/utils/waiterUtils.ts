@@ -37,19 +37,26 @@ export const createCartItemFromCustomization = (
 
 export const validateCartStock = (
   cart: CartItem[],
-  menuItems: MenuItem[]
+  menuItems: MenuItem[],
+  previousCart: CartItem[] = []
 ): string | null => {
   const totals = new Map<string, number>();
+  const previousTotals = new Map<string, number>();
   cart.forEach(item => {
     totals.set(item.id, (totals.get(item.id) || 0) + item.quantity);
+  });
+  previousCart.forEach(item => {
+    previousTotals.set(item.id, (previousTotals.get(item.id) || 0) + item.quantity);
   });
 
   for (const [itemId, quantity] of totals) {
     const liveItem = menuItems.find(item => item.id === itemId);
     if (!liveItem?.tracks_stock) continue;
     const availableQuantity = liveItem.available_quantity ?? liveItem.stock_quantity;
-    if (quantity > availableQuantity) {
-      return `Solo quedan ${availableQuantity} unidades disponibles de ${liveItem.name}.`;
+    const currentReservation = previousTotals.get(itemId) || 0;
+    const maximumQuantity = availableQuantity + currentReservation;
+    if (quantity > maximumQuantity) {
+      return `Solo puedes tener ${maximumQuantity} unidades reservadas de ${liveItem.name}.`;
     }
   }
   return null;
