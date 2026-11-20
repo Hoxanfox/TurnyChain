@@ -19,6 +19,8 @@ import { printKitchenTicketsFrontend, getPrintSettings } from '../../utils/print
 import { kitchenTicketsAPI } from '../shared/orders/api/kitchenTicketsAPI';
 import CheckoutModal from '../waiter/components/CheckoutModal';
 import BrebTransfersPanel from './components/BrebTransfersPanel';
+import { getCurrentSessionDetails } from './components/cashierDashboardMobile/api/cashRegisterApi';
+import { CashRegisterModal } from './components/cashierDashboardMobile/components/cashRegister/CashRegisterModal';
 
 const CashierDashboard: React.FC = () => {
   const location = useLocation();
@@ -43,6 +45,8 @@ const CashierDashboard: React.FC = () => {
   const [shortcutNonce, setShortcutNonce] = useState(0);
 
   const [hasWsNotification, setHasWsNotification] = useState(false);
+  const [cashRegisterWarning, setCashRegisterWarning] = useState<'closed' | 'pending_close' | null>(null);
+  const [showCashRegisterModal, setShowCashRegisterModal] = useState(false);
 
   const cashierLogic = useCashierLogic(activeOrders);
 
@@ -66,6 +70,27 @@ const CashierDashboard: React.FC = () => {
   useEffect(() => {
     dispatch(fetchActiveOrders());
   }, [dispatch]);
+
+  useEffect(() => {
+    let active = true;
+    const checkCashRegister = async () => {
+      try {
+        const details = await getCurrentSessionDetails();
+        if (!active) return;
+        if (!details.session) setCashRegisterWarning('closed');
+        else if (details.session.status === 'pending_close') setCashRegisterWarning('pending_close');
+        else setCashRegisterWarning(null);
+      } catch {
+        // The cash register endpoint may be unavailable temporarily; do not block the UI.
+      }
+    };
+    void checkCashRegister();
+    const interval = window.setInterval(checkCashRegister, 60000);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, []);
 
   useEffect(() => {
     const stateWithShortcut = location.state as { cashierShortcut?: { tableNumber: number; orderId: string } } | null;
@@ -307,6 +332,35 @@ const CashierDashboard: React.FC = () => {
 
   return (
     <>
+      {cashRegisterWarning && (
+        <div className="fixed left-1/2 top-3 z-[80] w-[calc(100%-1.5rem)] max-w-2xl -translate-x-1/2 rounded-2xl border border-red-300 bg-red-600 px-4 py-3 text-white shadow-2xl">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl" aria-hidden="true">⚠️</span>
+              <div>
+                <p className="font-black">
+                  {cashRegisterWarning === 'pending_close'
+                    ? 'Cierre de caja pendiente'
+                    : 'La caja está cerrada'}
+                </p>
+                <p className="text-xs text-red-100">
+                  {cashRegisterWarning === 'pending_close'
+                    ? 'Debes realizar el arqueo del día anterior antes de cobrar o registrar nuevas ventas.'
+                    : 'Abre la caja antes de cobrar o registrar una comanda.'}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowCashRegisterModal(true)}
+              className="shrink-0 rounded-lg bg-white px-3 py-2 text-xs font-black text-red-700"
+            >
+              Revisar caja
+            </button>
+          </div>
+        </div>
+      )}
+
       {isDesktop ? (
         <CashierDashboardDesktop
           {...commonProps}
@@ -361,6 +415,18 @@ const CashierDashboard: React.FC = () => {
         isOpen={isBrebPanelOpen}
         onClose={() => setIsBrebPanelOpen(false)}
         wsMessage={lastBrebMessage}
+      />
+
+      <CashRegisterModal
+        isOpen={showCashRegisterModal}
+        onClose={() => {
+          setShowCashRegisterModal(false);
+          void getCurrentSessionDetails().then(details => {
+            if (!details.session) setCashRegisterWarning('closed');
+            else if (details.session.status === 'pending_close') setCashRegisterWarning('pending_close');
+            else setCashRegisterWarning(null);
+          }).catch(() => undefined);
+        }}
       />
     </>
   );

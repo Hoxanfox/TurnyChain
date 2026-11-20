@@ -31,6 +31,12 @@ func (h *CashRegisterHandler) OpenSession(c *fiber.Ctx) error {
 
 	session, err := h.Service.OpenSession(req.InitialCash, req.InitialTransfer)
 	if err != nil {
+		if err.Error() == "PENDING_PREVIOUS_CLOSE" {
+			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+				"error": "CASH_REGISTER_PENDING_CLOSE",
+				"message": "Tienes un cierre pendiente del día anterior. Realiza el arqueo antes de abrir una nueva caja.",
+			})
+		}
 		if err.Error() == "there is already an open session" {
 			return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": err.Error()})
 		}

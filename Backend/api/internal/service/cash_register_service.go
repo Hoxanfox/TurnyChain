@@ -32,6 +32,22 @@ func (s *cashRegisterService) OpenSession(initialCash float64, initialTransfer f
 		return nil, err
 	}
 	if existingSession != nil {
+		loc := time.Local
+		if bogota, err := time.LoadLocation("America/Bogota"); err == nil {
+			loc = bogota
+		}
+		now := time.Now().In(loc)
+		startOfToday := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+		openLocal := existingSession.OpenTime.In(loc)
+		openDay := time.Date(openLocal.Year(), openLocal.Month(), openLocal.Day(), 0, 0, 0, 0, loc)
+		if openDay.Before(startOfToday) {
+			existingSession.Status = "pending_close"
+			existingSession.UpdatedAt = time.Now()
+			if err := s.repo.CloseSession(existingSession); err != nil {
+				return nil, err
+			}
+			return nil, errors.New("PENDING_PREVIOUS_CLOSE")
+		}
 		return nil, errors.New("there is already an open session")
 	}
 
