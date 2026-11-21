@@ -299,23 +299,23 @@ INSERT INTO stations (id, name, description) VALUES
 
 -- Insertar impresoras de ejemplo
 INSERT INTO printers (id, name, ip_address, port, printer_type, station_id) VALUES
-('p01e6f2b-2250-4630-8a2e-8a3d2a1f9e01', 'Impresora Cocina 1', '192.168.1.101', 9100, 'escpos', 'e01e6f2b-2250-4630-8a2e-8a3d2a1f9d01'),
-('p02e6f2b-2250-4630-8a2e-8a3d2a1f9e02', 'Impresora Bar 1', '192.168.1.102', 9100, 'escpos', 'e02e6f2b-2250-4630-8a2e-8a3d2a1f9d02'),
-('p03e6f2b-2250-4630-8a2e-8a3d2a1f9e03', 'Impresora Parrilla 1', '192.168.1.103', 9100, 'escpos', 'e03e6f2b-2250-4630-8a2e-8a3d2a1f9d03'),
-('p04e6f2b-2250-4630-8a2e-8a3d2a1f9e04', 'Impresora Postres 1', '192.168.1.104', 9100, 'escpos', 'e04e6f2b-2250-4630-8a2e-8a3d2a1f9d04');
+('b01e6f2b-2250-4630-8a2e-8a3d2a1f9e01', 'Impresora Cocina 1', '192.168.1.101', 9100, 'escpos', 'e01e6f2b-2250-4630-8a2e-8a3d2a1f9d01'),
+('b02e6f2b-2250-4630-8a2e-8a3d2a1f9e02', 'Impresora Bar 1', '192.168.1.102', 9100, 'escpos', 'e02e6f2b-2250-4630-8a2e-8a3d2a1f9d02'),
+('b03e6f2b-2250-4630-8a2e-8a3d2a1f9e03', 'Impresora Parrilla 1', '192.168.1.103', 9100, 'escpos', 'e03e6f2b-2250-4630-8a2e-8a3d2a1f9d03'),
+('b04e6f2b-2250-4630-8a2e-8a3d2a1f9e04', 'Impresora Postres 1', '192.168.1.104', 9100, 'escpos', 'e04e6f2b-2250-4630-8a2e-8a3d2a1f9d04');
 
 -- Insertar categorías, ingredientes y acompañantes con UUIDs válidos
 INSERT INTO categories (id, name, station_id) VALUES
 ('c01e6f2b-2250-4630-8a2e-8a3d2a1f9c34', 'Platos Fuertes', 'e01e6f2b-2250-4630-8a2e-8a3d2a1f9d01'),
 ('c02e6f2b-2250-4630-8a2e-8a3d2a1f9c35', 'Bebidas', 'e02e6f2b-2250-4630-8a2e-8a3d2a1f9d02');
-INSERT INTO ingredients (id, name) VALUES ('i01e6f2b-2250-4630-8a2e-8a3d2a1f9c36', 'Panceta'), ('i02e6f2b-2250-4630-8a2e-8a3d2a1f9c37', 'Bondiola');
+INSERT INTO ingredients (id, name) VALUES ('d01e6f2b-2250-4630-8a2e-8a3d2a1f9c36', 'Panceta'), ('d02e6f2b-2250-4630-8a2e-8a3d2a1f9c37', 'Bondiola');
 INSERT INTO accompaniments (id, name, price) VALUES ('a01e6f2b-2250-4630-8a2e-8a3d2a1f9c38', 'Papa', 2.00), ('a02e6f2b-2250-4630-8a2e-8a3d2a1f9c39', 'Yuca', 2.50), ('a03e6f2b-2250-4630-8a2e-8a3d2a1f9c40', 'Hielo', 0.00);
 
 -- Insertar ítems de menú
 INSERT INTO menu_items (id, name, description, price, category_id) VALUES
-('m01e6f2b-2250-4630-8a2e-8a3d2a1f9c41', 'Picada de la Casa', 'Una deliciosa mezcla de carnes.', 50.00, 'c01e6f2b-2250-4630-8a2e-8a3d2a1f9c34'),
-('m02e6f2b-2250-4630-8a2e-8a3d2a1f9c42', 'Gaseosa', 'Botella de 350ml.', 3.00, 'c02e6f2b-2250-4630-8a2e-8a3d2a1f9c35');
+('f01e6f2b-2250-4630-8a2e-8a3d2a1f9c41', 'Picada de la Casa', 'Una deliciosa mezcla de carnes.', 50.00, 'c01e6f2b-2250-4630-8a2e-8a3d2a1f9c34'),
+('f02e6f2b-2250-4630-8a2e-8a3d2a1f9c42', 'Gaseosa', 'Botella de 350ml.', 3.00, 'c02e6f2b-2250-4630-8a2e-8a3d2a1f9c35');
 
 -- Relacionar ítems con ingredientes y acompañantes
-INSERT INTO menu_item_ingredients (menu_item_id, ingredient_id) VALUES ('m01e6f2b-2250-4630-8a2e-8a3d2a1f9c41', 'i01e6f2b-2250-4630-8a2e-8a3d2a1f9c36'), ('m01e6f2b-2250-4630-8a2e-8a3d2a1f9c41', 'i02e6f2b-2250-4630-8a2e-8a3d2a1f9c37');
-INSERT INTO menu_item_accompaniments (menu_item_id, accompaniment_id) VALUES ('m01e6f2b-2250-4630-8a2e-8a3d2a1f9c41', 'a01e6f2b-2250-4630-8a2e-8a3d2a1f9c38'), ('m01e6f2b-2250-4630-8a2e-8a3d2a1f9c41', 'a02e6f2b-2250-4630-8a2e-8a3d2a1f9c39'), ('m02e6f2b-2250-4630-8a2e-8a3d2a1f9c42', 'a03e6f2b-2250-4630-8a2e-8a3d2a1f9c40');
+INSERT INTO menu_item_ingredients (menu_item_id, ingredient_id) VALUES ('f01e6f2b-2250-4630-8a2e-8a3d2a1f9c41', 'd01e6f2b-2250-4630-8a2e-8a3d2a1f9c36'), ('f01e6f2b-2250-4630-8a2e-8a3d2a1f9c41', 'd02e6f2b-2250-4630-8a2e-8a3d2a1f9c37');
+INSERT INTO menu_item_accompaniments (menu_item_id, accompaniment_id) VALUES ('f01e6f2b-2250-4630-8a2e-8a3d2a1f9c41', 'a01e6f2b-2250-4630-8a2e-8a3d2a1f9c38'), ('f01e6f2b-2250-4630-8a2e-8a3d2a1f9c41', 'a02e6f2b-2250-4630-8a2e-8a3d2a1f9c39'), ('f02e6f2b-2250-4630-8a2e-8a3d2a1f9c42', 'a03e6f2b-2250-4630-8a2e-8a3d2a1f9c40');
