@@ -1,6 +1,18 @@
 package domain
 
-import "github.com/google/uuid"
+import (
+	"fmt"
+
+	"github.com/google/uuid"
+)
+
+// StockConflictError indica que la reserva solicitada excede las existencias
+// disponibles del producto. Los handlers lo traducen a un HTTP 409.
+type StockConflictError struct{ ItemName string }
+
+func (e *StockConflictError) Error() string {
+	return fmt.Sprintf("no hay existencias suficientes de %s", e.ItemName)
+}
 
 type StockItem struct {
 	ID            uuid.UUID `json:"id"`

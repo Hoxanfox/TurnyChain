@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"errors"
+
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/domain"
 	"github.com/Hoxanfox/TurnyChain/Backend/api/internal/service"
 	"github.com/gofiber/fiber/v2"
@@ -68,7 +70,13 @@ func (h *StockHandler) SyncCartReservations(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
 	}
 	if err := h.service.SyncCartReservations(waiterID, payload.Items); err != nil {
-		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": err.Error()})
+		// Solo los conflictos de negocio van como 409 (con mensaje para el
+		// mesero); los errores internos no deben filtrar SQL al cliente.
+		var conflict *domain.StockConflictError
+		if errors.As(err, &conflict) {
+			return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": err.Error()})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "No se pudo actualizar la reserva del carrito"})
 	}
 	items, err := h.service.GetItems(waiterID)
 	if err != nil {

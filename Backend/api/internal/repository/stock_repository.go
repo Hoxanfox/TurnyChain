@@ -215,10 +215,10 @@ func (r *stockRepository) SyncCartReservations(waiterID uuid.UUID, items []domai
 	if err != nil {
 		return false, err
 	}
-	existing := make(map[uuid.UUID]int)
+	existing := make(map[uuid.UUID]float64)
 	for existingRows.Next() {
 		var itemID uuid.UUID
-		var quantity int
+		var quantity float64
 		if err := existingRows.Scan(&itemID, &quantity); err != nil {
 			existingRows.Close()
 			return false, err
@@ -235,7 +235,7 @@ func (r *stockRepository) SyncCartReservations(waiterID uuid.UUID, items []domai
 	changed := len(existing) != len(quantities)
 	if !changed {
 		for itemID, quantity := range quantities {
-			if existing[itemID] != quantity {
+			if existing[itemID] != float64(quantity) {
 				changed = true
 				break
 			}
@@ -284,8 +284,8 @@ func (r *stockRepository) SyncCartReservations(waiterID uuid.UUID, items []domai
 		// Solo se valida el CRECIMIENTO de la reserva: reducir o eliminar un
 		// item solo libera disponibilidad y jamás debe fallar, aunque exista un
 		// desfase por ajustes de stock u otras comandas.
-		if previous := float64(existing[itemID]); requested > previous && reservedByOthers+requested > physical {
-			return false, fmt.Errorf("no hay existencias suficientes de %s", name)
+		if previous := existing[itemID]; requested > previous && reservedByOthers+requested > physical {
+			return false, &domain.StockConflictError{ItemName: name}
 		}
 
 		if _, err := tx.Exec(`INSERT INTO stock_reservations
