@@ -164,8 +164,8 @@ func (r *stockRepository) SetQuantity(id uuid.UUID, quantity float64) error {
 		display = quantity
 	}
 	warehouse := quantity - display
-	result, err := r.db.Exec(`UPDATE menu_items SET warehouse_quantity = $1,
-		display_quantity = $2, stock_quantity = $1 + $2
+	result, err := r.db.Exec(`UPDATE menu_items SET warehouse_quantity = $1::numeric,
+		display_quantity = $2::numeric, stock_quantity = $1::numeric + $2::numeric
 		WHERE id = $3 AND (tracks_stock = true OR EXISTS (
 			SELECT 1 FROM categories c WHERE c.id = menu_items.category_id AND c.tracks_stock = true
 		))`, warehouse, display, id)
