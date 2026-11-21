@@ -121,7 +121,10 @@ const WaiterDashboardDesktop: React.FC<WaiterDashboardDesktopProps> = ({
       }).catch(error => {
         if (syncVersion !== reservationSyncVersion.current) return;
         if (error.response?.status === 409) {
-          toast.error('Las existencias cambiaron mientras modificabas el carrito. Se deshizo el último cambio; revisa nuevamente.');
+          const serverMessage = error.response?.data?.error;
+          toast.error(serverMessage
+            ? `${serverMessage}. Se deshizo el último cambio.`
+            : 'Las existencias cambiaron mientras modificabas el carrito. Se deshizo el último cambio; revisa nuevamente.');
           // El servidor rechazó la reserva: deshacer la última mutación del
           // carrito para no mostrar cantidades que no se pueden reservar.
           setCartState(cart);

@@ -14,6 +14,7 @@ type StockRepository interface {
 	GetItems(waiterID ...uuid.UUID) ([]domain.StockItem, error)
 	SyncCartReservations(waiterID uuid.UUID, items []domain.OrderItem) (bool, error)
 	ReleaseCartReservations(waiterID uuid.UUID) (bool, error)
+	ConsumeCartReservations(waiterID uuid.UUID, items []domain.OrderItem) (bool, error)
 	ResetDayReservations() (int64, error)
 	SetQuantity(id uuid.UUID, quantity float64) error
 	DeleteQuantity(id uuid.UUID) error
@@ -260,7 +261,11 @@ func (r *stockRepository) SyncCartReservations(waiterID uuid.UUID, items []domai
 		if err := tx.QueryRow(`SELECT m.name, (m.tracks_stock OR c.tracks_stock)
 			FROM menu_items m JOIN categories c ON c.id = m.category_id
 			WHERE m.id = $1`, itemID).Scan(&name, &tracksStock); err != nil {
-			return false, fmt.Errorf("el producto no existe")
+			if err == sql.ErrNoRows {
+				// El producto ya no existe en el menú: no hay nada que reservar.
+				continue
+			}
+			return false, err
 		}
 		if !tracksStock {
 			continue
@@ -276,7 +281,10 @@ func (r *stockRepository) SyncCartReservations(waiterID uuid.UUID, items []domai
 			return false, err
 		}
 		requested := float64(quantity)
-		if reservedByOthers+requested > physical {
+		// Solo se valida el CRECIMIENTO de la reserva: reducir o eliminar un
+		// item solo libera disponibilidad y jamás debe fallar, aunque exista un
+		// desfase por ajustes de stock u otras comandas.
+		if previous := float64(existing[itemID]); requested > previous && reservedByOthers+requested > physical {
 			return false, fmt.Errorf("no hay existencias suficientes de %s", name)
 		}
 
@@ -301,6 +309,55 @@ func (r *stockRepository) ReleaseCartReservations(waiterID uuid.UUID) (bool, err
 	}
 	affected, err := result.RowsAffected()
 	return err == nil && affected > 0, err
+}
+
+// ConsumeCartReservations descuenta de las reservas del carrito del mesero las
+// cantidades que pasaron a una orden, sin tocar las reservas de sus otras
+// comandas (tabs) ni las de otros meseros.
+func (r *stockRepository) ConsumeCartReservations(waiterID uuid.UUID, items []domain.OrderItem) (bool, error) {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return false, err
+	}
+	defer tx.Rollback()
+
+	consumed := make(map[uuid.UUID]int)
+	for _, item := range items {
+		if item.Quantity > 0 {
+			consumed[item.MenuItemID] += item.Quantity
+		}
+	}
+
+	// Orden determinista para evitar bloqueos cruzados con otros meseros.
+	itemIDs := make([]uuid.UUID, 0, len(consumed))
+	for itemID := range consumed {
+		itemIDs = append(itemIDs, itemID)
+	}
+	sort.Slice(itemIDs, func(i, j int) bool { return itemIDs[i].String() < itemIDs[j].String() })
+
+	changed := false
+	for _, itemID := range itemIDs {
+		result, err := tx.Exec(`UPDATE stock_reservations
+			SET quantity = GREATEST(quantity - $3, 0), updated_at = now()
+			WHERE waiter_id = $1 AND menu_item_id = $2
+			AND business_date = (now() AT TIME ZONE 'America/Bogota')::date`,
+			waiterID, itemID, consumed[itemID])
+		if err != nil {
+			return false, err
+		}
+		if affected, err := result.RowsAffected(); err == nil && affected > 0 {
+			changed = true
+		}
+		if _, err := tx.Exec(`DELETE FROM stock_reservations
+			WHERE waiter_id = $1 AND menu_item_id = $2 AND quantity <= 0`, waiterID, itemID); err != nil {
+			return false, err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return false, err
+	}
+	return changed, nil
 }
 
 // ResetDayReservations elimina las reservas de días anteriores. Las reservas
