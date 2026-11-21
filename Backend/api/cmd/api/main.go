@@ -39,6 +39,9 @@ func main() {
 	}
 	defer db.Close()
 
+	if err := applyStockReservationMigrations(db); err != nil {
+		log.Fatalf("Error aplicando migraciones de reservas de items: %v", err)
+	}
 	if err := applyCashRegisterMigrations(db); err != nil {
 		log.Fatalf("Error aplicando migraciones de caja: %v", err)
 	}
@@ -59,9 +62,6 @@ func main() {
 	}
 	if err := applySupplierInvoiceMigrations(db); err != nil {
 		log.Fatalf("Error aplicando migraciones de cuentas por pagar: %v", err)
-	}
-	if err := applyStockReservationMigrations(db); err != nil {
-		log.Fatalf("Error aplicando migraciones de reservas de items: %v", err)
 	}
 
 	wsHub := wshub.NewHub()
@@ -379,16 +379,6 @@ func applyCashRegisterMigrations(db *sql.DB) error {
 		`ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS warehouse_quantity numeric(14, 3) NOT NULL DEFAULT 0`,
 		`ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS display_quantity numeric(14, 3) NOT NULL DEFAULT 0`,
 		`ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS image_url text NOT NULL DEFAULT ''`,
-		`CREATE TABLE IF NOT EXISTS stock_reservations (
-			id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-			waiter_id uuid NOT NULL,
-			menu_item_id uuid NOT NULL REFERENCES menu_items(id) ON DELETE CASCADE,
-			quantity numeric(14, 3) NOT NULL CHECK (quantity >= 0),
-			updated_at timestamptz NOT NULL DEFAULT now(),
-			business_date date NOT NULL DEFAULT (now() AT TIME ZONE 'America/Bogota')::date
-		)`,
-		`CREATE UNIQUE INDEX IF NOT EXISTS stock_reservations_waiter_item_idx ON stock_reservations(waiter_id, menu_item_id)`,
-		`CREATE INDEX IF NOT EXISTS stock_reservations_business_date_idx ON stock_reservations(business_date)`,
 		`UPDATE menu_items SET warehouse_quantity = stock_quantity
 			WHERE warehouse_quantity = 0 AND display_quantity = 0 AND stock_quantity > 0`,
 	}
@@ -531,11 +521,34 @@ func applySupplierInvoiceMigrations(db *sql.DB) error {
 
 func applyStockReservationMigrations(db *sql.DB) error {
 	statements := []string{
-		// Las reservas de items viven durante el día de trabajo: se eliminan al
-		// cambiar el día (reinicio automático) en lugar de expirar por tiempo.
+		// Tabla de reservas de items del menú. Las reservas viven durante el
+		// día de trabajo: se eliminan al cambiar el día (reinicio automático)
+		// en lugar de expirar por tiempo.
+		`CREATE TABLE IF NOT EXISTS stock_reservations (
+			id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+			waiter_id uuid NOT NULL,
+			menu_item_id uuid NOT NULL REFERENCES menu_items(id) ON DELETE CASCADE,
+			quantity numeric(14, 3) NOT NULL CHECK (quantity >= 0),
+			updated_at timestamptz NOT NULL DEFAULT now(),
+			business_date date NOT NULL DEFAULT (now() AT TIME ZONE 'America/Bogota')::date
+		)`,
+		// Migración única desde el modelo anterior (expiración de 30 minutos):
+		// sus filas ya no representan reservas del día, se limpian una sola vez.
+		`DO $$
+		BEGIN
+			IF EXISTS (
+				SELECT 1 FROM information_schema.columns
+				WHERE table_schema = current_schema()
+				  AND table_name = 'stock_reservations'
+				  AND column_name = 'expires_at'
+			) THEN
+				DELETE FROM stock_reservations;
+			END IF;
+		END $$`,
 		`ALTER TABLE stock_reservations ADD COLUMN IF NOT EXISTS business_date date NOT NULL DEFAULT (now() AT TIME ZONE 'America/Bogota')::date`,
 		`DROP INDEX IF EXISTS stock_reservations_expiry_idx`,
 		`ALTER TABLE stock_reservations DROP COLUMN IF EXISTS expires_at`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS stock_reservations_waiter_item_idx ON stock_reservations(waiter_id, menu_item_id)`,
 		`CREATE INDEX IF NOT EXISTS stock_reservations_business_date_idx ON stock_reservations(business_date)`,
 	}
 
