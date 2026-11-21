@@ -4,6 +4,7 @@
 // =================================================================
 import { useEffect, useRef } from 'react';
 import { useDispatch } from 'react-redux';
+import toast from 'react-hot-toast';
 import { orderUpdated, fetchMyOrders, fetchActiveOrders } from '../features/shared/orders/api/ordersSlice';
 import { setSoldOutMenuId, setSoldOutAccompanimentId, setSoldOutIngredientId, setSyncSoldOut, stockUpdated } from '../features/admin/components/menu/api/menuSlice.ts';
 import { logout } from '../features/auth/authSlice';
@@ -208,6 +209,39 @@ export const useWaiterWebSocket = (
             ingredients: message.payload.ingredients || []
           }));
           break;
+
+        case 'DAY_RESET': {
+          // Reinicio automático del día de trabajo: las reservas del día
+          // anterior fueron borradas en el backend. Los clientes vacían sus
+          // comandas (evento day_reset) y refrescan las existencias.
+          const dayPayload = message.payload as { items?: any[] } | null;
+          const dayStock = Array.isArray(dayPayload?.items) ? dayPayload.items : null;
+          if (dayStock && dayStock.length > 0) {
+            dispatch(stockUpdated(dayStock.map(item => ({
+              id: item.id,
+              quantity: item.quantity,
+              warehouse_quantity: item.warehouse_quantity,
+              display_quantity: item.display_quantity,
+              available_quantity: item.available_quantity,
+            }))));
+          } else {
+            const token = localStorage.getItem('token') || '';
+            if (token) {
+              void getManagedStock(token).then(stock => {
+                dispatch(stockUpdated(stock.map(item => ({
+                  id: item.id,
+                  quantity: item.quantity,
+                  warehouse_quantity: item.warehouse_quantity,
+                  display_quantity: item.display_quantity,
+                  available_quantity: item.available_quantity,
+                }))));
+              }).catch(() => undefined);
+            }
+          }
+          window.dispatchEvent(new CustomEvent('day_reset', { detail: message.payload }));
+          toast('🌅 Nuevo día: se liberaron las reservas y se vaciaron las comandas', { duration: 6000 });
+          break;
+        }
 
         case 'INVENTORY_STOCK_UPDATED':
           window.dispatchEvent(new CustomEvent('inventory_stock_updated', {

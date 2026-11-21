@@ -173,11 +173,11 @@ CREATE TABLE "stock_reservations" (
   "menu_item_id" uuid NOT NULL REFERENCES "menu_items"("id") ON DELETE CASCADE,
   "quantity" numeric(14, 3) NOT NULL CHECK ("quantity" >= 0),
   "updated_at" timestamptz NOT NULL DEFAULT now(),
-  "expires_at" timestamptz NOT NULL
+  "business_date" date NOT NULL DEFAULT (now() AT TIME ZONE 'America/Bogota')::date
 );
 
 CREATE UNIQUE INDEX "stock_reservations_waiter_item_idx" ON "stock_reservations" ("waiter_id", "menu_item_id");
-CREATE INDEX "stock_reservations_expiry_idx" ON "stock_reservations" ("expires_at");
+CREATE INDEX "stock_reservations_business_date_idx" ON "stock_reservations" ("business_date");
 
 -- Tabla para las órdenes
 CREATE TABLE "orders" (

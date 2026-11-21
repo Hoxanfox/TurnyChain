@@ -21,3 +21,16 @@ export function formatColombiaTime(dateInput: string | Date, options?: Intl.Date
   }
   return test;
 }
+
+// Fecha del día de trabajo en horario de Colombia, formato YYYY-MM-DD.
+// Se usa para descartar comandas guardadas de un día anterior, ya que las
+// reservas de items solo viven durante el día de trabajo.
+export function getColombiaBusinessDate(dateInput?: string | Date): string {
+  const date = typeof dateInput === 'string' ? new Date(dateInput) : (dateInput ?? new Date());
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Bogota',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date);
+}

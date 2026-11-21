@@ -13,6 +13,7 @@ type StockService interface {
 	GetItems(waiterID ...uuid.UUID) ([]domain.StockItem, error)
 	SyncCartReservations(waiterID uuid.UUID, items []domain.OrderItem) error
 	ReleaseCartReservations(waiterID uuid.UUID) error
+	ResetDayReservations() (int64, error)
 	SetQuantity(id uuid.UUID, quantity float64) error
 	DeleteQuantity(id uuid.UUID) error
 	UpdateLocations(id uuid.UUID, warehouse, display float64) error
@@ -40,6 +41,26 @@ func (s *stockService) ReleaseCartReservations(waiterID uuid.UUID) error {
 		s.broadcastReservations(nil)
 	}
 	return nil
+}
+
+// ResetDayReservations libera las reservas del día anterior (reinicio
+// automático de jornada) y avisa a todos los clientes para que vacíen sus
+// carritos y refresquen las existencias disponibles.
+func (s *stockService) ResetDayReservations() (int64, error) {
+	affected, err := s.repo.ResetDayReservations()
+	if err != nil {
+		return 0, err
+	}
+	if s.hub != nil {
+		payload := map[string]interface{}{
+			"released_reservations": affected,
+		}
+		if stockItems, err := s.repo.GetItems(); err == nil {
+			payload["items"] = stockItems
+		}
+		s.hub.BroadcastMessage("DAY_RESET", payload)
+	}
+	return affected, nil
 }
 func (s *stockService) SetQuantity(id uuid.UUID, quantity float64) error {
 	if quantity < 0 { return fmt.Errorf("quantity cannot be negative") }

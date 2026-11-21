@@ -60,6 +60,9 @@ func main() {
 	if err := applySupplierInvoiceMigrations(db); err != nil {
 		log.Fatalf("Error aplicando migraciones de cuentas por pagar: %v", err)
 	}
+	if err := applyStockReservationMigrations(db); err != nil {
+		log.Fatalf("Error aplicando migraciones de reservas de items: %v", err)
+	}
 
 	wsHub := wshub.NewHub()
 	go wsHub.Run()
@@ -119,6 +122,9 @@ func main() {
 	employeeService := service.NewEmployeeService(employeeRepo)
 	attendanceService := service.NewAttendanceService(attendanceRepo, employeeRepo)
 	stockService := service.NewStockService(stockRepo, wsHub)
+
+	// Iniciar worker de reinicio diario: libera las reservas de items al cambiar el día.
+	StartDayResetWorker(stockService)
 
 	// Handlers
 	userHandler := handler.NewUserHandler(userService)
@@ -379,10 +385,10 @@ func applyCashRegisterMigrations(db *sql.DB) error {
 			menu_item_id uuid NOT NULL REFERENCES menu_items(id) ON DELETE CASCADE,
 			quantity numeric(14, 3) NOT NULL CHECK (quantity >= 0),
 			updated_at timestamptz NOT NULL DEFAULT now(),
-			expires_at timestamptz NOT NULL
+			business_date date NOT NULL DEFAULT (now() AT TIME ZONE 'America/Bogota')::date
 		)`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS stock_reservations_waiter_item_idx ON stock_reservations(waiter_id, menu_item_id)`,
-		`CREATE INDEX IF NOT EXISTS stock_reservations_expiry_idx ON stock_reservations(expires_at)`,
+		`CREATE INDEX IF NOT EXISTS stock_reservations_business_date_idx ON stock_reservations(business_date)`,
 		`UPDATE menu_items SET warehouse_quantity = stock_quantity
 			WHERE warehouse_quantity = 0 AND display_quantity = 0 AND stock_quantity > 0`,
 	}
@@ -520,5 +526,25 @@ func applySupplierInvoiceMigrations(db *sql.DB) error {
 		if _, err := db.Exec(statement); err != nil { return err }
 	}
 	log.Println("Migraciones verificadas: supplier_invoices, supplier_invoice_payments")
+	return nil
+}
+
+func applyStockReservationMigrations(db *sql.DB) error {
+	statements := []string{
+		// Las reservas de items viven durante el día de trabajo: se eliminan al
+		// cambiar el día (reinicio automático) en lugar de expirar por tiempo.
+		`ALTER TABLE stock_reservations ADD COLUMN IF NOT EXISTS business_date date NOT NULL DEFAULT (now() AT TIME ZONE 'America/Bogota')::date`,
+		`DROP INDEX IF EXISTS stock_reservations_expiry_idx`,
+		`ALTER TABLE stock_reservations DROP COLUMN IF EXISTS expires_at`,
+		`CREATE INDEX IF NOT EXISTS stock_reservations_business_date_idx ON stock_reservations(business_date)`,
+	}
+
+	for _, stmt := range statements {
+		if _, err := db.Exec(stmt); err != nil {
+			return err
+		}
+	}
+
+	log.Println("Migraciones de reservas verificadas: stock_reservations (business_date)")
 	return nil
 }

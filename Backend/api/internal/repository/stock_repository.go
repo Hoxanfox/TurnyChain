@@ -14,6 +14,7 @@ type StockRepository interface {
 	GetItems(waiterID ...uuid.UUID) ([]domain.StockItem, error)
 	SyncCartReservations(waiterID uuid.UUID, items []domain.OrderItem) (bool, error)
 	ReleaseCartReservations(waiterID uuid.UUID) (bool, error)
+	ResetDayReservations() (int64, error)
 	SetQuantity(id uuid.UUID, quantity float64) error
 	DeleteQuantity(id uuid.UUID) error
 	UpdateLocations(id uuid.UUID, warehouse, display float64) error
@@ -33,7 +34,7 @@ func (r *stockRepository) GetItems(waiterID ...uuid.UUID) ([]domain.StockItem, e
 		GREATEST(m.stock_quantity - COALESCE((
 			SELECT SUM(sr.quantity) FROM stock_reservations sr
 			WHERE sr.menu_item_id = m.id
-			AND sr.expires_at > now()
+			AND sr.business_date = (now() AT TIME ZONE 'America/Bogota')::date
 		), 0), 0)
 		FROM menu_items m
 		JOIN categories c ON c.id = m.category_id
@@ -209,7 +210,7 @@ func (r *stockRepository) SyncCartReservations(waiterID uuid.UUID, items []domai
 
 	existingRows, err := tx.Query(`SELECT menu_item_id, quantity
 		FROM stock_reservations
-		WHERE waiter_id = $1 AND expires_at > now()`, waiterID)
+		WHERE waiter_id = $1 AND business_date = (now() AT TIME ZONE 'America/Bogota')::date`, waiterID)
 	if err != nil {
 		return false, err
 	}
@@ -244,7 +245,16 @@ func (r *stockRepository) SyncCartReservations(waiterID uuid.UUID, items []domai
 		return false, err
 	}
 
-	for itemID, quantity := range quantities {
+	// Orden determinista de inserción para evitar bloqueos cruzados
+	// cuando varios meseros reservan los mismos productos a la vez.
+	itemIDs := make([]uuid.UUID, 0, len(quantities))
+	for itemID := range quantities {
+		itemIDs = append(itemIDs, itemID)
+	}
+	sort.Slice(itemIDs, func(i, j int) bool { return itemIDs[i].String() < itemIDs[j].String() })
+
+	for _, itemID := range itemIDs {
+		quantity := quantities[itemID]
 		var name string
 		var tracksStock bool
 		if err := tx.QueryRow(`SELECT m.name, (m.tracks_stock OR c.tracks_stock)
@@ -262,7 +272,7 @@ func (r *stockRepository) SyncCartReservations(waiterID uuid.UUID, items []domai
 		}
 		var reservedByOthers float64
 		if err := tx.QueryRow(`SELECT COALESCE(SUM(quantity), 0) FROM stock_reservations
-			WHERE menu_item_id = $1 AND waiter_id <> $2 AND expires_at > now()`, itemID, waiterID).Scan(&reservedByOthers); err != nil {
+			WHERE menu_item_id = $1 AND waiter_id <> $2 AND business_date = (now() AT TIME ZONE 'America/Bogota')::date`, itemID, waiterID).Scan(&reservedByOthers); err != nil {
 			return false, err
 		}
 		requested := float64(quantity)
@@ -271,8 +281,8 @@ func (r *stockRepository) SyncCartReservations(waiterID uuid.UUID, items []domai
 		}
 
 		if _, err := tx.Exec(`INSERT INTO stock_reservations
-			(id, waiter_id, menu_item_id, quantity, updated_at, expires_at)
-			VALUES ($1, $2, $3, $4, now(), now() + interval '30 minutes')`,
+			(id, waiter_id, menu_item_id, quantity, updated_at, business_date)
+			VALUES ($1, $2, $3, $4, now(), (now() AT TIME ZONE 'America/Bogota')::date)`,
 			uuid.New(), waiterID, itemID, requested); err != nil {
 			return false, err
 		}
@@ -291,6 +301,23 @@ func (r *stockRepository) ReleaseCartReservations(waiterID uuid.UUID) (bool, err
 	}
 	affected, err := result.RowsAffected()
 	return err == nil && affected > 0, err
+}
+
+// ResetDayReservations elimina las reservas de días anteriores. Las reservas
+// solo viven durante el día de trabajo: al cruzar la medianoche (hora de
+// Colombia) este método borra todas las del día que terminó y devuelve cuántas
+// liberó.
+func (r *stockRepository) ResetDayReservations() (int64, error) {
+	result, err := r.db.Exec(`DELETE FROM stock_reservations
+		WHERE business_date < (now() AT TIME ZONE 'America/Bogota')::date`)
+	if err != nil {
+		return 0, err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+	return affected, nil
 }
 
 func (r *stockRepository) Reserve(items []domain.OrderItem) error {

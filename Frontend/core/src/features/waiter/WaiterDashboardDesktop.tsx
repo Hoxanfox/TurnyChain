@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { addNewOrder, fetchMyOrders } from '../shared/orders/api/ordersSlice.ts';
 import { fetchTables } from '../admin/components/tables/api/tablesSlice.ts';
 import { formatMoney } from '../../utils/formatUtils.ts';
+import { getColombiaBusinessDate } from '../../utils/colombiaTime.ts';
 import type { AppDispatch, RootState } from '../../app/store';
 import { logout } from '../auth/authSlice';
 import { validatePaymentSession, validatePrinterOperational } from '../auth/sessionValidation';
@@ -120,7 +121,10 @@ const WaiterDashboardDesktop: React.FC<WaiterDashboardDesktopProps> = ({
       }).catch(error => {
         if (syncVersion !== reservationSyncVersion.current) return;
         if (error.response?.status === 409) {
-          toast.error('Las existencias cambiaron mientras modificabas el carrito. Revisa nuevamente.');
+          toast.error('Las existencias cambiaron mientras modificabas el carrito. Se deshizo el último cambio; revisa nuevamente.');
+          // El servidor rechazó la reserva: deshacer la última mutación del
+          // carrito para no mostrar cantidades que no se pueden reservar.
+          setCartState(cart);
         }
         void getManagedStock(token).then(stock => {
           dispatch(stockUpdated(stock.filter(item => affectedItemIds.has(item.id)).map(item => ({
@@ -201,7 +205,9 @@ const WaiterDashboardDesktop: React.FC<WaiterDashboardDesktopProps> = ({
         const parsed = JSON.parse(savedDraft);
         const hoursSinceLastUpdate = (Date.now() - parsed.timestamp) / (1000 * 60 * 60);
 
-        if (parsed.cart.length > 0 && hoursSinceLastUpdate < 4) {
+        // Solo recuperar si tiene menos de 4 horas (un turno) y pertenece al
+        // día de trabajo actual (las reservas se borran al cambiar el día).
+        if (parsed.cart.length > 0 && hoursSinceLastUpdate < 4 && parsed.businessDate === getColombiaBusinessDate()) {
           setCart(parsed.cart);
           setTableId(parsed.tableId || '');
           setOrderType(parsed.orderType || 'mesa');
@@ -225,12 +231,33 @@ const WaiterDashboardDesktop: React.FC<WaiterDashboardDesktopProps> = ({
         cart,
         tableId,
         orderType,
+        businessDate: getColombiaBusinessDate(),
         timestamp: Date.now()
       }));
     } else {
       localStorage.removeItem('waiter-cart-draft-desktop');
     }
   }, [cart, tableId, orderType]);
+
+  // 🌅 Reinicio automático del día de trabajo: el backend borró las reservas
+  // del día anterior, así que se vacía la comanda en todos los dispositivos.
+  useEffect(() => {
+    const handleDayReset = () => {
+      reservationSyncVersion.current++;
+      setCartState([]);
+      setTableId('');
+      setOrderType('mesa');
+      setDeliveryData(null);
+      localStorage.removeItem('waiter-cart-draft-desktop');
+      if (token) {
+        void releaseCartReservations(token);
+      }
+    };
+    window.addEventListener('day_reset', handleDayReset);
+    return () => {
+      window.removeEventListener('day_reset', handleDayReset);
+    };
+  }, [token]);
 
 
   useEffect(() => {

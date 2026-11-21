@@ -122,6 +122,37 @@ export const useCashierWebSocket = (
         return;
       }
 
+      if (message.type === 'DAY_RESET') {
+        // Reinicio automático del día de trabajo: se borraron las reservas de
+        // items del día anterior; se refrescan existencias y se vacían comandas.
+        const dayPayload = message.payload as { items?: any[] } | null;
+        const dayStock = Array.isArray(dayPayload?.items) ? dayPayload.items : null;
+        if (dayStock && dayStock.length > 0) {
+          dispatch(stockUpdated(dayStock.map(item => ({
+            id: item.id,
+            quantity: item.quantity,
+            warehouse_quantity: item.warehouse_quantity,
+            display_quantity: item.display_quantity,
+            available_quantity: item.available_quantity,
+          }))));
+        } else {
+          const token = localStorage.getItem('token') || '';
+          if (token) {
+            void getManagedStock(token).then(stock => {
+              dispatch(stockUpdated(stock.map(item => ({
+                id: item.id,
+                quantity: item.quantity,
+                warehouse_quantity: item.warehouse_quantity,
+                display_quantity: item.display_quantity,
+                available_quantity: item.available_quantity,
+              }))));
+            }).catch(() => undefined);
+          }
+        }
+        window.dispatchEvent(new CustomEvent('day_reset', { detail: message.payload }));
+        return;
+      }
+
       switch (message.type) {
         case 'PAYMENT_VERIFICATION_PENDING':
           handlePaymentVerificationPending(message.payload);
