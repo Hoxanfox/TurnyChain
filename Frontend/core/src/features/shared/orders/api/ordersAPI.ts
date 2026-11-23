@@ -96,6 +96,16 @@ export const getOrders = async (token: string, status?: string, filterByWaiter?:
   }
 };
 
+// Solo `from`: con `from` + `to` el backend activa today_only (ventana de la caja abierta),
+// que no sirve para consultar días anteriores. El filtro por día se hace en el cliente.
+export const getOrdersSince = async (token: string, fromISO: string): Promise<Order[]> => {
+  const response = await axios.get(API_URL, {
+    headers: { Authorization: `Bearer ${token}` },
+    params: { from: fromISO },
+  });
+  return response.data;
+};
+
 export const getTodayOrders = async (token: string, status?: string, filterByWaiter?: boolean, teamOrders?: boolean): Promise<Order[]> => {
   console.log('🌐 [API] getTodayOrders llamado con:', { status, filterByWaiter, teamOrders });
   const config = {
