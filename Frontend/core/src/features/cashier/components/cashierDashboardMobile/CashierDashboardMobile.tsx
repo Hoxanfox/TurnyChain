@@ -16,6 +16,7 @@ import { CashRegisterModal } from './components/cashRegister/CashRegisterModal';
 import { CashierMobileSidebar } from './components/CashierMobileSidebar';
 import { StatusTablesModal } from './components/StatusTablesModal';
 import { TableMapOverviewCard } from './components/TableMapOverviewCard';
+import { FailedPrintQueue } from '../cashierDashboardShared/FailedPrintQueue';
 import { TablePaginationModal } from './components/TablePaginationModal';
 import { LayoutEditorModal } from '../layoutEditor/LayoutEditorModal';
 import { AttendanceNotebookModal } from '../cashierDashboardShared/AttendanceNotebookModal';
@@ -250,6 +251,7 @@ export const CashierDashboardMobile: React.FC<CashierDashboardMobileProps> = ({
             onOpenSearchId={() => setShowOrderIdModal(true)}
             onOpenSearchWaiter={() => setShowWaiterPicker(true)}
           />
+          <FailedPrintQueue />
         </div>
       )}
 

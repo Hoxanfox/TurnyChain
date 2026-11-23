@@ -46,6 +46,12 @@ export interface KitchenTicketsPreview {
   tickets: KitchenTicket[];
 }
 
+export interface PrintSelectedRequest {
+  station_ids: string[];
+  include_cashier: boolean;
+  mark_resolved?: boolean;
+}
+
 export interface PrintKitchenTicketsRequest {
   order_id: string;
   reprint?: boolean;

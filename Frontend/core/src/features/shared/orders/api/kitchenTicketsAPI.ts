@@ -7,6 +7,7 @@ import axios from 'axios';
 import type {
   KitchenTicketsPreview,
   PrintKitchenTicketsResponse,
+  PrintSelectedRequest,
 } from '../../../../types/kitchen_tickets';
 
 // Función helper para obtener el token del localStorage
@@ -56,6 +57,16 @@ export const kitchenTicketsAPI = {
     const response = await axios.post<PrintKitchenTicketsResponse>(
       `/api/orders/${orderId}/kitchen-tickets/print/caja`,
       { order_id: orderId },
+      getAuthConfig()
+    );
+    return response.data;
+  },
+
+  // Imprimir solo los destinos elegidos (estaciones y/o caja) y actualizar el estado de impresión
+  printSelected: async (orderId: string, payload: PrintSelectedRequest): Promise<PrintKitchenTicketsResponse> => {
+    const response = await axios.post<PrintKitchenTicketsResponse>(
+      `/api/orders/${orderId}/kitchen-tickets/print-selected`,
+      payload,
       getAuthConfig()
     );
     return response.data;

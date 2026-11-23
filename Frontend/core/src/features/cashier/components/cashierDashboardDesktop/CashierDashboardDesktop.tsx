@@ -9,6 +9,7 @@ import { CashierFilters } from '../cashierDashboardShared/CashierFilters';
 import type { FilterStatus, PaymentMethodFilter, SortBy } from '../cashierDashboardShared/CashierFilters';
 import { StatisticsCard } from '../cashierDashboardShared/StatisticsCard';
 import { CinemaTablesSelector } from '../cashierDashboardShared/CinemaTablesSelector';
+import { FailedPrintQueue } from '../cashierDashboardShared/FailedPrintQueue';
 import { getOrderPaymentCategory } from '../../hooks/useCashierLogic';
 import { OrderIdSearchModal } from '../cashierDashboardShared/OrderIdSearchModal';
 import { WaiterPickerModal } from '../cashierDashboardShared/WaiterPickerModal';
@@ -482,6 +483,8 @@ export const CashierDashboardDesktop: React.FC<CashierDashboardDesktopProps> = (
             )}
           </div>
         )}
+
+        <FailedPrintQueue />
 
         {/* Modal de Comprobante */}
         {selectedProofOrder && (
