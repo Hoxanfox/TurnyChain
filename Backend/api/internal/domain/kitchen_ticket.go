@@ -61,6 +61,15 @@ type PrintRequest struct {
 	Reprint bool      `json:"reprint"` // true = reimprimir tickets
 }
 
+// PrintSelectedRequest permite imprimir solo los destinos elegidos desde la cola
+// de impresión fallida: estaciones específicas, la comanda de caja, o ambas.
+// MarkResolved marca la orden como impresa cuando el cajero la reimprimió manualmente.
+type PrintSelectedRequest struct {
+	StationIDs     []uuid.UUID `json:"station_ids"`
+	IncludeCashier bool        `json:"include_cashier"`
+	MarkResolved   bool        `json:"mark_resolved"`
+}
+
 // PrintResponse es la respuesta después de imprimir
 type PrintResponse struct {
 	Success      bool              `json:"success"`

@@ -978,6 +978,124 @@ func (s *KitchenTicketService) PrintKitchenTicketsByStation(orderID uuid.UUID, s
 	}, nil
 }
 
+// PrintSelectedDestinations imprime solo los destinos elegidos (estaciones y/o caja)
+// y actualiza print_status. La orden queda 'printed' únicamente cuando todos sus
+// destinos se imprimieron; si falta alguno permanece 'failed' para seguir en la cola.
+func (s *KitchenTicketService) PrintSelectedDestinations(orderID uuid.UUID, req domain.PrintSelectedRequest) (*domain.PrintResponse, error) {
+	if req.MarkResolved && len(req.StationIDs) == 0 && !req.IncludeCashier {
+		now := time.Now()
+		if _, _, err := s.orderRepo.UpdateOrderPrintStatusGuarded(orderID, "printed", 0, nil, &now, true); err != nil {
+			return nil, fmt.Errorf("error marcando orden como impresa: %w", err)
+		}
+		s.broadcastOrderPrintStatus(orderID)
+		return &domain.PrintResponse{Success: true, Message: "Orden marcada como resuelta"}, nil
+	}
+
+	if len(req.StationIDs) == 0 && !req.IncludeCashier {
+		return nil, fmt.Errorf("selecciona al menos una estación o la comanda de caja")
+	}
+
+	tickets, err := s.GenerateKitchenTickets(orderID)
+	if err != nil {
+		return nil, err
+	}
+
+	required := make(map[uuid.UUID]bool, len(tickets))
+	for _, t := range tickets {
+		required[t.StationID] = true
+	}
+	selected := make(map[uuid.UUID]bool, len(req.StationIDs))
+	for _, id := range req.StationIDs {
+		if required[id] {
+			selected[id] = true
+		}
+	}
+
+	var failed []domain.FailedPrintInfo
+	sent := 0
+
+	for _, t := range tickets {
+		if !selected[t.StationID] {
+			continue
+		}
+		result, err := s.PrintKitchenTicketsByStation(orderID, t.StationID)
+		switch {
+		case err != nil:
+			failed = append(failed, domain.FailedPrintInfo{StationName: t.StationName, PrinterName: "N/A", Error: err.Error()})
+		case !result.Success && len(result.FailedPrints) == 0:
+			failed = append(failed, domain.FailedPrintInfo{StationName: t.StationName, PrinterName: "N/A", Error: result.Message})
+		case !result.Success:
+			failed = append(failed, result.FailedPrints...)
+		default:
+			sent += result.TicketsSent
+		}
+	}
+
+	if req.IncludeCashier {
+		result, err := s.PrintGlobalOrderTicketResponse(orderID)
+		switch {
+		case err != nil:
+			failed = append(failed, domain.FailedPrintInfo{StationName: "Caja", PrinterName: "N/A", Error: err.Error()})
+		case !result.Success:
+			failed = append(failed, domain.FailedPrintInfo{StationName: "Caja", PrinterName: "N/A", Error: result.Message})
+		default:
+			sent += result.TicketsSent
+		}
+	}
+
+	allStationsSelected := true
+	for id := range required {
+		if !selected[id] {
+			allStationsSelected = false
+			break
+		}
+	}
+	fullOrder := allStationsSelected && req.IncludeCashier
+	success := len(failed) == 0
+
+	switch {
+	case req.MarkResolved || (success && fullOrder):
+		now := time.Now()
+		if _, _, updErr := s.orderRepo.UpdateOrderPrintStatusGuarded(orderID, "printed", 0, nil, &now, req.MarkResolved); updErr != nil {
+			log.Printf("❌ [PrintQueue] Error marcando orden impresa %s: %v", orderID, updErr)
+		}
+	case !success:
+		errText := joinPrintFailures(failed)
+		if _, _, updErr := s.orderRepo.UpdateOrderPrintStatusGuarded(orderID, "failed", 0, &errText, nil, false); updErr != nil {
+			log.Printf("❌ [PrintQueue] Error marcando orden fallida %s: %v", orderID, updErr)
+		}
+	default:
+		errText := "impresión parcial: faltan destinos por imprimir"
+		if _, _, updErr := s.orderRepo.UpdateOrderPrintStatusGuarded(orderID, "failed", 0, &errText, nil, false); updErr != nil {
+			log.Printf("❌ [PrintQueue] Error marcando impresión parcial %s: %v", orderID, updErr)
+		}
+	}
+	s.broadcastOrderPrintStatus(orderID)
+
+	message := fmt.Sprintf("Impresos %d destinos correctamente", sent)
+	if !success {
+		message = fmt.Sprintf("Impresión con errores: %d exitosos, %d fallidos", sent, len(failed))
+	} else if !fullOrder && !req.MarkResolved {
+		message += "; la orden sigue pendiente de los demás destinos"
+	}
+
+	return &domain.PrintResponse{
+		Success:      success,
+		Message:      message,
+		TicketsSent:  sent,
+		FailedPrints: failed,
+		Tickets:      tickets,
+	}, nil
+}
+
+func joinPrintFailures(failed []domain.FailedPrintInfo) string {
+	parts := make([]string, 0, len(failed))
+	for _, f := range failed {
+		parts = append(parts, fmt.Sprintf("%s: %s", f.StationName, f.Error))
+	}
+	return strings.Join(parts, " | ")
+}
+
 // PrintOrderAllDestinations orquesta la impresión en cocina (cortados) y en caja (global)
 func (s *KitchenTicketService) PrintOrderAllDestinations(orderID uuid.UUID) (*domain.PrintResponse, error) {
 	// 1. Mandar a imprimir por estaciones (Cocina, Barra, etc.)

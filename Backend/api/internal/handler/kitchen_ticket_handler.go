@@ -160,6 +160,50 @@ func (h *KitchenTicketHandler) PrintGlobalCashTicket(c *fiber.Ctx) error {
 	return c.JSON(response)
 }
 
+// PrintSelectedDestinations imprime solo las estaciones y/o la comanda de caja elegidas.
+// Disponible para roles cajero y admin.
+// POST /api/orders/:orderId/kitchen-tickets/print-selected
+func (h *KitchenTicketHandler) PrintSelectedDestinations(c *fiber.Ctx) error {
+	role := fmt.Sprint(c.Locals("user_role"))
+	if role != "cajero" && role != "admin" {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error": "Solo el cajero o admin pueden imprimir comandas",
+		})
+	}
+
+	orderID, err := uuid.Parse(c.Params("orderId"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Order ID inválido",
+		})
+	}
+
+	var req domain.PrintSelectedRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Cuerpo de la solicitud inválido",
+		})
+	}
+	if !req.MarkResolved && len(req.StationIDs) == 0 && !req.IncludeCashier {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Selecciona al menos una estación o la comanda de caja",
+		})
+	}
+
+	response, err := h.service.PrintSelectedDestinations(orderID, req)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Error al imprimir comandas: " + err.Error(),
+		})
+	}
+
+	if !response.Success {
+		return c.Status(fiber.StatusMultiStatus).JSON(response)
+	}
+
+	return c.JSON(response)
+}
+
 // RetryKitchenTicketsPrint encola un nuevo intento de impresión.
 // Disponible para roles cajero y admin.
 // POST /api/orders/:orderId/kitchen-tickets/retry

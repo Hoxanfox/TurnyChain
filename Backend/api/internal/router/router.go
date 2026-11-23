@@ -175,6 +175,7 @@ func SetupRoutes(app *fiber.App, authHandler *handler.AuthHandler, userHandler *
 	orders.Get("/:orderId/kitchen-tickets/preview/station/:stationId", kitchenTicketHandler.GetTicketsPreviewByStation)
 	orders.Post("/:orderId/kitchen-tickets/print", kitchenTicketHandler.PrintKitchenTickets)
 	orders.Post("/:orderId/kitchen-tickets/print/station/:stationId", kitchenTicketHandler.PrintKitchenTicketsByStation)
+	orders.Post("/:orderId/kitchen-tickets/print-selected", kitchenTicketHandler.PrintSelectedDestinations)
 
 	// Rutas de Backup (sin incluir órdenes)
 	backup := protected.Group("/backup")
